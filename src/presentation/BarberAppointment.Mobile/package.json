@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/cli": "^57.0.20",
     "@expo/metro-runtime": "~57.0.14",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "axios": "^1.19.0",
     "expo": "~57.0.18",
     "expo-status-bar": "~57.0.1",

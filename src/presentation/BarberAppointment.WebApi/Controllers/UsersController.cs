@@ -31,14 +31,18 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// ID'ye göre kullanıcı detayını getirir (Giriş yapmış kullanıcılar).
+    /// ID'ye göre kullanıcı detayını getirir (Yalnızca Admin).
     /// </summary>
     [HttpGet("{id:int}")]
-    [Authorize]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<ApiResponse<UserDto>>> GetById(int id, CancellationToken cancellationToken)
     {
         var user = await _userService.GetByIdAsync(id, cancellationToken);
-        return Ok(ApiResponse<UserDto>.Ok(user!));
+        if (user == null)
+        {
+            return NotFound(ApiResponse.Fail($"ID: {id} olan kullanıcı bulunamadı.", StatusCodes.Status404NotFound));
+        }
+        return Ok(ApiResponse<UserDto>.Ok(user));
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Appearance, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { darkColors, lightColors, getThemeColors } from '../theme/colors';
 
 const ThemeContext = createContext();
@@ -12,28 +13,41 @@ const getSystemScheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [themePreference, setThemePreferenceState] = useState(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+  const [themePreference, setThemePreferenceState] = useState('system');
+  const [resolvedTheme, setResolvedTheme] = useState(() => getSystemScheme());
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load saved theme preference on app start from persistent storage
+  useEffect(() => {
+    const loadStoredPreference = async () => {
       try {
-        const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-        if (saved === 'light' || saved === 'dark' || saved === 'system') {
-          return saved;
+        let saved = null;
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          saved = window.localStorage.getItem(THEME_STORAGE_KEY);
         }
-      } catch {
-        // Fallback
+        if (!saved) {
+          saved = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        }
+
+        if (saved === 'light' || saved === 'dark' || saved === 'system') {
+          setThemePreferenceState(saved);
+          if (saved === 'system') {
+            setResolvedTheme(getSystemScheme());
+          } else {
+            setResolvedTheme(saved);
+          }
+        }
+      } catch (err) {
+        console.warn('Tema tercihi yüklenirken hata:', err);
+      } finally {
+        setIsLoaded(true);
       }
-    }
-    return 'system';
-  });
+    };
 
-  const [resolvedTheme, setResolvedTheme] = useState(() => {
-    if (themePreference === 'system') {
-      return getSystemScheme();
-    }
-    return themePreference;
-  });
+    loadStoredPreference();
+  }, []);
 
-  // Dynamic Appearance listener
+  // Dynamic Appearance listener for live system changes
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       if (themePreference === 'system') {
@@ -57,15 +71,17 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [themePreference]);
 
-  const setThemePreference = (pref) => {
+  const setThemePreference = async (pref) => {
     if (pref !== 'system' && pref !== 'light' && pref !== 'dark') return;
     setThemePreferenceState(pref);
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-      try {
+
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(THEME_STORAGE_KEY, pref);
-      } catch {
-        // Fallback
       }
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, pref);
+    } catch (err) {
+      console.warn('Tema tercihi kaydedilirken hata:', err);
     }
   };
 
@@ -87,6 +103,7 @@ export const ThemeProvider = ({ children }) => {
         theme: resolvedTheme,
         isDark,
         colors: currentColors,
+        isLoaded,
         setThemePreference,
         toggleTheme
       }}
@@ -103,4 +120,3 @@ export const useTheme = () => {
   }
   return context;
 };
-
