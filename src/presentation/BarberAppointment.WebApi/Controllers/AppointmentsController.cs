@@ -243,6 +243,43 @@ public class AppointmentsController : ControllerBase
         return Ok(ApiResponse.Ok("Randevu tamamlandı olarak işaretlendi."));
     }
 
+    /// <summary>
+    /// E-posta gönderim altyapısını test eder (Ek Geliştirme 1).
+    /// </summary>
+    [HttpPost("test-email")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse>> TestEmail(
+        [FromQuery] string toEmail,
+        [FromServices] IEmailService emailService,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(toEmail) || !toEmail.Contains('@'))
+        {
+            return BadRequest(ApiResponse.Fail("Geçerli bir e-posta adresi belirtiniz.", StatusCodes.Status400BadRequest));
+        }
+
+        var sampleAppointment = new AppointmentDto
+        {
+            Id = 9999,
+            CustomerName = "Test Müşteri",
+            EmployeeName = "Ali Usta",
+            ServiceName = "Saç Kesimi & Yıkama",
+            Price = 350,
+            DurationMinutes = 35,
+            StartAt = DateTime.Today.AddHours(14),
+            EndAt = DateTime.Today.AddHours(14).AddMinutes(35),
+            Status = AppointmentStatus.Confirmed,
+            Notes = "Test e-posta gönderim doğrulaması."
+        };
+
+        var success = await emailService.SendAppointmentConfirmationAsync(sampleAppointment, toEmail, cancellationToken);
+
+        return Ok(ApiResponse.Ok(
+            success
+                ? "Test e-postası başarıyla işlendi (gönderildi veya simüle edildi)."
+                : "E-posta gönderimi sırasında bir uyarı/hata oluştu. Sunucu loglarını kontrol ediniz."));
+    }
+
     // ─── Yardımcı Yetki Metotları ─────────────────────────────────────────────
 
     private int? GetCurrentUserId()

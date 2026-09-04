@@ -36,6 +36,7 @@
   - 09:00–20:00 çalışma saatleri ve pazar günü tatil politikası (`IWorkHoursPolicy`).
   - Personel yetki kontrolü (`EmployeeService`).
   - FluentValidation doğrulama kuralları.
+  - **Ek Geliştirme 1:** `IEmailService` e-posta gönderim altyapısı (SMTP yapılandırması, `IOptions<EmailSettings>`, randevu onay/iptal/erteleme HTML şablonları).
 - **Data Access Katmanı (`BarberAppointment.Data`):**
   - Generic `Repository<T>`, `UnitOfWork` ve özelleşmiş repository'ler.
   - Entity Framework Core Code-First `AppDbContext` ve Fluent API ilişkileri.
@@ -70,6 +71,6 @@
 
 ## 5. Doğrulama ve Test Sonuçları
 
-- **22/22 API E2E Otomatik Test Başarısı:** `./tests/test_all_scenarios.sh`
+- **24/24 API E2E Otomatik Test Başarısı (E-posta Dahil):** `./tests/test_all_scenarios.sh`
 - **SOLID İlkeleri Doğrulaması:** `dotnet run --project samples/BarberAppointment.SolidExamples`
 - **Frontend & Mobil Derleme:** 0 Hata, 0 Uyarı

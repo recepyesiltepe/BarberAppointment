@@ -53,8 +53,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 // 3. Data & Repository Katmanı Kaydı
 builder.Services.AddDataServices(builder.Configuration);
 
-// 4. Business Logic, Security, Policies & FluentValidation Katmanı Kaydı
-builder.Services.AddBusinessServices();
+// 4. Business Logic, Security, Policies, Email (SMTP) & FluentValidation Katmanı Kaydı
+builder.Services.AddBusinessServices(builder.Configuration);
 
 // 5. JWT Authentication & Authorization
 var jwtKey = builder.Configuration["Jwt:Key"]

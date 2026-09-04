@@ -14,15 +14,18 @@ public class AppointmentService : IAppointmentService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWorkHoursPolicy _workHoursPolicy;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IEmailService _emailService;
 
     public AppointmentService(
         IUnitOfWork unitOfWork,
         IWorkHoursPolicy workHoursPolicy,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        IEmailService emailService)
     {
         _unitOfWork = unitOfWork;
         _workHoursPolicy = workHoursPolicy;
         _dateTimeProvider = dateTimeProvider;
+        _emailService = emailService;
     }
 
     // ─── Sorgular ────────────────────────────────────────────────────────────
@@ -134,7 +137,15 @@ public class AppointmentService : IAppointmentService
         appointment.Employee = employee;
         appointment.Service = service;
 
-        return MapToDto(appointment);
+        var resultDto = MapToDto(appointment);
+
+        // Ek Geliştirme 1: Müşteriye randevu onay e-postası gönder
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            await _emailService.SendAppointmentConfirmationAsync(resultDto, user.Email, cancellationToken);
+        }
+
+        return resultDto;
     }
 
     public async Task<AppointmentDto> RescheduleAsync(int id, UpdateAppointmentDto dto, CancellationToken cancellationToken = default)
@@ -177,12 +188,20 @@ public class AppointmentService : IAppointmentService
         _unitOfWork.Appointments.Update(appointment);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(appointment);
+        var updatedDto = MapToDto(appointment);
+
+        // Ek Geliştirme 1: Müşteriye randevu güncelleme e-postası gönder
+        if (!string.IsNullOrWhiteSpace(appointment.User?.Email))
+        {
+            await _emailService.SendAppointmentRescheduledAsync(updatedDto, appointment.User.Email, cancellationToken);
+        }
+
+        return updatedDto;
     }
 
     public async Task CancelAsync(int id, CancellationToken cancellationToken = default)
     {
-        var appointment = await _unitOfWork.Appointments.GetByIdAsync(id, cancellationToken)
+        var appointment = await _unitOfWork.Appointments.GetByIdWithDetailsAsync(id, cancellationToken)
             ?? throw new NotFoundException($"ID: {id} olan randevu bulunamadı.");
 
         // FR-R07: Tamamlanmış randevu iptal edilemez
@@ -196,6 +215,12 @@ public class AppointmentService : IAppointmentService
         appointment.Status = AppointmentStatus.Cancelled;
         _unitOfWork.Appointments.Update(appointment);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Ek Geliştirme 1: Müşteriye randevu iptal e-postası gönder
+        if (!string.IsNullOrWhiteSpace(appointment.User?.Email))
+        {
+            await _emailService.SendAppointmentCancellationAsync(MapToDto(appointment), appointment.User.Email, cancellationToken);
+        }
     }
 
     public async Task CompleteAsync(int id, CancellationToken cancellationToken = default)

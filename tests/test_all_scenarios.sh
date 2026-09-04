@@ -173,6 +173,15 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/regi
   -d '{"fullName":"Mükerrer","email":"superadmin@example.com","password":"Password123!","confirmPassword":"Password123!","role":1}')
 run_test "POST /api/auth/register (Mükerrer E-posta -> 409 Conflict)" 409 "$STATUS"
 
+# 6. EK GELİŞTİRME 1: E-POSTA GÖNDERİM ALTYAPISI
+echo ""
+echo "--- 6. Ek Geliştirme 1: E-posta Gönderim Altyapısı (IEmailService) ---"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments/test-email?toEmail=musteri@example.com")
+run_test "POST /api/appointments/test-email (Geçerli E-posta -> 200 OK)" 200 "$STATUS"
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments/test-email?toEmail=gecersiz-eposta")
+run_test "POST /api/appointments/test-email (Geçersiz E-posta -> 400 Bad Request)" 400 "$STATUS"
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"
