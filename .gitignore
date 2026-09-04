@@ -1,0 +1,156 @@
+# ==============================================================================
+# OS Metadata
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# ==============================================================================
+# Local System & Tool Artifacts
+# ==============================================================================
+Library/
+.local/
+.dotnet/
+
+# ==============================================================================
+# IDEs, Editors & User Settings
+# ==============================================================================
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.usertasks
+*.DotSettings.user
+*.sln.iml
+_ReSharper*/
+*.swp
+*.swo
+*~
+
+# ==============================================================================
+# .NET Build Outputs & Intermediate Files
+# ==============================================================================
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+[Pp]ublish/
+publish/
+x64/
+x86/
+[Aa]rms/
+[Aa]rm64/
+*.publishsettings
+
+# ==============================================================================
+# NuGet Packages & Caches
+# ==============================================================================
+.nuget/
+**/[Pp]ackages/
+packages/
+*.nupkg
+*.snupkg
+*.nuget.props
+*.nuget.targets
+project.lock.json
+
+# ==============================================================================
+# Test Results & Code Coverage
+# ==============================================================================
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.codecoverage
+coverage/
+.nyc_output/
+
+# ==============================================================================
+# Node.js & Package Managers
+# ==============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.npm/
+.eslintcache
+.stylelintcache
+
+# ==============================================================================
+# Web & Frontend Bundles (Vite, React, etc.)
+# ==============================================================================
+dist/
+dist-ssr/
+build/
+web-build/
+*.tsbuildinfo
+.vite/
+.parcel-cache/
+
+# ==============================================================================
+# Mobile & React Native / Expo
+# ==============================================================================
+.expo/
+.metro-health-check*
+expo-env.d.ts
+.kotlin/
+/ios
+/android
+*.jks
+*.p8
+*.p12
+*.key
+*.keystore
+*.mobileprovision
+*.orig.*
+
+# ==============================================================================
+# Environment Variables & Secrets
+# ==============================================================================
+.env
+.env*.local
+*.local
+*.pem
+*.cer
+*.crt
+*.pfx
+appsettings.*.local.json
+appsettings.Secrets.json
+
+# ==============================================================================
+# Logs & Temporary Files
+# ==============================================================================
+*.log
+logs/
+*.tmp
+*.temp
+tmp/
+temp/
+scratch/
+
+# ==============================================================================
+# AI Assistants & Tool Metadata
+# ==============================================================================
+.claude/
+.gemini/
+.copilot/

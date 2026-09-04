@@ -1,0 +1,52 @@
+erDiagram
+    Users ||--o{ Appointments : "booked by"
+    Employees ||--o{ Appointments : "served by"
+    Services ||--o{ Appointments : "includes"
+    Users ||--o| Employees : "optional login"
+    Employees ||--o{ EmployeeServices : "offers"
+    Services ||--o{ EmployeeServices : "offered as"
+
+    Users {
+        int Id PK
+        nvarchar FullName
+        nvarchar Email UK
+        nvarchar Phone "NULL"
+        tinyint Role
+        bit IsActive
+        datetime2 CreatedAt
+    }
+
+    Employees {
+        int Id PK
+        int UserId FK "NULL UNIQUE"
+        nvarchar FullName
+        nvarchar Title "NULL"
+        bit IsActive
+        datetime2 CreatedAt
+    }
+
+    Services {
+        int Id PK
+        nvarchar Name
+        int DurationMinutes
+        decimal Price
+        bit IsActive
+        datetime2 CreatedAt
+    }
+
+    Appointments {
+        int Id PK
+        int UserId FK
+        int EmployeeId FK
+        int ServiceId FK
+        datetime2 StartAt
+        datetime2 EndAt
+        tinyint Status
+        nvarchar Notes "NULL"
+        datetime2 CreatedAt
+    }
+
+    EmployeeServices {
+        int EmployeeId PK_FK
+        int ServiceId PK_FK
+    }
