@@ -3,7 +3,7 @@ using BarberAppointment.Services.DTOs;
 namespace BarberAppointment.Services.Interfaces;
 
 /// <summary>
-/// Telefon numarası doğrulama kodu üretme, süre takibi, deneme hakkı ve doğrulama yönetim servisi arayüzü (Ek Geliştirme 3).
+/// Telefon numarası doğrulama kodu üretme, süre takibi, deneme hakkı ve doğrulama yönetim servisi arayüzü (Ek Geliştirme 3 & 4).
 /// </summary>
 public interface ISmsVerificationService
 {
@@ -15,9 +15,19 @@ public interface ISmsVerificationService
 
     /// <summary>
     /// Kullanıcının girdiği doğrulama kodunu kontrol eder.
-    /// Doğruysa numarayı doğrulanmış işaretler; hatalıysa kalan deneme hakkını günceller.
+    /// Doğruysa numarayı doğrulanmış işaretler; sistemde eşleşen kullanıcı varsa IsPhoneVerified = true yapar.
     /// </summary>
     Task<SmsVerificationResultDto> VerifyCodeAsync(string phoneNumber, string code, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Giriş yapmış kullanıcının profil telefonunu doğrular, günceller ve IsPhoneVerified = true olarak işaretler.
+    /// </summary>
+    Task<SmsVerificationResultDto> VerifyMyPhoneAsync(int userId, string phoneNumber, string code, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// SMS kodunu doğrular, kullanıcıyı günceller ve ardından randevuyu oluşturur (Ek Geliştirme 4).
+    /// </summary>
+    Task<VerifyAndBookResultDto> VerifyAndBookAsync(VerifyAndBookDto dto, int? authenticatedUserId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Belirtilen telefon numarasının aktif doğrulama durumunu, kalan süreyi ve deneme hakkını döner.
@@ -29,4 +39,3 @@ public interface ISmsVerificationService
     /// </summary>
     Task<bool> IsPhoneVerifiedAsync(string phoneNumber, CancellationToken cancellationToken = default);
 }
-

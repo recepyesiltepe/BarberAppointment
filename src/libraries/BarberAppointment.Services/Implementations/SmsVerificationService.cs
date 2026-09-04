@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Services.Configurations;
 using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
@@ -9,23 +10,30 @@ using Microsoft.Extensions.Options;
 namespace BarberAppointment.Services.Implementations;
 
 /// <summary>
-/// Telefon numarası doğrulama kodu üretme, süre takibi, deneme hakkı ve doğrulama yönetim servisi (Ek Geliştirme 3).
+/// Telefon numarası doğrulama kodu üretme, süre takibi, deneme hakkı ve doğrulama yönetim servisi (Ek Geliştirme 3 & 4).
+/// Tüm iş mantığı ve veritabanı güncellemeleri servis katmanında yönetilir; controller'a sızdırılmaz.
 /// </summary>
 public class SmsVerificationService : ISmsVerificationService
 {
     private readonly ISmsService _smsService;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IAppointmentService _appointmentService;
     private readonly SmsSettings _settings;
     private readonly ILogger<SmsVerificationService> _logger;
 
-    // Aktif doğrulama oturumlarını telefon bazında saklayan thread-safe yapı
+    // Aktif doğrulama oturumlarını telefon bazında saklayan thread-safe yapı (tüm oturumlar için ortak)
     private static readonly ConcurrentDictionary<string, VerificationSession> _sessions = new();
 
     public SmsVerificationService(
         ISmsService smsService,
+        IUnitOfWork unitOfWork,
+        IAppointmentService appointmentService,
         IOptions<SmsSettings> options,
         ILogger<SmsVerificationService> logger)
     {
         _smsService = smsService;
+        _unitOfWork = unitOfWork;
+        _appointmentService = appointmentService;
         _settings = options.Value ?? new SmsSettings();
         _logger = logger;
     }
@@ -59,10 +67,10 @@ public class SmsVerificationService : ISmsVerificationService
         // 2. Kriptografik güvenli 6 haneli OTP kodu üretimi
         var code = GenerateOtpCode(_settings.CodeLength);
         var expiresAt = now.AddMinutes(_settings.CodeExpirationMinutes);
-        var expirationSeconds = _settings.CodeExpirationMinutes * 60;
+        var expirationSeconds = (int)(expiresAt - now).TotalSeconds;
 
-        // 3. Oturumu kaydet / güncelle
-        var newSession = new VerificationSession
+        // 3. Oturumu kaydet/güncelle
+        var session = new VerificationSession
         {
             PhoneNumber = normalizedPhone,
             Code = code,
@@ -74,9 +82,9 @@ public class SmsVerificationService : ISmsVerificationService
             VerifiedAtUtc = null
         };
 
-        _sessions.AddOrUpdate(normalizedPhone, newSession, (_, _) => newSession);
+        _sessions.AddOrUpdate(normalizedPhone, session, (_, _) => session);
 
-        // 4. SMS servisi üzerinden gönder
+        // 4. SMS Servisi üzerinden gönder
         await _smsService.SendVerificationCodeAsync(normalizedPhone, code, _settings.CodeExpirationMinutes, cancellationToken);
 
         _logger.LogInformation(
@@ -98,9 +106,9 @@ public class SmsVerificationService : ISmsVerificationService
     }
 
     /// <summary>
-    /// Kullanıcının girdiği doğrulama kodunu kontrol eder.
+    /// Kullanıcının girdiği doğrulama kodunu kontrol eder ve eşleşen kullanıcı varsa IsPhoneVerified = true yapar.
     /// </summary>
-    public Task<SmsVerificationResultDto> VerifyCodeAsync(string phoneNumber, string code, CancellationToken cancellationToken = default)
+    public async Task<SmsVerificationResultDto> VerifyCodeAsync(string phoneNumber, string code, CancellationToken cancellationToken = default)
     {
         var normalizedPhone = NormalizePhone(phoneNumber);
         var maskedPhone = MaskPhone(normalizedPhone);
@@ -108,14 +116,14 @@ public class SmsVerificationService : ISmsVerificationService
 
         if (!_sessions.TryGetValue(normalizedPhone, out var session))
         {
-            return Task.FromResult(SmsVerificationResultDto.Failed(
-                "Bu telefon numarası için aktif bir doğrulama kodu talebi bulunamadı. Lütfen önce kod isteyiniz."));
+            return SmsVerificationResultDto.Failed(
+                "Bu telefon numarası için aktif bir doğrulama kodu talebi bulunamadı. Lütfen önce kod isteyiniz.");
         }
 
         // Kod zaten doğrulanmış ve geçerliyse
         if (session.IsVerified)
         {
-            return Task.FromResult(SmsVerificationResultDto.Verified(maskedPhone, session.VerifiedAtUtc ?? now));
+            return SmsVerificationResultDto.Verified(maskedPhone, session.VerifiedAtUtc ?? now);
         }
 
         // Süresi dolmuş mu?
@@ -123,8 +131,8 @@ public class SmsVerificationService : ISmsVerificationService
         {
             _sessions.TryRemove(normalizedPhone, out _);
             _logger.LogWarning("SMS doğrulama kodunun süresi dolmuş. Numara: {Phone}", maskedPhone);
-            return Task.FromResult(SmsVerificationResultDto.Failed(
-                "Doğrulama kodunun geçerlilik süresi dolmuştur. Lütfen yeni bir kod isteyiniz."));
+            return SmsVerificationResultDto.Failed(
+                "Doğrulama kodunun geçerlilik süresi dolmuştur. Lütfen yeni bir kod isteyiniz.");
         }
 
         // Deneme hakkı kontrolü
@@ -133,8 +141,8 @@ public class SmsVerificationService : ISmsVerificationService
         {
             _sessions.TryRemove(normalizedPhone, out _);
             _logger.LogWarning("SMS doğrulama kodu maksimum deneme hakkı aşıldı. Numara: {Phone}", maskedPhone);
-            return Task.FromResult(SmsVerificationResultDto.Failed(
-                "Maksimum hatalı deneme sayısı aşıldı. Güvenliğiniz nedeniyle kod iptal edildi. Lütfen yeni bir kod isteyiniz."));
+            return SmsVerificationResultDto.Failed(
+                "Maksimum hatalı deneme sayısı aşıldı. Güvenliğiniz nedeniyle kod iptal edildi. Lütfen yeni bir kod isteyiniz.");
         }
 
         // Kod eşleşiyor mu?
@@ -145,8 +153,8 @@ public class SmsVerificationService : ISmsVerificationService
                 "Hatalı SMS kodu girildi. Numara: {Phone}, Kalan Deneme Hakkı: {Attempts}",
                 maskedPhone, remainingAttempts);
 
-            return Task.FromResult(SmsVerificationResultDto.Failed(
-                $"Girdiğiniz doğrulama kodu hatalıdır. Kalan deneme hakkınız: {remainingAttempts}"));
+            return SmsVerificationResultDto.Failed(
+                $"Girdiğiniz doğrulama kodu hatalıdır. Kalan deneme hakkınız: {remainingAttempts}");
         }
 
         // Kod doğru -> Doğrulanmış olarak işaretle ve kodu tüket (replay engeli)
@@ -156,7 +164,94 @@ public class SmsVerificationService : ISmsVerificationService
 
         _logger.LogInformation("Telefon numarası başarıyla doğrulandı. Numara: {Phone}", maskedPhone);
 
-        return Task.FromResult(SmsVerificationResultDto.Verified(maskedPhone, now));
+        // Ek Geliştirme 4: Eşleşen kullanıcı varsa IsPhoneVerified = true olarak işaretle (Data katmanı)
+        var allUsers = await _unitOfWork.Users.GetAllAsync(cancellationToken);
+        var matchedUser = allUsers.FirstOrDefault(u => !string.IsNullOrEmpty(u.Phone) && NormalizePhone(u.Phone) == normalizedPhone);
+        if (matchedUser != null)
+        {
+            matchedUser.IsPhoneVerified = true;
+            _unitOfWork.Users.Update(matchedUser);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return SmsVerificationResultDto.Verified(maskedPhone, now);
+    }
+
+    /// <summary>
+    /// Giriş yapmış kullanıcının profil telefonunu doğrular ve veritabanında günceller (Ek Geliştirme 4).
+    /// </summary>
+    public async Task<SmsVerificationResultDto> VerifyMyPhoneAsync(int userId, string phoneNumber, string code, CancellationToken cancellationToken = default)
+    {
+        var result = await VerifyCodeAsync(phoneNumber, code, cancellationToken);
+        if (!result.Success)
+        {
+            return result;
+        }
+
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user != null)
+        {
+            user.Phone = phoneNumber.Trim();
+            user.IsPhoneVerified = true;
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        result.Message = "Telefon numaranız başarıyla doğrulandı ve profilinize kaydedildi.";
+        return result;
+    }
+
+    /// <summary>
+    /// SMS kodunu doğrular, kullanıcıyı günceller ve ardından randevuyu kesintisiz oluşturur (Ek Geliştirme 4).
+    /// </summary>
+    public async Task<VerifyAndBookResultDto> VerifyAndBookAsync(VerifyAndBookDto dto, int? authenticatedUserId = null, CancellationToken cancellationToken = default)
+    {
+        // 1. SMS Kodunu Doğrula
+        var smsResult = await VerifyCodeAsync(dto.PhoneNumber, dto.Code, cancellationToken);
+        if (!smsResult.Success)
+        {
+            return new VerifyAndBookResultDto
+            {
+                Success = false,
+                Message = smsResult.Message,
+                SmsVerification = smsResult
+            };
+        }
+
+        // 2. Hedef kullanıcıyı doğrulanmış olarak güncelle
+        int targetUserId = 0;
+        if (authenticatedUserId.HasValue && authenticatedUserId.Value > 0)
+        {
+            targetUserId = authenticatedUserId.Value;
+        }
+        else if (dto.Appointment.UserId > 0)
+        {
+            targetUserId = dto.Appointment.UserId;
+        }
+
+        if (targetUserId > 0)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(targetUserId, cancellationToken);
+            if (user != null)
+            {
+                user.Phone = dto.PhoneNumber.Trim();
+                user.IsPhoneVerified = true;
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        // 3. Randevuyu Otomatik Oluştur
+        dto.Appointment.UserId = targetUserId > 0 ? targetUserId : dto.Appointment.UserId;
+        var appointment = await _appointmentService.CreateAsync(dto.Appointment, cancellationToken);
+
+        return new VerifyAndBookResultDto
+        {
+            Success = true,
+            Message = "Telefon numaranız başarıyla doğrulandı ve randevunuz oluşturuldu.",
+            SmsVerification = smsResult,
+            Appointment = appointment
+        };
     }
 
     /// <summary>
@@ -259,4 +354,3 @@ public class SmsVerificationService : ISmsVerificationService
         public DateTime? VerifiedAtUtc { get; set; }
     }
 }
-

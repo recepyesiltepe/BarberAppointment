@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using BarberAppointment.Core.Results;
-using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Services.DTOs;
-using BarberAppointment.Services.Implementations;
 using BarberAppointment.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,20 +13,10 @@ namespace BarberAppointment.WebApi.Controllers;
 public class SmsVerificationController : ControllerBase
 {
     private readonly ISmsVerificationService _smsVerificationService;
-    private readonly IUserRepository _userRepository;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IAppointmentService _appointmentService;
 
-    public SmsVerificationController(
-        ISmsVerificationService smsVerificationService,
-        IUserRepository userRepository,
-        IUnitOfWork unitOfWork,
-        IAppointmentService appointmentService)
+    public SmsVerificationController(ISmsVerificationService smsVerificationService)
     {
         _smsVerificationService = smsVerificationService;
-        _userRepository = userRepository;
-        _unitOfWork = unitOfWork;
-        _appointmentService = appointmentService;
     }
 
     /// <summary>
@@ -73,17 +61,6 @@ public class SmsVerificationController : ControllerBase
             return BadRequest(ApiResponse.Fail(result.Message, StatusCodes.Status400BadRequest));
         }
 
-        // Ek Geliştirme 4: Eşleşen kullanıcı varsa IsPhoneVerified = true olarak işaretle
-        var normalized = SmsVerificationService.NormalizePhone(dto.PhoneNumber);
-        var allUsers = await _userRepository.GetAllAsync(cancellationToken);
-        var matchedUser = allUsers.FirstOrDefault(u => !string.IsNullOrEmpty(u.Phone) && SmsVerificationService.NormalizePhone(u.Phone) == normalized);
-        if (matchedUser != null)
-        {
-            matchedUser.IsPhoneVerified = true;
-            _userRepository.Update(matchedUser);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-
         return Ok(ApiResponse<SmsVerificationResultDto>.Ok(result, result.Message));
     }
 
@@ -110,6 +87,7 @@ public class SmsVerificationController : ControllerBase
 
     /// <summary>
     /// Giriş yapmış kullanıcının profil telefon numarasını doğrular, veritabanında günceller ve IsPhoneVerified = true yapar (Ek Geliştirme 4).
+    /// Tüm veritabanı erişimi servis katmanında yürütülür.
     /// </summary>
     [HttpPost("verify-my-phone")]
     [Authorize]
@@ -120,34 +98,24 @@ public class SmsVerificationController : ControllerBase
         [FromBody] VerifySmsCodeDto dto,
         CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (!int.TryParse(userIdClaim, out var userId))
+        var userId = GetCurrentUserId();
+        if (userId == null)
         {
             return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
         }
 
-        var result = await _smsVerificationService.VerifyCodeAsync(dto.PhoneNumber, dto.Code, cancellationToken);
+        var result = await _smsVerificationService.VerifyMyPhoneAsync(userId.Value, dto.PhoneNumber, dto.Code, cancellationToken);
         if (!result.Success)
         {
             return BadRequest(ApiResponse.Fail(result.Message, StatusCodes.Status400BadRequest));
         }
 
-        // Ek Geliştirme 4: Kullanıcının telefon numarasını ve IsPhoneVerified durumunu güncelle
-        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
-        if (user != null)
-        {
-            user.Phone = dto.PhoneNumber.Trim();
-            user.IsPhoneVerified = true;
-            _userRepository.Update(user);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-
-        result.Message = "Telefon numaranız başarıyla doğrulandı ve profilinize kaydedildi.";
         return Ok(ApiResponse<SmsVerificationResultDto>.Ok(result, result.Message));
     }
 
     /// <summary>
     /// SMS kodunu doğrular, kullanıcıyı doğrulanmış olarak işaretler ve randevuyu kesintisiz otomatik oluşturur (Ek Geliştirme 4).
+    /// İş akışı tamamen servis katmanına devredilmiştir.
     /// </summary>
     [HttpPost("verify-and-book")]
     [AllowAnonymous]
@@ -157,49 +125,19 @@ public class SmsVerificationController : ControllerBase
         [FromBody] VerifyAndBookDto dto,
         CancellationToken cancellationToken)
     {
-        // 1. SMS Kodunu Doğrula
-        var smsResult = await _smsVerificationService.VerifyCodeAsync(dto.PhoneNumber, dto.Code, cancellationToken);
-        if (!smsResult.Success)
+        var authenticatedUserId = GetCurrentUserId();
+        var result = await _smsVerificationService.VerifyAndBookAsync(dto, authenticatedUserId, cancellationToken);
+        if (!result.Success)
         {
-            return BadRequest(ApiResponse.Fail(smsResult.Message, StatusCodes.Status400BadRequest));
+            return BadRequest(ApiResponse.Fail(result.Message, StatusCodes.Status400BadRequest));
         }
-
-        // 2. Kullanıcı/Telefon doğrulanmış olarak işaretle (Ek Geliştirme 4)
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        int targetUserId = 0;
-        if (int.TryParse(userIdClaim, out var claimId) && claimId > 0)
-        {
-            targetUserId = claimId;
-        }
-        else if (dto.Appointment.UserId > 0)
-        {
-            targetUserId = dto.Appointment.UserId;
-        }
-
-        if (targetUserId > 0)
-        {
-            var user = await _userRepository.GetByIdAsync(targetUserId, cancellationToken);
-            if (user != null)
-            {
-                user.Phone = dto.PhoneNumber.Trim();
-                user.IsPhoneVerified = true;
-                _userRepository.Update(user);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-        }
-
-        // 3. İlgili İşlem Akışının Devam Etmesi: Randevuyu Otomatik Oluştur
-        dto.Appointment.UserId = targetUserId > 0 ? targetUserId : dto.Appointment.UserId;
-        var appointment = await _appointmentService.CreateAsync(dto.Appointment, cancellationToken);
-
-        var result = new VerifyAndBookResultDto
-        {
-            Success = true,
-            Message = "Telefon numaranız başarıyla doğrulandı ve randevunuz oluşturuldu.",
-            SmsVerification = smsResult,
-            Appointment = appointment
-        };
 
         return Ok(ApiResponse<VerifyAndBookResultDto>.Ok(result, result.Message));
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(claim, out var id) ? id : null;
     }
 }

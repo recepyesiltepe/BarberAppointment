@@ -39,7 +39,7 @@ public static class ServiceRegistration
 
         // Infrastructure Services (Ek Geliştirme 3: SMS Doğrulama Altyapısı)
         services.AddSingleton<ISmsService, MockSmsService>();
-        services.AddSingleton<ISmsVerificationService, SmsVerificationService>();
+        services.AddScoped<ISmsVerificationService, SmsVerificationService>();
 
         // Business Services
         services.AddScoped<IAppointmentService, AppointmentService>();
