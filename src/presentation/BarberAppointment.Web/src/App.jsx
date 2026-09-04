@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
-import { Scissors, Sparkles, Shield, Clock, Calendar, CheckCircle2, ChevronRight, LayoutDashboard, User } from 'lucide-react';
+import { Scissors, Shield, Clock, Calendar, CheckCircle2, ChevronRight, LayoutDashboard, User } from 'lucide-react';
 
 const MainContent = ({ currentTab, setCurrentTab }) => {
   const { isAuthenticated, user, roleName } = useAuth();
@@ -73,22 +73,6 @@ const MainContent = ({ currentTab, setCurrentTab }) => {
         position: 'relative'
       }}>
         <div className="container">
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.45rem 1.1rem',
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: 'var(--radius-full)',
-            color: '#fbbf24',
-            fontSize: '0.875rem',
-            fontWeight: 700,
-            marginBottom: '1.75rem'
-          }}>
-            <Sparkles size={16} /> Gün 15: Web Yönetim Paneli & CRUD Operasyonları
-          </div>
-
           <h1 style={{
             fontSize: 'clamp(2.5rem, 6vw, 4.25rem)',
             lineHeight: 1.1,
