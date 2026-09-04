@@ -16,6 +16,11 @@ export const authApi = {
     return await client.get('/api/auth/me');
   },
 
+  // Profil Güncelle
+  updateProfile: async (profileData) => {
+    return await client.put('/api/auth/me', profileData);
+  },
+
   // Şifre Değiştir
   changePassword: async (passwordData) => {
     return await client.put('/api/auth/change-password', passwordData);

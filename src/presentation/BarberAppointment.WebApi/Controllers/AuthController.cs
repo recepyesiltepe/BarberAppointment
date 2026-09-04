@@ -48,10 +48,11 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// Giriş yapmış mevcut kullanıcının profil bilgilerini getirir (JWT Token gerektirir).
+    /// Güvenli UserProfileDto döner; dahili backend alanları filtrelenmiştir.
     /// </summary>
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<UserDto>>> GetCurrentUser(CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<UserProfileDto>>> GetCurrentUser(CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!int.TryParse(userIdClaim, out var userId))
@@ -60,7 +61,26 @@ public class AuthController : ControllerBase
         }
 
         var user = await _authService.GetCurrentUserAsync(userId, cancellationToken);
-        return Ok(ApiResponse<UserDto>.Ok(user));
+        return Ok(ApiResponse<UserProfileDto>.Ok(user));
+    }
+
+    /// <summary>
+    /// Giriş yapmış mevcut kullanıcının profil bilgilerini (Ad Soyad, Telefon) günceller (JWT Token gerektirir).
+    /// </summary>
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<UserProfileDto>>> UpdateProfile(
+        [FromBody] UpdateProfileDto dto,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
+        }
+
+        var updatedUser = await _authService.UpdateProfileAsync(userId, dto, cancellationToken);
+        return Ok(ApiResponse<UserProfileDto>.Ok(updatedUser, "Profil bilgileriniz başarıyla güncellendi."));
     }
 
     /// <summary>

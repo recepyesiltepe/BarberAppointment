@@ -59,7 +59,7 @@ public class AuthService : IAuthService
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
-            User = MapToDto(user)
+            User = MapToProfileDto(user)
         };
     }
 
@@ -105,11 +105,11 @@ public class AuthService : IAuthService
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
-            User = MapToDto(user)
+            User = MapToProfileDto(user)
         };
     }
 
-    public async Task<UserDto> GetCurrentUserAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<UserProfileDto> GetCurrentUserAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
         if (user == null)
@@ -117,7 +117,29 @@ public class AuthService : IAuthService
             throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
         }
 
-        return MapToDto(user);
+        return MapToProfileDto(user);
+    }
+
+    public async Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileDto dto, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
+        }
+
+        user.FullName = dto.FullName.Trim();
+        var newPhone = dto.Phone?.Trim();
+        if (!string.IsNullOrEmpty(newPhone) && user.Phone != newPhone)
+        {
+            user.Phone = newPhone;
+            user.IsPhoneVerified = false;
+        }
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapToProfileDto(user);
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
@@ -142,14 +164,20 @@ public class AuthService : IAuthService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
-    private static UserDto MapToDto(User u) => new()
+    private static UserProfileDto MapToProfileDto(User u) => new()
     {
         Id = u.Id,
         FullName = u.FullName,
         Email = u.Email,
         Phone = u.Phone,
         Role = u.Role,
-        IsActive = u.IsActive,
-        IsPhoneVerified = u.IsPhoneVerified
+        RoleName = u.Role switch
+        {
+            Core.Enums.UserRole.Admin => "Admin",
+            Core.Enums.UserRole.Employee => "Employee",
+            _ => "Customer"
+        },
+        IsPhoneVerified = u.IsPhoneVerified,
+        MemberSince = u.CreatedAt
     };
 }

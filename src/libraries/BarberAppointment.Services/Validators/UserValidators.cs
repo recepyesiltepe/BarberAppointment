@@ -47,3 +47,21 @@ public class UpdateUserValidator : AbstractValidator<UpdateUserDto>
         });
     }
 }
+
+public class UpdateProfileValidator : AbstractValidator<UpdateProfileDto>
+{
+    public UpdateProfileValidator()
+    {
+        RuleFor(x => x.FullName)
+            .NotEmpty().WithMessage("Kullanıcı adı soyadı zorunludur.")
+            .Length(2, 100).WithMessage("Ad Soyad 2 ile 100 karakter arasında olmalıdır.");
+
+        When(x => !string.IsNullOrEmpty(x.Phone), () =>
+        {
+            RuleFor(x => x.Phone!)
+                .Matches(@"^[0-9\+\-\s\(\)]{7,20}$")
+                .WithMessage("Geçerli bir telefon numarası formatı giriniz.");
+        });
+    }
+}
+

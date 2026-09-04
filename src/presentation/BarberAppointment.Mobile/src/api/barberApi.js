@@ -9,6 +9,9 @@ export const authApi = {
   },
   getProfile: async () => {
     return await client.get('/api/auth/me');
+  },
+  updateProfile: async (userData) => {
+    return await client.put('/api/auth/me', userData);
   }
 };
 

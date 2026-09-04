@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Scissors, LogOut, Shield, User, Sparkles, CircleDot, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SmsVerificationModal } from './SmsVerificationModal';
+import { UserProfileModal } from './UserProfileModal';
 
 export const Navbar = ({ currentTab, setCurrentTab }) => {
   const { user, isAuthenticated, logout, roleName } = useAuth();
   const [showSmsModal, setShowSmsModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const getRoleBadge = () => {
     switch (roleName) {
@@ -62,15 +64,21 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAuthenticated ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.65rem',
-                padding: '0.35rem 0.75rem',
-                background: 'rgba(255, 255, 255, 0.04)',
-                borderRadius: 'var(--radius-full)',
-                border: '1px solid var(--border-subtle)'
-              }}>
+              <div 
+                onClick={() => setShowProfileModal(true)}
+                title="Güvenli Profil Bilgilerini Görüntüle ve Düzenle"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  padding: '0.35rem 0.75rem',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1px solid var(--border-subtle)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
                 <div style={{
                   width: '30px',
                   height: '30px',
@@ -145,6 +153,12 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
       <SmsVerificationModal
         isOpen={showSmsModal}
         onClose={() => setShowSmsModal(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
       />
     </header>
   );

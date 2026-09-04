@@ -263,7 +263,8 @@ else
 fi
 
 # 8.2 Tek adımda SMS Doğrulama ve Randevu Oluşturma (verify-and-book - Hatalı Kod -> 400 Bad Request)
-TOMORROW_V=$(date -v+1d +"%Y-%m-%d" 2>/dev/null || date -d "+1 day" +"%Y-%m-%d")
+OFFSET_D=$(( (RANDOM % 50) + 10 ))
+TOMORROW_V=$(date -v+${OFFSET_D}d +"%Y-%m-%d" 2>/dev/null || date -d "+${OFFSET_D} day" +"%Y-%m-%d")
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/verify-and-book" \
   -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
@@ -294,6 +295,53 @@ if [ -n "$AFTER_VERIFIED" ]; then
 else
   run_test "GET /api/auth/me (SMS Sonrası Telefon Doğrulandı)" 200 500
 fi
+
+# 9. EK GELİŞTİRME 5: PROFİL GÜVENLİK DÜZENLEMESİ
+echo ""
+echo "--- 9. Ek Geliştirme 5: Profil Güvenlik Düzenlemesi ---"
+
+# 9.1 GET /api/auth/me UserProfileDto yapısı (roleName ve memberSince alanları mevcut mu)
+ME_SEC_RES=$(curl -s -H "Authorization: Bearer $CUST_TOKEN" "$BASE_URL/api/auth/me")
+HAS_ROLE_NAME=$(echo "$ME_SEC_RES" | grep -o '"roleName":' || true)
+HAS_MEMBER_SINCE=$(echo "$ME_SEC_RES" | grep -o '"memberSince":' || true)
+
+if [ -n "$HAS_ROLE_NAME" ] && [ -n "$HAS_MEMBER_SINCE" ]; then
+  run_test "GET /api/auth/me (UserProfileDto: roleName & memberSince mevcut)" 200 200
+else
+  run_test "GET /api/auth/me (UserProfileDto Alanları)" 200 500
+fi
+
+# 9.2 Güvenlik Doğrulaması: Response içinde passwordHash, passwordSalt veya isActive sızıntısı OLMAMALI
+HAS_HASH=$(echo "$ME_SEC_RES" | grep -i "passwordHash" || true)
+HAS_SALT=$(echo "$ME_SEC_RES" | grep -i "passwordSalt" || true)
+HAS_ACTIVE=$(echo "$ME_SEC_RES" | grep -i '"isActive"' || true)
+
+if [ -z "$HAS_HASH" ] && [ -z "$HAS_SALT" ] && [ -z "$HAS_ACTIVE" ]; then
+  run_test "GET /api/auth/me (Hassas Veriler [passwordHash, passwordSalt, isActive] Filtrelendi)" 200 200
+else
+  echo "  [UYARI] Profil çıktısında istenmeyen backend alanları bulundu: hash=$HAS_HASH salt=$HAS_SALT active=$HAS_ACTIVE"
+  run_test "GET /api/auth/me (Güvenli DTO İzolasyonu)" 200 500
+fi
+
+# 9.3 PUT /api/auth/me ile Güvenli Profil Güncelleme (200 OK)
+UPDATE_RES=$(curl -s -X PUT "$BASE_URL/api/auth/me" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Ahmet Güvenli Müşteri","phone":"05559998877"}')
+UPDATED_NAME=$(echo "$UPDATE_RES" | grep -o '"fullName":"Ahmet Güvenli Müşteri"' || true)
+
+if [ -n "$UPDATED_NAME" ]; then
+  run_test "PUT /api/auth/me (Profil Güncelleme Başarılı)" 200 200
+else
+  run_test "PUT /api/auth/me (Profil Güncelleme)" 200 500
+fi
+
+# 9.4 PUT /api/auth/me Geçersiz Veri Validasyon Kontrolü (400 Bad Request)
+VAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/me" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"","phone":"05559998877"}')
+run_test "PUT /api/auth/me (Geçersiz/Boş Ad Soyad -> 400 Bad Request)" 400 "$VAL_STATUS"
 
 echo ""
 echo "================================================================"

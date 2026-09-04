@@ -12,13 +12,19 @@ import {
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { getApiUrl, setApiUrl } from '../api/client';
-import { smsApi } from '../api/barberApi';
+import { smsApi, authApi } from '../api/barberApi';
 
 export const ProfileScreen = () => {
   const { user, token, roleName, logout, updateUser } = useAuth();
   const [showToken, setShowToken] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
+
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editFullName, setEditFullName] = useState(user?.fullName || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [profileSaving, setProfileSaving] = useState(false);
 
   // SMS Verification State
   const [phoneInput, setPhoneInput] = useState(user?.phone || '');
@@ -95,6 +101,34 @@ export const ProfileScreen = () => {
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!editFullName || editFullName.trim().length < 2) {
+      Alert.alert('Uyarı', 'Lütfen en az 2 karakterli ad soyad giriniz.');
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      const res = await authApi.updateProfile({
+        fullName: editFullName.trim(),
+        phone: editPhone ? editPhone.trim() : null
+      });
+
+      if (res.success && res.data) {
+        if (updateUser) updateUser(res.data);
+        setIsEditingProfile(false);
+        setPhoneInput(res.data.phone || '');
+        Alert.alert('Başarılı', 'Profil bilgileriniz başarıyla güncellendi.');
+      } else {
+        Alert.alert('Hata', res.message || 'Profil güncellenemedi.');
+      }
+    } catch (err) {
+      Alert.alert('Hata', err.message || 'Profil güncellenirken bir hata oluştu.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const handleSaveUrl = () => {
     if (serverUrl) {
       setApiUrl(serverUrl.trim());
@@ -132,29 +166,98 @@ export const ProfileScreen = () => {
 
       {/* User Information Card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>👤 Hesap Bilgileri</Text>
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Kullanıcı Numarası (ID):</Text>
-          <Text style={styles.infoVal}>#{user?.id}</Text>
-        </View>
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>E-Posta:</Text>
-          <Text style={styles.infoVal}>{user?.email}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Telefon:</Text>
-          <Text style={styles.infoVal}>{user?.phone || 'Belirtilmedi'}</Text>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>👤 Hesap & Profil Bilgileri</Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (!isEditingProfile) {
+                setEditFullName(user?.fullName || '');
+                setEditPhone(user?.phone || '');
+              }
+              setIsEditingProfile(!isEditingProfile);
+            }}
+          >
+            <Text style={styles.toggleText}>{isEditingProfile ? 'Vazgeç' : 'Düzenle'}</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-          <Text style={styles.infoLabel}>Hesap Durumu:</Text>
-          <Text style={[styles.infoVal, { color: colors.success }]}>
-            {user?.isActive ? '✓ Aktif Hesap' : 'Pasif'}
-          </Text>
-        </View>
+        {isEditingProfile ? (
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.infoLabel}>Ad Soyad</Text>
+            <TextInput
+              style={styles.input}
+              value={editFullName}
+              onChangeText={setEditFullName}
+              placeholder="Adınız Soyadınız"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            <Text style={styles.infoLabel}>Telefon Numarası</Text>
+            <TextInput
+              style={styles.input}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              placeholder="05551234567"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: 4 }]}
+              onPress={handleSaveProfile}
+              disabled={profileSaving}
+              activeOpacity={0.8}
+            >
+              {profileSaving ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
+                  ✓ Değişiklikleri Kaydet
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ marginTop: 4 }}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Kullanıcı Numarası (ID):</Text>
+              <Text style={styles.infoVal}>#{user?.id}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>E-Posta:</Text>
+              <Text style={styles.infoVal}>{user?.email}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Telefon:</Text>
+              <Text style={styles.infoVal}>{user?.phone || 'Belirtilmedi'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Rol & Unvan:</Text>
+              <Text style={styles.infoVal}>
+                {user?.roleName || (roleName === 'Admin' ? 'Yönetici' : roleName === 'Employee' ? 'Personel' : 'Müşteri')}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Kayıt Tarihi:</Text>
+              <Text style={styles.infoVal}>
+                {user?.memberSince
+                  ? new Date(user.memberSince).toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' })
+                  : 'Kayıtlı Üye'}
+              </Text>
+            </View>
+
+            <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.infoLabel}>Hesap Güvenlik Durumu:</Text>
+              <Text style={[styles.infoVal, { color: colors.success }]}>
+                ✓ Güvenli Profil Aktif
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* SMS Verification Card */}
