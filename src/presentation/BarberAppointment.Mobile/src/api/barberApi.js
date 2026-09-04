@@ -35,3 +35,18 @@ export const barberApi = {
     return await client.put(`/api/appointments/${id}/cancel`);
   }
 };
+
+export const smsApi = {
+  sendCode: async (phoneNumber) => {
+    return await client.post('/api/sms/send-code', { phoneNumber });
+  },
+  verifyCode: async (phoneNumber, code) => {
+    return await client.post('/api/sms/verify-code', { phoneNumber, code });
+  },
+  getStatus: async (phoneNumber) => {
+    return await client.get(`/api/sms/status?phoneNumber=${encodeURIComponent(phoneNumber)}`);
+  },
+  verifyMyPhone: async (phoneNumber, code) => {
+    return await client.post('/api/sms/verify-my-phone', { phoneNumber, code });
+  }
+};

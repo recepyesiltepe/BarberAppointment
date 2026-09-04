@@ -28,12 +28,18 @@ public static class ServiceRegistration
         if (configuration != null)
         {
             services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
+            services.Configure<SmsSettings>(configuration.GetSection(SmsSettings.SectionName));
         }
         else
         {
             services.Configure<EmailSettings>(_ => { });
+            services.Configure<SmsSettings>(_ => { });
         }
         services.AddScoped<IEmailService, EmailService>();
+
+        // Infrastructure Services (Ek Geliştirme 3: SMS Doğrulama Altyapısı)
+        services.AddSingleton<ISmsService, MockSmsService>();
+        services.AddSingleton<ISmsVerificationService, SmsVerificationService>();
 
         // Business Services
         services.AddScoped<IAppointmentService, AppointmentService>();

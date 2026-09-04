@@ -1,9 +1,11 @@
-import React from 'react';
-import { Scissors, LogOut, Shield, User, Sparkles, CircleDot } from 'lucide-react';
+import React, { useState } from 'react';
+import { Scissors, LogOut, Shield, User, Sparkles, CircleDot, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { SmsVerificationModal } from './SmsVerificationModal';
 
 export const Navbar = ({ currentTab, setCurrentTab }) => {
   const { user, isAuthenticated, logout, roleName } = useAuth();
+  const [showSmsModal, setShowSmsModal] = useState(false);
 
   const getRoleBadge = () => {
     switch (roleName) {
@@ -94,6 +96,16 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
                 </div>
               </div>
 
+              <button
+                onClick={() => setShowSmsModal(true)}
+                className="btn btn-secondary btn-sm"
+                title="SMS Telefon Doğrulama"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem' }}
+              >
+                <Smartphone size={15} color="#fbbf24" />
+                <span className="hide-on-mobile">SMS Doğrula</span>
+              </button>
+
               <button 
                 onClick={logout} 
                 className="btn btn-secondary btn-sm"
@@ -105,17 +117,35 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => setCurrentTab('login')}
-              className="btn btn-primary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              <Sparkles size={16} />
-              <span>Giriş Yap / Kaydol</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                onClick={() => setShowSmsModal(true)}
+                className="btn btn-secondary btn-sm"
+                title="SMS Telefon Doğrulama"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.65rem' }}
+              >
+                <Smartphone size={14} color="#fbbf24" />
+                <span className="hide-on-mobile">SMS Doğrula</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentTab('login')}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Sparkles size={16} />
+                <span>Giriş Yap / Kaydol</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* SMS Verification Modal */}
+      <SmsVerificationModal
+        isOpen={showSmsModal}
+        onClose={() => setShowSmsModal(false)}
+      />
     </header>
   );
 };
