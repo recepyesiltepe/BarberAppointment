@@ -26,6 +26,13 @@ export const ProfileScreen = () => {
   const [editPhone, setEditPhone] = useState(user?.phone || '');
   const [profileSaving, setProfileSaving] = useState(false);
 
+  // Change Password State
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   // SMS Verification State
   const [phoneInput, setPhoneInput] = useState(user?.phone || '');
   const [smsCode, setSmsCode] = useState('');
@@ -126,6 +133,51 @@ export const ProfileScreen = () => {
       Alert.alert('Hata', err.message || 'Profil güncellenirken bir hata oluştu.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      Alert.alert('Uyarı', 'Lütfen mevcut şifrenizi giriniz.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      Alert.alert('Uyarı', 'Yeni şifre en az 6 karakter olmalıdır.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert('Uyarı', 'Yeni şifreler birbiriyle eşleşmiyor.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      Alert.alert('Uyarı', 'Yeni şifre mevcut şifrenizle aynı olamaz.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await authApi.changePassword({
+        currentPassword,
+        newPassword,
+        confirmNewPassword
+      });
+
+      if (res.success) {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setShowPasswordChange(false);
+        Alert.alert(
+          'Şifre Değiştirildi 🎉',
+          'Giriş şifreniz başarıyla güncellendi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme e-postası iletildi.'
+        );
+      } else {
+        Alert.alert('Hata', res.message || 'Şifre değiştirilemedi.');
+      }
+    } catch (err) {
+      Alert.alert('Hata', err.message || 'Şifre güncellenirken bir hata oluştu.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -363,6 +415,69 @@ export const ProfileScreen = () => {
             </View>
           )}
         </View>
+      </View>
+
+      {/* Password Change Card (Ek Geliştirme 6) */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>🔒 Şifre Değiştirme</Text>
+          <TouchableOpacity onPress={() => setShowPasswordChange(!showPasswordChange)}>
+            <Text style={styles.toggleText}>{showPasswordChange ? 'Kapat' : 'Şifreyi Değiştir'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.cardSub}>
+          Şifrenizi güncellediğinizde kayıtlı e-posta adresinize güvenlik bildirimi gönderilir.
+        </Text>
+
+        {showPasswordChange && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.infoLabel}>Mevcut Şifreniz</Text>
+            <TextInput
+              style={styles.input}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Mevcut şifrenizi giriniz"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+            />
+
+            <Text style={styles.infoLabel}>Yeni Şifreniz (En az 6 karakter)</Text>
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Yeni şifrenizi giriniz"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+            />
+
+            <Text style={styles.infoLabel}>Yeni Şifre Tekrar</Text>
+            <TextInput
+              style={styles.input}
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
+              placeholder="Yeni şifrenizi tekrar giriniz"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: '#ef4444', marginTop: 6 }]}
+              onPress={handleChangePassword}
+              disabled={passwordLoading}
+              activeOpacity={0.8}
+            >
+              {passwordLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[styles.saveButtonText, { color: '#fff', fontWeight: '700' }]}>
+                  ✓ Şifremi Değiştir & Bildir
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* JWT Security Card */}

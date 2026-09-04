@@ -57,7 +57,8 @@ public class ChangePasswordValidator : AbstractValidator<ChangePasswordDto>
 
         RuleFor(x => x.NewPassword)
             .NotEmpty().WithMessage("Yeni şifre zorunludur.")
-            .MinimumLength(6).WithMessage("Yeni şifre en az 6 karakter olmalıdır.");
+            .MinimumLength(6).WithMessage("Yeni şifre en az 6 karakter olmalıdır.")
+            .NotEqual(x => x.CurrentPassword).WithMessage("Yeni şifre mevcut şifrenizden farklı olmalıdır.");
 
         RuleFor(x => x.ConfirmNewPassword)
             .NotEmpty().WithMessage("Yeni şifre tekrarı zorunludur.")

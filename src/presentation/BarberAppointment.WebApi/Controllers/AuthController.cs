@@ -99,6 +99,6 @@ public class AuthController : ControllerBase
         }
 
         await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
-        return Ok(ApiResponse.Ok("Şifreniz başarıyla güncellendi."));
+        return Ok(ApiResponse.Ok("Şifreniz başarıyla güncellendi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme iletildi."));
     }
 }

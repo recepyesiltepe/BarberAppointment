@@ -343,6 +343,78 @@ VAL_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/m
   -d '{"fullName":"","phone":"05559998877"}')
 run_test "PUT /api/auth/me (Geçersiz/Boş Ad Soyad -> 400 Bad Request)" 400 "$VAL_STATUS"
 
+# 10. EK GELİŞTİRME 6: ŞİFRE DEĞİŞTİRME VE E-POSTA BİLDİRİMİ
+echo ""
+echo "--- 10. Ek Geliştirme 6: Şifre Değiştirme ve E-posta Bildirimi ---"
+
+# 10.1 Özel Test Kullanıcısı Oluştur ve Giriş Yap
+SEC_USER_EMAIL="sec_user_$RANDOM@example.com"
+SEC_OLD_PASS="InitialPass123!"
+SEC_NEW_PASS="BrandNewPass456!"
+
+REG_SEC_RES=$(curl -s -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Şifre Test Kullanıcısı","email":"'$SEC_USER_EMAIL'","phone":"5559876543","password":"'$SEC_OLD_PASS'","confirmPassword":"'$SEC_OLD_PASS'","role":1}')
+SEC_TOKEN=$(echo "$REG_SEC_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$SEC_TOKEN" ]; then
+  run_test "Ek 6 Test Kullanıcısı Kaydı & Token" 200 200
+else
+  run_test "Ek 6 Test Kullanıcısı Kaydı" 200 500
+fi
+
+# 10.2 Yanlış Mevcut Şifre ile İstek (400 Bad Request)
+WRONG_CURR_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword":"WrongPassword999!","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"'$SEC_NEW_PASS'"}')
+run_test "PUT /api/auth/change-password (Yanlış Mevcut Şifre -> 400)" 400 "$WRONG_CURR_STATUS"
+
+# 10.3 Eşleşmeyen Yeni Şifre Tekrarı (400 Bad Request)
+MISMATCH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"MismatchPass789!"}')
+run_test "PUT /api/auth/change-password (Eşleşmeyen Yeni Şifre -> 400)" 400 "$MISMATCH_STATUS"
+
+# 10.4 Mevcut Şifreyle Aynı Yeni Şifre Denemesi (400 Bad Request)
+SAME_PASS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_OLD_PASS'","confirmNewPassword":"'$SEC_OLD_PASS'"}')
+run_test "PUT /api/auth/change-password (Aynı Şifre Kuralı -> 400)" 400 "$SAME_PASS_STATUS"
+
+# 10.5 Başarılı Şifre Değiştirme ve E-posta Bildirimi Tetikleme (200 OK)
+CHANGE_RES=$(curl -s -X PUT "$BASE_URL/api/auth/change-password" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"'$SEC_NEW_PASS'"}')
+CHANGE_SUCCESS=$(echo "$CHANGE_RES" | grep -o '"success":true' || true)
+
+if [ -n "$CHANGE_SUCCESS" ]; then
+  run_test "PUT /api/auth/change-password (Başarılı Değişim & E-posta Bildirimi)" 200 200
+else
+  run_test "PUT /api/auth/change-password (Başarılı Değişim)" 200 500
+fi
+
+# 10.6 Yeni Şifre ile Başarılı Giriş (200 OK)
+NEW_LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$SEC_USER_EMAIL'","password":"'$SEC_NEW_PASS'"}')
+NEW_LOGIN_TOKEN=$(echo "$NEW_LOGIN_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$NEW_LOGIN_TOKEN" ]; then
+  run_test "POST /api/auth/login (Yeni Şifre ile Başarılı Giriş)" 200 200
+else
+  run_test "POST /api/auth/login (Yeni Şifre)" 200 500
+fi
+
+# 10.7 Eski Şifre ile Girişin Reddedilmesi (400 Bad Request)
+OLD_LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$SEC_USER_EMAIL'","password":"'$SEC_OLD_PASS'"}')
+run_test "POST /api/auth/login (Eski Şifre ile Giriş Engellendi -> 400)" 400 "$OLD_LOGIN_STATUS"
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"

@@ -126,6 +126,19 @@ public class EmailService : IEmailService
         return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
     }
 
+    public async Task<bool> SendPasswordChangedNotificationAsync(
+        string toEmail,
+        string userName,
+        DateTime changedAt,
+        string? ipAddress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "Güvenlik Uyarısı: Şifreniz Değiştirildi — Kuaför Randevu Sistemi";
+        var body = GeneratePasswordChangedNotificationHtml(userName, toEmail, changedAt, ipAddress);
+
+        return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
+    }
+
     // ─── HTML E-Posta Şablon Üreteçleri ────────────────────────────────────────
 
     private static string GetEmailHeader(string accentColor, string title, string subtitle)
@@ -356,6 +369,76 @@ public class EmailService : IEmailService
 
                     <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
                         Randevunuzla ilgili tüm detayları sistemimizden takip edebilirsiniz.
+                    </div>
+                </div>
+        """);
+
+        sb.Append(GetEmailFooter());
+        sb.Append("""
+            </div>
+        </body>
+        </html>
+        """);
+
+        return sb.ToString();
+    }
+
+    private static string GeneratePasswordChangedNotificationHtml(string userName, string email, DateTime changedAt, string? ipAddress)
+    {
+        var sb = new StringBuilder();
+        sb.Append("""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 24px; color: #1e293b;">
+            <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        """);
+
+        sb.Append(GetEmailHeader("#ef4444", "GÜVENLİK BİLDİRİMİ", "Hesap Şifresi Değişikliği"));
+
+        sb.Append($"""
+                <div style="padding: 28px 24px;">
+                    <div style="display: inline-block; background-color: #fef2f2; color: #dc2626; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 18px;">
+                        🔒 Şifre Başarıyla Güncellendi
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        Sayın {WebUtility.HtmlEncode(userName)},
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                        Kuaför Randevu Sistemi hesabınızın giriş şifresi başarıyla değiştirilmiştir. Hesabınızın güvenliği amacıyla bu bilgilendirme iletilmektedir.
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">İşlem:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">Hesap Şifresi Değişikliği</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Tarih ve Saat:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">{changedAt:dd.MM.yyyy HH:mm:ss} (UTC)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">İlgili Hesap:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">{WebUtility.HtmlEncode(email)}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">İşlem Durumu:</td>
+                                <td style="padding: 8px 0; color: #16a34a; font-weight: 700; text-align: right;">✓ Başarılı</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                        <div style="font-weight: 700; color: #b45309; font-size: 13px; margin-bottom: 4px;">
+                            ⚠️ Bu işlemi siz yapmadıysanız:
+                        </div>
+                        <div style="font-size: 13px; color: #92400e; line-height: 1.5;">
+                            Eğer şifrenizi siz değiştirmediyseniz lütfen vakit kaybetmeden sistem yöneticinizle irtibata geçiniz ve hesabınızı güvence altına alınız.
+                        </div>
                     </div>
                 </div>
         """);

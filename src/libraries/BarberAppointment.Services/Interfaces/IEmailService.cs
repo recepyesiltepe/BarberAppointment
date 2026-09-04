@@ -32,5 +32,10 @@ public interface IEmailService
     /// Randevu saati güncellendiğinde müşteriye bilgilendirme e-postası gönderir.
     /// </summary>
     Task<bool> SendAppointmentRescheduledAsync(AppointmentDto appointment, string toEmail, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kullanıcı şifresi başarıyla değiştirildiğinde güvenlik bilgilendirme e-postası gönderir (Ek Geliştirme 6).
+    /// </summary>
+    Task<bool> SendPasswordChangedNotificationAsync(string toEmail, string userName, DateTime changedAt, string? ipAddress = null, CancellationToken cancellationToken = default);
 }
 

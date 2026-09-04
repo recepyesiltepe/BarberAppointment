@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail, Edit3, Save, Lock } from 'lucide-react';
+import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail, Edit3, Save, Lock, KeyRound } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 
 export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
 
-  const [isEditing, setIsEditing] = useState(false);
+  // Mode: 'view' | 'edit' | 'password'
+  const [mode, setMode] = useState('view');
+
+  // Edit Profile States
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [phone, setPhone] = useState(user?.phone || '');
+
+  // Change Password States
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -17,9 +26,12 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
     if (isOpen && user) {
       setFullName(user.fullName || '');
       setPhone(user.phone || '');
-      setIsEditing(false);
+      setMode('view');
       setError(null);
       setSuccessMsg(null);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     }
   }, [isOpen, user]);
 
@@ -45,13 +57,60 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       if (res.success && res.data) {
         updateUser(res.data);
         setSuccessMsg('Profil bilgileriniz başarıyla güncellendi!');
-        setIsEditing(false);
+        setMode('view');
         if (refreshProfile) await refreshProfile();
       } else {
         setError(res.message || 'Profil güncellenemedi.');
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Profil güncellenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+
+    if (!currentPassword) {
+      setError('Mevcut şifrenizi giriniz.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setError('Yeni şifreniz en az 6 karakter olmalıdır.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError('Yeni şifreler birbiriyle eşleşmiyor.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setError('Yeni şifre mevcut şifrenizden farklı olmalıdır.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await authApi.changePassword({
+        currentPassword,
+        newPassword,
+        confirmNewPassword
+      });
+
+      if (res.success) {
+        setSuccessMsg('Şifreniz başarıyla değiştirildi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme e-postası gönderildi.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setMode('view');
+      } else {
+        setError(res.message || 'Şifre değiştirilemedi.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Şifre değiştirilirken bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -103,19 +162,19 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              background: 'rgba(245, 158, 11, 0.15)',
+              background: mode === 'password' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Shield size={20} color="#fbbf24" />
+              {mode === 'password' ? <KeyRound size={20} color="#f87171" /> : <Shield size={20} color="#fbbf24" />}
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#fff' }}>
-                Güvenli Profilim
+                {mode === 'password' ? 'Şifre Değiştirme & Güvenlik' : mode === 'edit' ? 'Profili Düzenle' : 'Güvenli Profilim'}
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
-                UserProfileDto ile korunan güvenli hesap bilgileri
+                {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' : 'UserProfileDto ile korunan güvenli hesap bilgileri'}
               </p>
             </div>
           </div>
@@ -175,7 +234,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {isEditing ? (
+          {mode === 'edit' && (
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
@@ -226,7 +285,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => { setMode('view'); setError(null); }}
                   className="btn btn-secondary"
                   style={{ flex: 1 }}
                 >
@@ -243,7 +302,110 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 </button>
               </div>
             </form>
-          ) : (
+          )}
+
+          {mode === 'password' && (
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                  Mevcut Şifreniz
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#fff'
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                  Yeni Şifre (En az 6 karakter)
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#fff'
+                  }}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                  Yeni Şifre Tekrar
+                </label>
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#fff'
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '8px',
+                padding: '0.65rem 0.85rem',
+                fontSize: '0.75rem',
+                color: '#93c5fd'
+              }}>
+                📧 Şifreniz değiştirildiğinde <strong>{user?.email}</strong> adresinize anında bilgilendirme e-postası iletilecektir.
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('view'); setError(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+                >
+                  <KeyRound size={16} />
+                  <span>{loading ? 'Güncelleniyor...' : 'Şifreyi Değiştir'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mode === 'view' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {/* Profile Overview Card */}
               <div style={{
@@ -336,25 +498,36 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 </span>
               </div>
 
+              {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => { setMode('edit'); setError(null); setSuccessMsg(null); }}
                   className="btn btn-secondary"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem' }}
                 >
                   <Edit3 size={15} />
                   <span>Profili Düzenle</span>
                 </button>
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="btn btn-primary"
-                  style={{ flex: 1 }}
+                  onClick={() => { setMode('password'); setError(null); setSuccessMsg(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171' }}
                 >
-                  Kapat
+                  <KeyRound size={15} />
+                  <span>Şifre Değiştir</span>
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                Kapat
+              </button>
             </div>
           )}
         </div>

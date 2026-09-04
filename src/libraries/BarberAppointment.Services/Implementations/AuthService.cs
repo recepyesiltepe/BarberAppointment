@@ -4,6 +4,7 @@ using BarberAppointment.Domain.Entities;
 using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
 using BarberAppointment.Services.Security;
+using Microsoft.Extensions.Logging;
 
 namespace BarberAppointment.Services.Implementations;
 
@@ -12,15 +13,21 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
-        IJwtTokenService jwtTokenService)
+        IJwtTokenService jwtTokenService,
+        IEmailService emailService,
+        ILogger<AuthService> logger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto, CancellationToken cancellationToken = default)
@@ -156,12 +163,31 @@ public class AuthService : IAuthService
             throw new BusinessException("Mevcut şifreniz hatalı.");
         }
 
+        if (dto.NewPassword == dto.CurrentPassword)
+        {
+            throw new BusinessException("Yeni şifre mevcut şifrenizle aynı olamaz.");
+        }
+
         _passwordHasher.CreatePasswordHash(dto.NewPassword, out var newHash, out var newSalt);
         user.PasswordHash = newHash;
         user.PasswordSalt = newSalt;
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Ek Geliştirme 6: Başarılı değişiklik sonrası güvenlik bildirim e-postası gönder
+        try
+        {
+            await _emailService.SendPasswordChangedNotificationAsync(
+                user.Email,
+                user.FullName,
+                DateTime.UtcNow,
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Şifre değişikliği bildirim e-postası gönderilemedi: {Email}", user.Email);
+        }
     }
 
     private static UserProfileDto MapToProfileDto(User u) => new()
