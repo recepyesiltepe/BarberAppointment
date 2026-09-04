@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Smartphone, CheckCircle2, AlertCircle, X, Clock, RefreshCw, KeyRound, Sparkles } from 'lucide-react';
 import { smsApi } from '../api/barberApi';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +15,26 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const [cooldown, setCooldown] = useState(0);
   const [simulationCode, setSimulationCode] = useState(null);
   const [maskedPhone, setMaskedPhone] = useState('');
+
+  // Escape tuşu ile kapatma ve arka plan kaydırmayı kilitleme
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen, onClose]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -105,36 +126,90 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  const modalContent = (
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: 'var(--modal-overlay, rgba(0, 0, 0, 0.75))',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.25rem',
+        overflowY: 'auto'
+      }}
+    >
       <div
         className="modal-content animate-fade-in"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '460px', padding: '2rem' }}
+        style={{
+          width: '100%',
+          maxWidth: '460px',
+          background: 'var(--bg-card-solid)',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 'var(--radius-lg, 1.25rem)',
+          boxShadow: 'var(--shadow-lg)',
+          padding: '1.75rem',
+          color: 'var(--text-primary)',
+          position: 'relative',
+          margin: 'auto'
+        }}
       >
         {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.25rem',
+          borderBottom: '1px solid var(--border-subtle)',
+          paddingBottom: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{
-              width: '38px',
-              height: '38px',
+              width: '40px',
+              height: '40px',
               borderRadius: '10px',
               background: 'rgba(245, 158, 11, 0.15)',
               border: '1px solid rgba(245, 158, 11, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fbbf24'
+              color: '#fbbf24',
+              flexShrink: 0
             }}>
-              <Smartphone size={20} />
+              <Smartphone size={22} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>SMS Doğrulama</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Telefon numaranızı SMS OTP koduyla doğrulayın</p>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                SMS Doğrulama
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                Telefon numaranızı SMS OTP koduyla doğrulayın
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.3rem', color: 'var(--text-muted)' }}>
-            <X size={18} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+            style={{
+              padding: '0.4rem',
+              color: 'var(--text-secondary)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            aria-label="Kapat"
+            title="Kapat (Esc)"
+          >
+            <X size={20} />
           </button>
         </div>
 
@@ -153,7 +228,11 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
           }}>
             <AlertCircle size={18} style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>{error}</div>
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer' }}>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '0.2rem' }}
+            >
               <X size={14} />
             </button>
           </div>
@@ -175,26 +254,37 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
                   autoFocus
                 />
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem', display: 'block' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'block' }}>
                 Numaranıza 6 haneli tek kullanımlık bir doğrulama SMS'i gönderilecektir.
               </span>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || !phoneNumber}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                  <span>Kod Gönderiliyor...</span>
-                </>
-              ) : (
-                <span>SMS Doğrulama Kodu Gönder</span>
-              )}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <button
+                type="submit"
+                disabled={loading || !phoneNumber}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Kod Gönderiliyor...</span>
+                  </>
+                ) : (
+                  <span>SMS Doğrulama Kodu Gönder</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 600 }}
+              >
+                Vazgeç / Kapat
+              </button>
+            </div>
           </form>
         )}
 
@@ -202,10 +292,10 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
         {step === 2 && (
           <form onSubmit={handleVerifyCode}>
             <div style={{
-              background: 'rgba(255, 255, 255, 0.03)',
+              background: 'var(--btn-secondary-bg, rgba(255, 255, 255, 0.04))',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
-              padding: '0.85rem',
+              padding: '0.85rem 1rem',
               marginBottom: '1.25rem',
               display: 'flex',
               justifyContent: 'space-between',
@@ -213,13 +303,13 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
             }}>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doğrulanan Numara:</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fbbf24' }}>{maskedPhone || phoneNumber}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary-400, #fbbf24)' }}>{maskedPhone || phoneNumber}</div>
               </div>
               <button
                 type="button"
                 onClick={() => { setStep(1); setError(null); }}
                 className="btn btn-ghost btn-sm"
-                style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
+                style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem' }}
               >
                 Değiştir
               </button>
@@ -232,20 +322,20 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
                 border: '1px solid rgba(16, 185, 129, 0.3)',
                 borderRadius: 'var(--radius-md)',
                 padding: '0.75rem 1rem',
-                marginBottom: '1rem',
+                marginBottom: '1.25rem',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#34d399' }}>
-                  <Sparkles size={15} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: '#10b981' }}>
+                  <Sparkles size={16} />
                   <span>Test Kodu: <strong>{simulationCode}</strong></span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCode(simulationCode)}
                   className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
                 >
                   Kodu Doldur
                 </button>
@@ -267,26 +357,37 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
                   autoFocus
                 />
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem', display: 'block' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'block' }}>
                 Kod 3 dakika boyunca geçerlidir.
               </span>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || code.length !== 6}
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 700, marginBottom: '0.75rem' }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                  <span>Doğrulanıyor...</span>
-                </>
-              ) : (
-                <span>✓ Kodu Onayla ve Doğrula</span>
-              )}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              <button
+                type="submit"
+                disabled={loading || code.length !== 6}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Doğrulanıyor...</span>
+                  </>
+                ) : (
+                  <span>✓ Kodu Onayla ve Doğrula</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 600 }}
+              >
+                Vazgeç / Kapat
+              </button>
+            </div>
 
             {/* Tekrar Gönder Butonu ve Cooldown */}
             <div style={{ textAlign: 'center' }}>
@@ -322,7 +423,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
               borderRadius: '50%',
               background: 'rgba(16, 185, 129, 0.15)',
               border: '2px solid #10b981',
-              color: '#34d399',
+              color: '#10b981',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -332,25 +433,27 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
               <CheckCircle2 size={36} />
             </div>
 
-            <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '0.5rem' }}>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
               Telefon Numarası Doğrulandı!
             </h4>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              <strong style={{ color: '#fbbf24' }}>{maskedPhone || phoneNumber}</strong> numarası sistemimizde güvenle doğrulanmıştır. Randevu bildirimleriniz bu numaraya iletilecektir.
+              <strong style={{ color: 'var(--primary-400, #fbbf24)' }}>{maskedPhone || phoneNumber}</strong> numarası sistemimizde güvenle doğrulanmıştır. Randevu bildirimleriniz bu numaraya iletilecektir.
             </p>
 
             <button
               type="button"
               onClick={onClose}
               className="btn btn-primary"
-              style={{ padding: '0.75rem 2rem', fontWeight: 700 }}
+              style={{ padding: '0.8rem 2.5rem', fontWeight: 700 }}
             >
-              Tamam
+              Tamam / Kapat
             </button>
           </div>
         )}
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail, Edit3, Save, Lock, KeyRound, Sun, Moon, Monitor, Palette } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +24,26 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // Escape tuşu ile kapatma ve scroll kilidi
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen && user) {
@@ -126,30 +147,39 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       })
     : 'Kayıtlı Üye';
 
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '1rem'
-    }}>
-      <div style={{
-        background: '#121722',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
-        borderRadius: '1.25rem',
-        maxWidth: '520px',
-        width: '100%',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-        overflow: 'hidden'
-      }}>
+  const modalContent = (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'var(--modal-overlay, rgba(0, 0, 0, 0.75))',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 99999,
+        padding: '1rem',
+        overflowY: 'auto'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-card-solid)',
+          border: '1px solid var(--border-medium)',
+          borderRadius: '1.25rem',
+          maxWidth: '520px',
+          width: '100%',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+          overflow: 'hidden',
+          margin: 'auto'
+        }}
+      >
         {/* Modal Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
@@ -610,4 +640,6 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 };

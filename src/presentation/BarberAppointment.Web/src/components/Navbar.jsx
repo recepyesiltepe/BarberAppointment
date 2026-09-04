@@ -23,7 +23,8 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
   };
 
   return (
-    <header style={{
+    <>
+      <header style={{
       borderBottom: '1px solid var(--border-subtle)',
       background: 'var(--header-bg)',
       backdropFilter: 'blur(16px)',
@@ -231,6 +232,8 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
         </div>
       </div>
 
+      </header>
+
       {/* SMS Verification Modal */}
       <SmsVerificationModal
         isOpen={showSmsModal}
@@ -242,6 +245,6 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
-    </header>
+    </>
   );
 };
