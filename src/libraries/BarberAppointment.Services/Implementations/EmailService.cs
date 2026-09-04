@@ -57,16 +57,18 @@ public class EmailService : IEmailService
         // Gerçek SMTP Gönderim Modu
         try
         {
-            using var client = new SmtpClient(_settings.Host, _settings.Port)
+            using var client = new SmtpClient(_settings.Host.Trim(), _settings.Port)
             {
                 EnableSsl = _settings.EnableSsl,
+                UseDefaultCredentials = false,
                 DeliveryMethod = SmtpDeliveryMethod.Network,
                 Timeout = 15000
             };
 
             if (!string.IsNullOrWhiteSpace(_settings.UserName) && !string.IsNullOrWhiteSpace(_settings.Password))
             {
-                client.Credentials = new NetworkCredential(_settings.UserName, _settings.Password);
+                var cleanPassword = _settings.Password.Replace(" ", "").Trim();
+                client.Credentials = new NetworkCredential(_settings.UserName.Trim(), cleanPassword);
             }
 
             using var mailMessage = new MailMessage
