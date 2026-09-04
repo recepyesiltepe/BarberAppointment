@@ -65,3 +65,57 @@ public class ChangePasswordValidator : AbstractValidator<ChangePasswordDto>
             .Equal(x => x.NewPassword).WithMessage("Yeni şifreler birbiriyle eşleşmiyor.");
     }
 }
+
+public class ForgotPasswordValidator : AbstractValidator<ForgotPasswordDto>
+{
+    public ForgotPasswordValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("E-posta adresi zorunludur.")
+            .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+    }
+}
+
+public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
+{
+    public ResetPasswordValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("E-posta adresi zorunludur.")
+            .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+
+        RuleFor(x => x.Token)
+            .NotEmpty().WithMessage("Şifre sıfırlama kodu/token'ı zorunludur.");
+
+        RuleFor(x => x.NewPassword)
+            .NotEmpty().WithMessage("Yeni şifre zorunludur.")
+            .MinimumLength(6).WithMessage("Yeni şifre en az 6 karakter olmalıdır.");
+
+        RuleFor(x => x.ConfirmNewPassword)
+            .NotEmpty().WithMessage("Yeni şifre tekrarı zorunludur.")
+            .Equal(x => x.NewPassword).WithMessage("Yeni şifreler birbiriyle eşleşmiyor.");
+    }
+}
+
+public class VerifyEmailValidator : AbstractValidator<VerifyEmailDto>
+{
+    public VerifyEmailValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("E-posta adresi zorunludur.")
+            .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+
+        RuleFor(x => x.Token)
+            .NotEmpty().WithMessage("Doğrulama token'ı zorunludur.");
+    }
+}
+
+public class ResendVerificationEmailValidator : AbstractValidator<ResendVerificationEmailDto>
+{
+    public ResendVerificationEmailValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("E-posta adresi zorunludur.")
+            .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+    }
+}

@@ -17,6 +17,7 @@ $RECYCLE.BIN/
 Library/
 .local/
 .dotnet/
+.aspnet/
 
 # ==============================================================================
 # IDEs, Editors & User Settings

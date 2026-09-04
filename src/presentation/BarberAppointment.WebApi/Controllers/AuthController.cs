@@ -101,4 +101,56 @@ public class AuthController : ControllerBase
         await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
         return Ok(ApiResponse.Ok("Şifreniz başarıyla güncellendi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme iletildi."));
     }
+
+    /// <summary>
+    /// E-postaya gelen tek kullanımlık doğrulama kodu/token'ı ile e-posta adresini doğrular.
+    /// </summary>
+    [HttpPost("verify-email")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<EmailVerificationResponseDto>>> VerifyEmail(
+        [FromBody] VerifyEmailDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.VerifyEmailAsync(dto, cancellationToken);
+        return Ok(ApiResponse<EmailVerificationResponseDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>
+    /// Kullanıcıya yeni bir e-posta doğrulama kodu ve bağlantısı gönderir.
+    /// </summary>
+    [HttpPost("resend-verification-email")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<EmailVerificationResponseDto>>> ResendVerificationEmail(
+        [FromBody] ResendVerificationEmailDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.ResendVerificationEmailAsync(dto.Email, cancellationToken);
+        return Ok(ApiResponse<EmailVerificationResponseDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>
+    /// Şifresini unutan kullanıcıya tek kullanımlık şifre sıfırlama kodu ve bağlantısı gönderir.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<ForgotPasswordResponseDto>>> ForgotPassword(
+        [FromBody] ForgotPasswordDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.ForgotPasswordAsync(dto, cancellationToken);
+        return Ok(ApiResponse<ForgotPasswordResponseDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>
+    /// E-postaya gelen sıfırlama kodu/token'ı ile yeni şifre belirler.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse>> ResetPassword(
+        [FromBody] ResetPasswordDto dto,
+        CancellationToken cancellationToken)
+    {
+        await _authService.ResetPasswordAsync(dto, cancellationToken);
+        return Ok(ApiResponse.Ok("Şifreniz başarıyla sıfırlandı ve güncellendi. Yeni şifrenizle giriş yapabilirsiniz."));
+    }
 }

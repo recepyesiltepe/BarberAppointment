@@ -415,6 +415,94 @@ OLD_LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api
   -d '{"email":"'$SEC_USER_EMAIL'","password":"'$SEC_OLD_PASS'"}')
 run_test "POST /api/auth/login (Eski Şifre ile Giriş Engellendi -> 400)" 400 "$OLD_LOGIN_STATUS"
 
+# 11. E-POSTA DOĞRULAMA VE ŞİFREMİ UNUTTUM AKIŞI
+echo ""
+echo "--- 11. E-posta Doğrulama ve E-posta ile Şifre Sıfırlama ---"
+
+EMAIL_TEST_USER="mail_user_$RANDOM@example.com"
+EMAIL_TEST_PASS="EmailUserPass123!"
+RESET_NEW_PASS="ResetNewPass789!"
+
+# 11.1 Yeni Kullanıcı Kaydı (isEmailVerified: false ve simulationToken gelmeli)
+REG_EMAIL_RES=$(curl -s -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Eposta Test Kullanıcısı","email":"'$EMAIL_TEST_USER'","phone":"5551112233","password":"'$EMAIL_TEST_PASS'","confirmPassword":"'$EMAIL_TEST_PASS'","role":1}')
+
+IS_EMAIL_VERIFIED=$(echo "$REG_EMAIL_RES" | grep -o '"isEmailVerified":false' || true)
+VERIFY_TOKEN=$(echo "$REG_EMAIL_RES" | grep -o '"simulationToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$IS_EMAIL_VERIFIED" ] && [ -n "$VERIFY_TOKEN" ]; then
+  run_test "POST /api/auth/register (isEmailVerified: false ve Doğrulama Kodu Üretildi)" 200 200
+else
+  run_test "POST /api/auth/register (E-Posta Doğrulama Kodu Üretimi)" 200 500
+fi
+
+# 11.2 Yanlış Token ile E-posta Doğrulama (400 Bad Request)
+WRONG_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/verify-email" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","token":"999999"}')
+run_test "POST /api/auth/verify-email (Yanlış Kod -> 400 Bad Request)" 400 "$WRONG_TOKEN_STATUS"
+
+# 11.3 Doğru Token ile E-posta Doğrulama (200 OK)
+VERIFY_RES=$(curl -s -X POST "$BASE_URL/api/auth/verify-email" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","token":"'$VERIFY_TOKEN'"}')
+VERIFY_SUCCESS=$(echo "$VERIFY_RES" | grep -o '"success":true' || true)
+
+if [ -n "$VERIFY_SUCCESS" ]; then
+  run_test "POST /api/auth/verify-email (Başarılı Doğrulama -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/verify-email (Başarılı Doğrulama)" 200 500
+fi
+
+# 11.4 Yeniden Doğrulama Kodu Gönderme (200 OK)
+RESEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/resend-verification-email" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'"}')
+run_test "POST /api/auth/resend-verification-email (200 OK)" 200 "$RESEND_STATUS"
+
+# 11.5 Şifremi Unuttum İsteği (200 OK ve simulationToken dönmeli)
+FORGOT_RES=$(curl -s -X POST "$BASE_URL/api/auth/forgot-password" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'"}')
+RESET_TOKEN=$(echo "$FORGOT_RES" | grep -o '"simulationToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$RESET_TOKEN" ]; then
+  run_test "POST /api/auth/forgot-password (200 OK ve Sıfırlama Kodu Üretildi)" 200 200
+else
+  run_test "POST /api/auth/forgot-password (Sıfırlama Kodu)" 200 500
+fi
+
+# 11.6 Yanlış Token ile Şifre Sıfırlama (400 Bad Request)
+WRONG_RESET_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/reset-password" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","token":"000000","newPassword":"'$RESET_NEW_PASS'","confirmNewPassword":"'$RESET_NEW_PASS'"}')
+run_test "POST /api/auth/reset-password (Yanlış Kod -> 400 Bad Request)" 400 "$WRONG_RESET_STATUS"
+
+# 11.7 Doğru Token ile Şifre Sıfırlama (200 OK)
+RESET_RES=$(curl -s -X POST "$BASE_URL/api/auth/reset-password" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","token":"'$RESET_TOKEN'","newPassword":"'$RESET_NEW_PASS'","confirmNewPassword":"'$RESET_NEW_PASS'"}')
+RESET_SUCCESS=$(echo "$RESET_RES" | grep -o '"success":true' || true)
+
+if [ -n "$RESET_SUCCESS" ]; then
+  run_test "POST /api/auth/reset-password (Başarılı Sıfırlama & Güvenlik Bildirimi -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/reset-password (Başarılı Sıfırlama)" 200 500
+fi
+
+# 11.8 Sıfırlanan Yeni Şifre ile Başarılı Giriş (200 OK)
+RESET_LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","password":"'$RESET_NEW_PASS'"}')
+RESET_LOGIN_TOKEN=$(echo "$RESET_LOGIN_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$RESET_LOGIN_TOKEN" ]; then
+  run_test "POST /api/auth/login (Sıfırlanan Yeni Şifre ile Başarılı Giriş -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/login (Sıfırlanan Yeni Şifre)" 200 500
+fi
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"

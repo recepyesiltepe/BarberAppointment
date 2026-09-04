@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Phone, Eye, EyeOff, Sparkles, Shield, Scissors, UserCheck, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 export const LoginScreen = ({ onSuccess }) => {
   const { login, register } = useAuth();
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   
   // Login Form State
   const [loginEmail, setLoginEmail] = useState('');
@@ -211,6 +213,21 @@ export const LoginScreen = ({ onSuccess }) => {
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label className="form-label">Şifre</label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-400)',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    padding: 0
+                  }}
+                >
+                  Şifremi Unuttum?
+                </button>
               </div>
               <div className="form-input-wrapper">
                 <Lock size={18} className="form-input-icon" />
@@ -427,6 +444,12 @@ export const LoginScreen = ({ onSuccess }) => {
           </form>
         )}
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotPasswordModal}
+        onClose={() => setShowForgotPasswordModal(false)}
+        initialEmail={loginEmail}
+      />
     </div>
   );
 };

@@ -47,6 +47,24 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasDefaultValue(false);
 
+        builder.Property(u => u.IsEmailVerified)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(u => u.EmailVerificationToken)
+            .HasMaxLength(128)
+            .IsRequired(false);
+
+        builder.Property(u => u.EmailVerificationExpiresAt)
+            .IsRequired(false);
+
+        builder.Property(u => u.PasswordResetToken)
+            .HasMaxLength(128)
+            .IsRequired(false);
+
+        builder.Property(u => u.PasswordResetExpiresAt)
+            .IsRequired(false);
+
         builder.Property(u => u.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

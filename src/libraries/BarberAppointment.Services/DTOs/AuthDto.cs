@@ -24,6 +24,7 @@ public class AuthResponseDto
     public string TokenType { get; set; } = "Bearer";
     public int ExpiresIn { get; set; }
     public UserProfileDto User { get; set; } = null!;
+    public string? SimulationToken { get; set; }
 }
 
 public class ChangePasswordDto

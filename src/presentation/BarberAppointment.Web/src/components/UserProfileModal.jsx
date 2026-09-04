@@ -4,6 +4,7 @@ import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail,
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { VerifyEmailModal } from './VerifyEmailModal';
 
 export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
@@ -11,6 +12,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
   // Mode: 'view' | 'edit' | 'password'
   const [mode, setMode] = useState('view');
+  const [isVerifyEmailOpen, setIsVerifyEmailOpen] = useState(false);
 
   // Edit Profile States
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -489,6 +491,29 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>E-Posta Doğrulama:</span>
+                  {user?.isEmailVerified ? (
+                    <span style={{ color: '#34d399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}>
+                      <CheckCircle2 size={14} /> Doğrulandı
+                    </span>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ color: '#f59e0b', fontWeight: 600, fontSize: '0.8rem' }}>
+                        Henüz Doğrulanmadı
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsVerifyEmailOpen(true)}
+                        className="btn btn-sm btn-primary"
+                        style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', height: 'auto' }}
+                      >
+                        Doğrula
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Telefon Numarası:</span>
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{user?.phone || 'Belirtilmedi'}</span>
                 </div>
@@ -641,5 +666,16 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+  return (
+    <>
+      {typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent}
+      <VerifyEmailModal
+        isOpen={isVerifyEmailOpen}
+        onClose={() => setIsVerifyEmailOpen(false)}
+        onSuccess={async () => {
+          if (refreshProfile) await refreshProfile();
+        }}
+      />
+    </>
+  );
 };

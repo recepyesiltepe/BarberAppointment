@@ -24,5 +24,25 @@ export const authApi = {
   // Şifre Değiştir
   changePassword: async (passwordData) => {
     return await client.put('/api/auth/change-password', passwordData);
+  },
+
+  // E-Posta Doğrula
+  verifyEmail: async (data) => {
+    return await client.post('/api/auth/verify-email', data);
+  },
+
+  // Doğrulama E-Postasını Yeniden Gönder
+  resendVerificationEmail: async (email) => {
+    return await client.post('/api/auth/resend-verification-email', { email });
+  },
+
+  // Şifremi Unuttum (Bağlantı/Kod İste)
+  forgotPassword: async (email) => {
+    return await client.post('/api/auth/forgot-password', { email });
+  },
+
+  // Yeni Şifre Belirle (Token ile)
+  resetPassword: async (resetData) => {
+    return await client.post('/api/auth/reset-password', resetData);
   }
 };

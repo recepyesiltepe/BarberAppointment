@@ -11,6 +11,7 @@ public class UserDto
     public UserRole Role { get; set; }
     public bool IsActive { get; set; }
     public bool IsPhoneVerified { get; set; }
+    public bool IsEmailVerified { get; set; }
 }
 
 public class CreateUserDto

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using BarberAppointment.Core.Exceptions;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
@@ -42,7 +43,8 @@ public class AuthService : IAuthService
         // 2. Şifre hashleme
         _passwordHasher.CreatePasswordHash(dto.Password, out var passwordHash, out var passwordSalt);
 
-        // 3. Kullanıcı kaydı oluşturma
+        // 3. Kullanıcı kaydı oluşturma ve doğrulama token'ı üretimi
+        var verificationToken = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var user = new User
         {
             FullName = dto.FullName.Trim(),
@@ -51,11 +53,28 @@ public class AuthService : IAuthService
             Role = dto.Role,
             PasswordHash = passwordHash,
             PasswordSalt = passwordSalt,
-            IsActive = true
+            IsActive = true,
+            IsEmailVerified = false,
+            EmailVerificationToken = verificationToken,
+            EmailVerificationExpiresAt = DateTime.UtcNow.AddHours(24)
         };
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Kayıt sonrası Hoş Geldin ve E-Posta Doğrulama e-postası tetikle
+        try
+        {
+            await _emailService.SendWelcomeAndEmailVerificationAsync(
+                user.Email,
+                user.FullName,
+                verificationToken,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Hoş geldin e-postası iletilemedi: {Email}", user.Email);
+        }
 
         // 4. JWT Access Token üretimi
         var token = _jwtTokenService.GenerateToken(user);
@@ -66,7 +85,8 @@ public class AuthService : IAuthService
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
-            User = MapToProfileDto(user)
+            User = MapToProfileDto(user),
+            SimulationToken = verificationToken
         };
     }
 
@@ -190,6 +210,178 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<EmailVerificationResponseDto> VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var user = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException($"'{dto.Email}' adresine sahip kullanıcı bulunamadı.");
+        }
+
+        if (user.IsEmailVerified)
+        {
+            return new EmailVerificationResponseDto
+            {
+                Success = true,
+                Message = "E-posta adresiniz zaten doğrulanmıştır."
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(user.EmailVerificationToken) || user.EmailVerificationToken != dto.Token.Trim())
+        {
+            throw new BusinessException("Geçersiz veya hatalı doğrulama kodu.");
+        }
+
+        if (user.EmailVerificationExpiresAt.HasValue && user.EmailVerificationExpiresAt.Value < DateTime.UtcNow)
+        {
+            throw new BusinessException("Doğrulama kodunun süresi dolmuş. Lütfen yeni bir doğrulama e-postası talep ediniz.");
+        }
+
+        user.IsEmailVerified = true;
+        user.EmailVerificationToken = null;
+        user.EmailVerificationExpiresAt = null;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new EmailVerificationResponseDto
+        {
+            Success = true,
+            Message = "E-posta adresiniz başarıyla doğrulandı!"
+        };
+    }
+
+    public async Task<EmailVerificationResponseDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user == null)
+        {
+            return new EmailVerificationResponseDto
+            {
+                Success = true,
+                Message = "Eğer belirtilen e-posta adresi kayıtlı ise doğrulama bağlantısı iletildi."
+            };
+        }
+
+        if (user.IsEmailVerified)
+        {
+            return new EmailVerificationResponseDto
+            {
+                Success = true,
+                Message = "E-posta adresiniz zaten doğrulanmıştır."
+            };
+        }
+
+        var newToken = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        user.EmailVerificationToken = newToken;
+        user.EmailVerificationExpiresAt = DateTime.UtcNow.AddHours(24);
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _emailService.SendWelcomeAndEmailVerificationAsync(user.Email, user.FullName, newToken, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Yeniden doğrulama e-postası iletilemedi: {Email}", user.Email);
+        }
+
+        return new EmailVerificationResponseDto
+        {
+            Success = true,
+            Message = "Yeni doğrulama kodu ve bağlantısı e-posta adresinize gönderildi.",
+            SimulationToken = newToken
+        };
+    }
+
+    public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var user = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user == null)
+        {
+            return new ForgotPasswordResponseDto
+            {
+                Success = true,
+                Message = "Eğer bu e-posta adresi sistemimizde kayıtlı ise şifre sıfırlama bağlantısı iletildi."
+            };
+        }
+
+        if (!user.IsActive)
+        {
+            throw new BusinessException("Hesabınız devre dışı bırakılmıştır.");
+        }
+
+        var resetToken = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        user.PasswordResetToken = resetToken;
+        user.PasswordResetExpiresAt = DateTime.UtcNow.AddMinutes(30);
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _emailService.SendPasswordResetEmailAsync(user.Email, user.FullName, resetToken, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Şifre sıfırlama e-postası iletilemedi: {Email}", user.Email);
+        }
+
+        return new ForgotPasswordResponseDto
+        {
+            Success = true,
+            Message = "Şifre sıfırlama bağlantısı ve kodu e-posta adresinize iletildi.",
+            SimulationToken = resetToken
+        };
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var user = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException($"'{dto.Email}' adresine sahip kullanıcı bulunamadı.");
+        }
+
+        if (string.IsNullOrWhiteSpace(user.PasswordResetToken) || user.PasswordResetToken != dto.Token.Trim())
+        {
+            throw new BusinessException("Geçersiz veya hatalı şifre sıfırlama kodu.");
+        }
+
+        if (user.PasswordResetExpiresAt.HasValue && user.PasswordResetExpiresAt.Value < DateTime.UtcNow)
+        {
+            throw new BusinessException("Şifre sıfırlama kodunun süresi dolmuş (30 dakika). Lütfen tekrar talep ediniz.");
+        }
+
+        _passwordHasher.CreatePasswordHash(dto.NewPassword, out var newHash, out var newSalt);
+        user.PasswordHash = newHash;
+        user.PasswordSalt = newSalt;
+        user.PasswordResetToken = null;
+        user.PasswordResetExpiresAt = null;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _emailService.SendPasswordChangedNotificationAsync(
+                user.Email,
+                user.FullName,
+                DateTime.UtcNow,
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Şifre sıfırlama bildirim e-postası iletilemedi: {Email}", user.Email);
+        }
+    }
+
     private static UserProfileDto MapToProfileDto(User u) => new()
     {
         Id = u.Id,
@@ -204,6 +396,7 @@ public class AuthService : IAuthService
             _ => "Customer"
         },
         IsPhoneVerified = u.IsPhoneVerified,
+        IsEmailVerified = u.IsEmailVerified,
         MemberSince = u.CreatedAt
     };
 }

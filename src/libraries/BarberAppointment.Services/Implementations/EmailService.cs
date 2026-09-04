@@ -139,6 +139,30 @@ public class EmailService : IEmailService
         return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
     }
 
+    public async Task<bool> SendWelcomeAndEmailVerificationAsync(
+        string toEmail,
+        string fullName,
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "Hoş Geldiniz — E-Posta Adresinizi Doğrulayın";
+        var body = GenerateWelcomeAndEmailVerificationHtml(fullName, toEmail, token);
+
+        return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
+    }
+
+    public async Task<bool> SendPasswordResetEmailAsync(
+        string toEmail,
+        string fullName,
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "Şifre Sıfırlama Talebi — Kuaför Randevu Sistemi";
+        var body = GeneratePasswordResetHtml(fullName, toEmail, token);
+
+        return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
+    }
+
     // ─── HTML E-Posta Şablon Üreteçleri ────────────────────────────────────────
 
     private static string GetEmailHeader(string accentColor, string title, string subtitle)
@@ -148,6 +172,20 @@ public class EmailService : IEmailService
                 <h1 style="margin: 0; font-size: 22px; color: {accentColor}; letter-spacing: 0.5px; font-weight: 700;">✂️ {title}</h1>
                 <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 13px;">{subtitle}</p>
             </div>
+        """;
+    }
+
+    private static string GetEmailBaseContainer()
+    {
+        return """
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         """;
     }
 
@@ -438,6 +476,113 @@ public class EmailService : IEmailService
                         </div>
                         <div style="font-size: 13px; color: #92400e; line-height: 1.5;">
                             Eğer şifrenizi siz değiştirmediyseniz lütfen vakit kaybetmeden sistem yöneticinizle irtibata geçiniz ve hesabınızı güvence altına alınız.
+                        </div>
+                    </div>
+                </div>
+        """);
+
+        sb.Append(GetEmailFooter());
+        sb.Append("""
+            </div>
+        </body>
+        </html>
+        """);
+
+        return sb.ToString();
+    }
+
+    private static string GenerateWelcomeAndEmailVerificationHtml(string fullName, string email, string token)
+    {
+        var sb = new StringBuilder();
+        sb.Append(GetEmailBaseContainer());
+        sb.Append(GetEmailHeader("#10b981", "HOŞ GELDİNİZ", "E-Posta Doğrulama & Hesap Aktivasyonu"));
+
+        var verifyUrl = $"http://localhost:3000/verify-email?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+
+        sb.Append($"""
+                <div style="padding: 28px 24px;">
+                    <div style="display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 18px;">
+                        🎉 Hesabınız Başarıyla Oluşturuldu
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        Sayın {WebUtility.HtmlEncode(fullName)},
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                        Kuaför Randevu Sistemi'ne hoş geldiniz! Randevularınızı kolayca oluşturmak ve tüm bildirimleri güvenle alabilmek için e-posta adresinizi doğrulayabilirsiniz.
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+                            Tek Kullanımlık Doğrulama Kodunuz
+                        </div>
+                        <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 4px; font-family: monospace; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px; display: inline-block; margin-bottom: 14px;">
+                            {token}
+                        </div>
+                        <div>
+                            <a href="{verifyUrl}" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px;">
+                                E-Posta Adresini Doğrula →
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                        <div style="font-size: 13px; color: #166534; line-height: 1.5;">
+                            ⏱️ Bu doğrulama kodu ve bağlantısı <strong>24 saat</strong> boyunca geçerlidir.
+                        </div>
+                    </div>
+                </div>
+        """);
+
+        sb.Append(GetEmailFooter());
+        sb.Append("""
+            </div>
+        </body>
+        </html>
+        """);
+
+        return sb.ToString();
+    }
+
+    private static string GeneratePasswordResetHtml(string fullName, string email, string token)
+    {
+        var sb = new StringBuilder();
+        sb.Append(GetEmailBaseContainer());
+        sb.Append(GetEmailHeader("#f59e0b", "ŞİFRE SIFIRLAMA", "Güvenli Hesap Kurtarma"));
+
+        var resetUrl = $"http://localhost:3000/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+
+        sb.Append($"""
+                <div style="padding: 28px 24px;">
+                    <div style="display: inline-block; background-color: #fffbeb; color: #d97706; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 18px;">
+                        🔑 Şifre Sıfırlama Talebi
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        Sayın {WebUtility.HtmlEncode(fullName)},
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                        Kuaför Randevu Sistemi hesabınız için bir şifre sıfırlama talebinde bulunuldu. Yeni şifrenizi belirlemek için aşağıdaki kodu veya bağlantıyı kullanabilirsiniz:
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+                            Tek Kullanımlık Sıfırlama Kodunuz
+                        </div>
+                        <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 4px; font-family: monospace; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px; display: inline-block; margin-bottom: 14px;">
+                            {token}
+                        </div>
+                        <div>
+                            <a href="{resetUrl}" style="display: inline-block; background-color: #f59e0b; color: #000000; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px;">
+                                Yeni Şifre Belirle →
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                        <div style="font-weight: 700; color: #b45309; font-size: 13px; margin-bottom: 4px;">
+                            ⚠️ Önemli Güvenlik Uyarısı:
+                        </div>
+                        <div style="font-size: 13px; color: #92400e; line-height: 1.5;">
+                            Bu kod ve sıfırlama bağlantısı <strong>30 dakika</strong> boyunca geçerlidir. Eğer şifre sıfırlama talebinde siz bulunmadıysanız bu e-postayı dikkate almayınız; hesabınız güvendedir.
                         </div>
                     </div>
                 </div>

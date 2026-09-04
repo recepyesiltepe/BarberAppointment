@@ -15,6 +15,7 @@ public class UserProfileDto
     public UserRole Role { get; set; }
     public string RoleName { get; set; } = string.Empty;
     public bool IsPhoneVerified { get; set; }
+    public bool IsEmailVerified { get; set; }
     public DateTime MemberSince { get; set; }
 }
 

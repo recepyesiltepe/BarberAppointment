@@ -37,5 +37,15 @@ public interface IEmailService
     /// Kullanıcı şifresi başarıyla değiştirildiğinde güvenlik bilgilendirme e-postası gönderir (Ek Geliştirme 6).
     /// </summary>
     Task<bool> SendPasswordChangedNotificationAsync(string toEmail, string userName, DateTime changedAt, string? ipAddress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Yeni kullanıcı kayıt olduğunda hoş geldin ve e-posta doğrulama linki/token'ı iletir.
+    /// </summary>
+    Task<bool> SendWelcomeAndEmailVerificationAsync(string toEmail, string fullName, string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Şifresini unutan kullanıcıya tek kullanımlık süreli şifre sıfırlama linki/token'ı iletir.
+    /// </summary>
+    Task<bool> SendPasswordResetEmailAsync(string toEmail, string fullName, string token, CancellationToken cancellationToken = default);
 }
 

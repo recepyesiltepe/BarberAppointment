@@ -31,6 +31,21 @@ public static class DbInitializer
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'IsPhoneVerified') BEGIN ALTER TABLE dbo.Users ADD IsPhoneVerified BIT NOT NULL CONSTRAINT DF_Users_IsPhoneVerified DEFAULT (0); END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'IsEmailVerified') BEGIN ALTER TABLE dbo.Users ADD IsEmailVerified BIT NOT NULL CONSTRAINT DF_Users_IsEmailVerified DEFAULT (0); END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'EmailVerificationToken') BEGIN ALTER TABLE dbo.Users ADD EmailVerificationToken NVARCHAR(128) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'EmailVerificationExpiresAt') BEGIN ALTER TABLE dbo.Users ADD EmailVerificationExpiresAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordResetToken') BEGIN ALTER TABLE dbo.Users ADD PasswordResetToken NVARCHAR(128) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordResetExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordResetExpiresAt DATETIME2 NULL; END");
             }
             catch (Exception ex)
             {
@@ -63,7 +78,9 @@ public static class DbInitializer
                         Role = item.Role,
                         PasswordHash = hash,
                         PasswordSalt = salt,
-                        IsActive = true
+                        IsActive = true,
+                        IsEmailVerified = true,
+                        IsPhoneVerified = true
                     };
                     await context.Users.AddAsync(user);
                     logger.LogInformation("Demo kullanıcı oluşturuldu: {Email} ({Role})", normalizedEmail, item.Role);
@@ -72,6 +89,11 @@ public static class DbInitializer
                 {
                     // Eğer kullanıcının şifre hash'i geçersizse veya 0x00 ile oluşturulmuşsa düzelt
                     bool needsUpdate = false;
+                    if (!user.IsEmailVerified)
+                    {
+                        user.IsEmailVerified = true;
+                        needsUpdate = true;
+                    }
                     if (user.PasswordHash == null || user.PasswordHash.Length != 64 ||
                         user.PasswordSalt == null || user.PasswordSalt.Length != 128 ||
                         !passwordHasher.VerifyPasswordHash(item.Password, user.PasswordHash, user.PasswordSalt))
