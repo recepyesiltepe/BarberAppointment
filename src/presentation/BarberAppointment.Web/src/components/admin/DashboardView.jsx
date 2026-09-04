@@ -49,9 +49,9 @@ export const DashboardView = ({ onNavigateTab, onNotify }) => {
   return (
     <div>
       {/* KPI Cards Grid */}
-      <div style={{
+      <div className="stats-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '1.25rem',
         marginBottom: '2rem'
       }}>

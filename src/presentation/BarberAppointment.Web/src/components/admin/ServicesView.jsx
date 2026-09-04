@@ -240,212 +240,201 @@ export const ServicesView = ({ onNotify }) => {
       </div>
 
       {/* Services Table / Cards */}
-      <div className="glass-card" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-responsive">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            Hizmetler yükleniyor...
+          <div style={{ textAlign: 'center', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div className="spinner" style={{ width: '36px', height: '36px', border: '3px solid rgba(245,158,11,0.2)', borderTopColor: 'var(--primary-400)', borderRadius: '50%' }} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Hizmetler yükleniyor...</div>
           </div>
         ) : filteredServices.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            Eşleşen hizmet bulunamadı.
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Scissors size={28} />
+            </div>
+            <div className="empty-state-title">Hizmet Bulunamadı</div>
+            <div className="empty-state-desc">
+              Aradığınız kriterlere uygun hizmet bulunamadı. Yeni bir hizmet ekleyebilir veya filtreleri temizleyebilirsiniz.
+            </div>
+            <button
+              onClick={handleOpenAdd}
+              className="btn btn-primary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Plus size={16} />
+              <span>Yeni Hizmet Ekle</span>
+            </button>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet Adı</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Süre</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fiyat</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+          <table>
+            <thead>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet Adı</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Süre</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fiyat</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredServices.map((srv) => (
+                <tr key={srv.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
+                  <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{srv.id}</td>
+                  <td style={{ padding: '1rem', fontWeight: 600, color: '#fff' }}>{srv.name}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Clock size={14} color="var(--text-muted)" />
+                      {srv.durationMinutes} dk
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem', fontWeight: 700, color: '#fbbf24', fontSize: '1rem' }}>
+                    {srv.price} ₺
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    {srv.isActive ? (
+                      <span className="badge badge-customer">Aktif</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(srv)}
+                        title="Tıklayarak aktif yap"
+                        style={{
+                          padding: '0.2rem 0.6rem',
+                          fontSize: '0.75rem',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          color: '#f87171',
+                          borderRadius: 'var(--radius-full)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <span>Pasif</span>
+                        <span style={{ fontSize: '0.65rem', textDecoration: 'underline' }}>(Aktifleştir)</span>
+                      </button>
+                    )}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => handleOpenEdit(srv)}
+                        className="btn btn-secondary btn-sm"
+                        title="Düzenle"
+                        style={{ padding: '0.35rem 0.6rem' }}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(srv.id, srv.name)}
+                        className="btn btn-ghost btn-sm"
+                        title={srv.isActive ? "Sil / Pasife Al" : "Kalıcı Olarak Sil"}
+                        style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredServices.map((srv) => (
-                  <tr key={srv.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
-                    <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{srv.id}</td>
-                    <td style={{ padding: '1rem', fontWeight: 600, color: '#fff' }}>{srv.name}</td>
-                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <Clock size={14} color="var(--text-muted)" />
-                        {srv.durationMinutes} dk
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', fontWeight: 700, color: '#fbbf24', fontSize: '1rem' }}>
-                      {srv.price} ₺
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {srv.isActive ? (
-                        <span className="badge badge-customer">Aktif</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(srv)}
-                          title="Tıklayarak aktif yap"
-                          style={{
-                            padding: '0.2rem 0.6rem',
-                            fontSize: '0.75rem',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            color: '#f87171',
-                            borderRadius: 'var(--radius-full)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem'
-                          }}
-                        >
-                          <span>Pasif</span>
-                          <span style={{ fontSize: '0.65rem', textDecoration: 'underline' }}>(Aktifleştir)</span>
-                        </button>
-                      )}
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleOpenEdit(srv)}
-                          className="btn btn-secondary btn-sm"
-                          title="Düzenle"
-                          style={{ padding: '0.35rem 0.6rem' }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(srv.id, srv.name)}
-                          className="btn btn-ghost btn-sm"
-                          title={srv.isActive ? "Sil / Pasife Al" : "Kalıcı Olarak Sil"}
-                          style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '1rem'
-        }}>
-          <div className="glass-card animate-fade-in" style={{
-            width: '100%',
-            maxWidth: '480px',
-            padding: '2rem',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--bg-card-solid)',
-            border: '1px solid var(--border-medium)',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => setIsModalOpen(false)}
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <Scissors size={20} color="var(--primary-400)" />
+                <span>{editingService ? 'Hizmeti Düzenle' : 'Yeni Hizmet Ekle'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-            <h3 style={{ fontSize: '1.35rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Scissors size={20} color="var(--primary-400)" />
-              <span>{editingService ? 'Hizmeti Düzenle' : 'Yeni Hizmet Ekle'}</span>
-            </h3>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="modal-body">
+                {formError && (
+                  <div className="alert-card alert-card-error">
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>{formError}</div>
+                  </div>
+                )}
 
-            {formError && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                background: 'var(--danger-bg)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                color: '#fca5a5',
-                fontSize: '0.85rem',
-                marginBottom: '1rem'
-              }}>
-                <AlertCircle size={16} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Hizmet Adı</label>
-                <input
-                  type="text"
-                  className="form-input no-icon"
-                  placeholder="Örn: Saç Kesimi & Yıkama"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Süre (Dakika)</label>
+                  <label className="form-label">Hizmet Adı</label>
                   <input
-                    type="number"
+                    type="text"
                     className="form-input no-icon"
-                    placeholder="30"
-                    min={5}
-                    max={300}
-                    step={5}
-                    value={formData.durationMinutes}
-                    onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
+                    placeholder="Örn: Saç Kesimi & Yıkama"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Fiyat (₺)</label>
-                  <input
-                    type="number"
-                    className="form-input no-icon"
-                    placeholder="250"
-                    min={1}
-                    step={1}
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                  />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Süre (Dakika)</label>
+                    <input
+                      type="number"
+                      className="form-input no-icon"
+                      placeholder="30"
+                      min={5}
+                      max={300}
+                      step={5}
+                      value={formData.durationMinutes}
+                      onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Fiyat (₺)</label>
+                    <input
+                      type="number"
+                      className="form-input no-icon"
+                      placeholder="250"
+                      min={1}
+                      step={1}
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
+
+                {editingService && (
+                  <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
+                    <input
+                      type="checkbox"
+                      id="isActiveCheck"
+                      checked={formData.isActive}
+                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-500)' }}
+                    />
+                    <label htmlFor="isActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
+                      Hizmet Aktif Olarak Sunulsun
+                    </label>
+                  </div>
+                )}
               </div>
 
-              {editingService && (
-                <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1.25rem' }}>
-                  <input
-                    type="checkbox"
-                    id="isActiveCheck"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-500)' }}
-                  />
-                  <label htmlFor="isActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
-                    Hizmet Aktif Olarak Sunulsun
-                  </label>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="btn btn-secondary btn-sm"
+                  disabled={submitting}
                 >
                   İptal
                 </button>
@@ -453,8 +442,16 @@ export const ServicesView = ({ onNotify }) => {
                   type="submit"
                   disabled={submitting}
                   className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  {submitting ? 'Kaydediliyor...' : editingService ? 'Değişiklikleri Kaydet' : 'Hizmeti Ekle'}
+                  {submitting ? (
+                    <>
+                      <span className="spinner-sm" />
+                      <span>Kaydediliyor...</span>
+                    </>
+                  ) : (
+                    <span>{editingService ? 'Değişiklikleri Kaydet' : 'Hizmeti Ekle'}</span>
+                  )}
                 </button>
               </div>
             </form>

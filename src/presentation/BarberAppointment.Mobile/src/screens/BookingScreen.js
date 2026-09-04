@@ -236,6 +236,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                   selectedService?.id === srv.id && styles.cardSelected
                 ]}
                 onPress={() => handleSelectService(srv)}
+                activeOpacity={0.75}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>{srv.name}</Text>
@@ -263,7 +264,10 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           <Text style={styles.instruction}>İşleminizi yapacak uzman personeli seçin:</Text>
 
           {loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
+            <View style={{ alignItems: 'center', marginVertical: 30 }}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>Personeller yükleniyor...</Text>
+            </View>
           ) : (
             employees.map((emp) => (
               <TouchableOpacity
@@ -273,6 +277,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                   selectedEmployee?.id === emp.id && styles.cardSelected
                 ]}
                 onPress={() => handleSelectEmployee(emp)}
+                activeOpacity={0.75}
               >
                 <View style={styles.staffAvatar}>
                   <Text style={styles.staffAvatarText}>{emp.fullName?.charAt(0)}</Text>
@@ -289,6 +294,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => setCurrentStep(1)}
+            activeOpacity={0.7}
           >
             <Text style={styles.backButtonText}>‹ Hizmet Seçimine Geri Dön</Text>
           </TouchableOpacity>
@@ -314,6 +320,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                   key={d.iso}
                   style={[styles.dateChip, isSelected && styles.dateChipActive]}
                   onPress={() => handleDateChange(d.iso)}
+                  activeOpacity={0.75}
                 >
                   <Text style={[styles.dateChipDay, isSelected && styles.dateChipTextActive]}>
                     {d.dayName}
@@ -335,7 +342,10 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           </Text>
 
           {loadingSlots ? (
-            <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
+            <View style={{ alignItems: 'center', marginVertical: 30 }}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>Müsait saatler taranıyor...</Text>
+            </View>
           ) : availableSlots.length === 0 ? (
             <View style={styles.emptySlotsCard}>
               <Text style={styles.emptySlotsText}>
@@ -355,6 +365,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                       setSelectedSlot(slot);
                       setCurrentStep(4);
                     }}
+                    activeOpacity={0.75}
                   >
                     <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>
                       {timeLabel}
@@ -368,6 +379,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => setCurrentStep(2)}
+            activeOpacity={0.7}
           >
             <Text style={styles.backButtonText}>‹ Personel Seçimine Geri Dön</Text>
           </TouchableOpacity>
@@ -413,24 +425,30 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           </View>
 
           {/* Not Ekleme */}
-          <View style={styles.card}>
+          <View style={[styles.card, { flexDirection: 'column', alignItems: 'stretch' }]}>
             <Text style={styles.label}>Randevu Notu (İsteğe Bağlı)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { minHeight: 65, textAlignVertical: 'top' }]}
               placeholder="Örn: Özel saç modeli veya sakal detayı"
               placeholderTextColor={colors.textMuted}
               value={notes}
               onChangeText={setNotes}
+              multiline={true}
+              numberOfLines={3}
             />
           </View>
 
           <TouchableOpacity
-            style={styles.confirmButton}
+            style={[styles.confirmButton, loading && { opacity: 0.8 }]}
             onPress={handleConfirmBooking}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator color="#000" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator color="#000" />
+                <Text style={styles.confirmButtonText}>Randevu Kaydediliyor...</Text>
+              </View>
             ) : (
               <Text style={styles.confirmButtonText}>🎉 Randevuyu Kesinleştir ve Onayla</Text>
             )}
@@ -439,6 +457,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => setCurrentStep(3)}
+            activeOpacity={0.7}
           >
             <Text style={styles.backButtonText}>‹ Saat Seçimine Geri Dön</Text>
           </TouchableOpacity>

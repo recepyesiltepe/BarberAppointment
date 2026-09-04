@@ -22,14 +22,20 @@ export const LoginScreen = () => {
   // Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   
   // Register State
   const [fullName, setFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState(1);
+
+  // Focus tracking for input border highlight
+  const [focusedField, setFocusedField] = useState(null);
 
   // Server URL State
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
@@ -114,6 +120,7 @@ export const LoginScreen = () => {
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'login' && styles.tabButtonActive]}
               onPress={() => { setActiveTab('login'); setError(null); }}
+              activeOpacity={0.8}
             >
               <Text style={[styles.tabText, activeTab === 'login' && styles.tabTextActive]}>
                 Giriş Yap
@@ -122,6 +129,7 @@ export const LoginScreen = () => {
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'register' && styles.tabButtonActive]}
               onPress={() => { setActiveTab('register'); setError(null); }}
+              activeOpacity={0.8}
             >
               <Text style={[styles.tabText, activeTab === 'register' && styles.tabTextActive]}>
                 Kayıt Ol
@@ -133,6 +141,9 @@ export const LoginScreen = () => {
           {error && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>⚠️ {error}</Text>
+              <TouchableOpacity onPress={() => setError(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={{ color: '#fca5a5', fontWeight: '700', fontSize: 16 }}>✕</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -141,29 +152,43 @@ export const LoginScreen = () => {
             <View>
               <Text style={styles.label}>E-Posta Adresi</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'loginEmail' && styles.inputFocused]}
                 placeholder="ornek@example.com"
                 placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={setEmail}
+                onFocus={() => setFocusedField('loginEmail')}
+                onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
 
               <Text style={styles.label}>Şifre</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+              <View style={[styles.passwordWrapper, focusedField === 'loginPassword' && styles.inputFocused]}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setFocusedField('loginPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleLoginSubmit}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#000" />
@@ -179,6 +204,7 @@ export const LoginScreen = () => {
                   <TouchableOpacity
                     style={styles.demoButton}
                     onPress={() => handleQuickDemo('superadmin@example.com', 'AdminPassword123!')}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.demoButtonText}>👑 Admin</Text>
                   </TouchableOpacity>
@@ -186,6 +212,7 @@ export const LoginScreen = () => {
                   <TouchableOpacity
                     style={styles.demoButton}
                     onPress={() => handleQuickDemo('ali@example.com', 'Password123!')}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.demoButtonText}>✂️ Personel</Text>
                   </TouchableOpacity>
@@ -193,6 +220,7 @@ export const LoginScreen = () => {
                   <TouchableOpacity
                     style={styles.demoButton}
                     onPress={() => handleQuickDemo('burak@example.com', 'Password123!')}
+                    activeOpacity={0.7}
                   >
                     <Text style={styles.demoButtonText}>👤 Müşteri</Text>
                   </TouchableOpacity>
@@ -204,58 +232,87 @@ export const LoginScreen = () => {
             <View>
               <Text style={styles.label}>Ad Soyad</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'regName' && styles.inputFocused]}
                 placeholder="Örn: Caner Erkin"
                 placeholderTextColor={colors.textMuted}
                 value={fullName}
                 onChangeText={setFullName}
+                onFocus={() => setFocusedField('regName')}
+                onBlur={() => setFocusedField(null)}
               />
 
               <Text style={styles.label}>E-Posta</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'regEmail' && styles.inputFocused]}
                 placeholder="caner@example.com"
                 placeholderTextColor={colors.textMuted}
                 value={regEmail}
                 onChangeText={setRegEmail}
+                onFocus={() => setFocusedField('regEmail')}
+                onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
 
               <Text style={styles.label}>Telefon (Opsiyonel)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'regPhone' && styles.inputFocused]}
                 placeholder="5551234567"
                 placeholderTextColor={colors.textMuted}
                 value={phone}
                 onChangeText={setPhone}
+                onFocus={() => setFocusedField('regPhone')}
+                onBlur={() => setFocusedField(null)}
                 keyboardType="phone-pad"
               />
 
               <Text style={styles.label}>Şifre</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="En az 6 karakter"
-                placeholderTextColor={colors.textMuted}
-                value={regPassword}
-                onChangeText={setRegPassword}
-                secureTextEntry
-              />
+              <View style={[styles.passwordWrapper, focusedField === 'regPassword' && styles.inputFocused]}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="En az 6 karakter"
+                  placeholderTextColor={colors.textMuted}
+                  value={regPassword}
+                  onChangeText={setRegPassword}
+                  onFocus={() => setFocusedField('regPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showRegPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowRegPassword(!showRegPassword)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eyeIcon}>{showRegPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <Text style={styles.label}>Şifre Tekrar</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Şifreyi tekrar giriniz"
-                placeholderTextColor={colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
+              <View style={[styles.passwordWrapper, focusedField === 'regConfirm' && styles.inputFocused]}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Şifreyi tekrar giriniz"
+                  placeholderTextColor={colors.textMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  onFocus={() => setFocusedField('regConfirm')}
+                  onBlur={() => setFocusedField(null)}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleRegisterSubmit}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#000" />
@@ -382,11 +439,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   errorText: {
     color: '#fca5a5',
     fontSize: 13,
     lineHeight: 18,
+    flex: 1,
+    marginRight: 8,
   },
   label: {
     color: colors.textSecondary,
@@ -405,6 +467,35 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
     marginBottom: 14,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgInput,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    marginBottom: 14,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
+  eyeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eyeIcon: {
+    fontSize: 16,
   },
   submitButton: {
     backgroundColor: colors.primary,

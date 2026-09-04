@@ -271,158 +271,254 @@ export const EmployeesView = ({ onNotify }) => {
         )}
       </div>
 
+      {/* Employees Table / Cards */}
+      <div className="table-responsive">
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div className="spinner" style={{ width: '36px', height: '36px', border: '3px solid rgba(56,189,248,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%' }} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Personel listesi yükleniyor...</div>
+          </div>
+        ) : filteredEmployees.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Users size={28} />
+            </div>
+            <div className="empty-state-title">Personel Bulunamadı</div>
+            <div className="empty-state-desc">
+              Aradığınız kriterlere uygun personel kaydı bulunamadı. Yeni bir personel ekleyebilir veya filtreleri temizleyebilirsiniz.
+            </div>
+            <button
+              onClick={handleOpenAdd}
+              className="btn btn-primary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Plus size={16} />
+              <span>Yeni Personel Ekle</span>
+            </button>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unvan</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Yetkili Olduğu Hizmetler</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEmployees.map((emp) => (
+                <tr key={emp.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
+                  <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{emp.id}</td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
+                        color: '#000',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.9rem'
+                      }}>
+                        {emp.fullName.charAt(0)}
+                      </div>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{emp.fullName}</div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    {emp.title || 'Personel'}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '320px' }}>
+                      {emp.services && emp.services.length > 0 ? (
+                        emp.services.map((s) => (
+                          <span
+                            key={s.id}
+                            style={{
+                              fontSize: '0.75rem',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'rgba(56, 189, 248, 0.1)',
+                              color: '#7dd3fc',
+                              border: '1px solid rgba(56, 189, 248, 0.2)'
+                            }}
+                          >
+                            {s.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Henüz atanmadı</span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    {emp.isActive ? (
+                      <span className="badge badge-customer">Aktif</span>
+                    ) : (
+                      <span style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: 'var(--radius-full)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                        Pasif
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => handleOpenEdit(emp)}
+                        className="btn btn-secondary btn-sm"
+                        title="Düzenle / Hizmet Ata"
+                        style={{ padding: '0.35rem 0.6rem' }}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(emp.id, emp.fullName)}
+                        className="btn btn-ghost btn-sm"
+                        title="Sil"
+                        style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '1rem'
-        }}>
-          <div className="glass-card animate-fade-in" style={{
-            width: '100%',
-            maxWidth: '520px',
-            padding: '2rem',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--bg-card-solid)',
-            border: '1px solid var(--border-medium)',
-            position: 'relative',
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}>
-            <button
-              onClick={() => setIsModalOpen(false)}
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <User size={20} color="#38bdf8" />
+                <span>{editingEmployee ? 'Personeli Düzenle & Hizmet Ata' : 'Yeni Personel Ekle'}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-            <h3 style={{ fontSize: '1.35rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <User size={20} color="#38bdf8" />
-              <span>{editingEmployee ? 'Personeli Düzenle & Hizmet Ata' : 'Yeni Personel Ekle'}</span>
-            </h3>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="modal-body">
+                {formError && (
+                  <div className="alert-card alert-card-error">
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>{formError}</div>
+                  </div>
+                )}
 
-            {formError && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                background: 'var(--danger-bg)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                color: '#fca5a5',
-                fontSize: '0.85rem',
-                marginBottom: '1rem'
-              }}>
-                <AlertCircle size={16} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Ad Soyad</label>
-                <input
-                  type="text"
-                  className="form-input no-icon"
-                  placeholder="Örn: Hasan Usta"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Unvan / Rol</label>
-                <input
-                  type="text"
-                  className="form-input no-icon"
-                  placeholder="Örn: Kıdemli Kuaför, Sakal Uzmanı"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-
-              {/* Service Assignment Checklist */}
-              <div className="form-group">
-                <label className="form-label">Yetkili Olduğu Hizmetler ({selectedServiceIds.length} Seçildi)</label>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                  gap: '0.5rem',
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  padding: '0.5rem',
-                  background: 'var(--bg-input)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)'
-                }}>
-                  {services.map(srv => {
-                    const isSelected = selectedServiceIds.includes(srv.id);
-                    return (
-                      <div
-                        key={srv.id}
-                        onClick={() => handleToggleService(srv.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          padding: '0.5rem 0.75rem',
-                          background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                          border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          borderRadius: '4px',
-                          border: isSelected ? 'none' : '1px solid var(--border-medium)',
-                          background: isSelected ? '#38bdf8' : 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#000'
-                        }}>
-                          {isSelected && <Check size={12} strokeWidth={3} />}
-                        </div>
-                        <span style={{ fontSize: '0.85rem', color: isSelected ? '#fff' : 'var(--text-secondary)' }}>
-                          {srv.name}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {editingEmployee && (
-                <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1.25rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Ad Soyad</label>
                   <input
-                    type="checkbox"
-                    id="isEmpActiveCheck"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#38bdf8' }}
+                    type="text"
+                    className="form-input no-icon"
+                    placeholder="Örn: Hasan Usta"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
                   />
-                  <label htmlFor="isEmpActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
-                    Personel Aktif Olarak Randevu Alabilir
-                  </label>
                 </div>
-              )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Unvan / Rol</label>
+                  <input
+                    type="text"
+                    className="form-input no-icon"
+                    placeholder="Örn: Kıdemli Kuaför, Sakal Uzmanı"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </div>
+
+                {/* Service Assignment Checklist */}
+                <div className="form-group">
+                  <label className="form-label">Yetkili Olduğu Hizmetler ({selectedServiceIds.length} Seçildi)</label>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '0.5rem',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    padding: '0.5rem',
+                    background: 'var(--bg-input)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    {services.map(srv => {
+                      const isSelected = selectedServiceIds.includes(srv.id);
+                      return (
+                        <div
+                          key={srv.id}
+                          onClick={() => handleToggleService(srv.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                            border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '4px',
+                            border: isSelected ? 'none' : '1px solid var(--border-medium)',
+                            background: isSelected ? '#38bdf8' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#000'
+                          }}>
+                            {isSelected && <Check size={12} strokeWidth={3} />}
+                          </div>
+                          <span style={{ fontSize: '0.85rem', color: isSelected ? '#fff' : 'var(--text-secondary)' }}>
+                            {srv.name}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {editingEmployee && (
+                  <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
+                    <input
+                      type="checkbox"
+                      id="isEmpActiveCheck"
+                      checked={isActive}
+                      onChange={(e) => setIsActive(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#38bdf8' }}
+                    />
+                    <label htmlFor="isEmpActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
+                      Personel Aktif Olarak Randevu Alabilir
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="btn btn-secondary btn-sm"
+                  disabled={submitting}
                 >
                   İptal
                 </button>
@@ -430,8 +526,16 @@ export const EmployeesView = ({ onNotify }) => {
                   type="submit"
                   disabled={submitting}
                   className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  {submitting ? 'Kaydediliyor...' : editingEmployee ? 'Güncelle' : 'Personeli Ekle'}
+                  {submitting ? (
+                    <>
+                      <span className="spinner-sm" />
+                      <span>Kaydediliyor...</span>
+                    </>
+                  ) : (
+                    <span>{editingEmployee ? 'Güncelle' : 'Personeli Ekle'}</span>
+                  )}
                 </button>
               </div>
             </form>

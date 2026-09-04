@@ -64,14 +64,14 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 2:
-        return <span className="badge badge-customer"><CheckCircle2 size={12} /> Onaylandı</span>;
+        return <span className="badge badge-confirmed"><CheckCircle2 size={12} /> Onaylandı</span>;
       case 3:
-        return <span className="badge badge-employee"><CheckCircle2 size={12} /> Tamamlandı</span>;
+        return <span className="badge badge-completed"><CheckCircle2 size={12} /> Tamamlandı</span>;
       case 4:
-        return <span style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', borderRadius: 'var(--radius-full)', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><XCircle size={12} /> İptal Edildi</span>;
+        return <span className="badge badge-cancelled"><XCircle size={12} /> İptal Edildi</span>;
       case 1:
       default:
-        return <span className="badge badge-admin"><Clock size={12} /> Bekliyor</span>;
+        return <span className="badge badge-pending"><Clock size={12} /> Bekliyor</span>;
     }
   };
 
@@ -140,7 +140,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
       </div>
 
       {/* Filter Tabs */}
-      <div style={{
+      <div className="nav-tabs-wrapper" style={{
         display: 'flex',
         gap: '0.5rem',
         background: 'rgba(255, 255, 255, 0.03)',
@@ -152,7 +152,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
         <button
           onClick={() => setFilterTab('upcoming')}
           className={`btn btn-sm ${filterTab === 'upcoming' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ flex: 1, padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+          style={{ flex: 1, minWidth: '160px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
         >
           Yaklaşan Randevular ({upcomingCount})
         </button>
@@ -160,7 +160,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
         <button
           onClick={() => setFilterTab('history')}
           className={`btn btn-sm ${filterTab === 'history' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ flex: 1, padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+          style={{ flex: 1, minWidth: '160px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
         >
           Geçmiş Randevular ({historyCount})
         </button>
@@ -168,7 +168,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
         <button
           onClick={() => setFilterTab('all')}
           className={`btn btn-sm ${filterTab === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{ flex: 1, padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+          style={{ flex: 1, minWidth: '160px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
         >
           Tüm Randevular ({appointments.length})
         </button>
@@ -177,7 +177,8 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
       {/* Appointments List */}
       {loading ? (
         <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)', borderRadius: 'var(--radius-lg)' }}>
-          Randevularınız yükleniyor...
+          <div className="spinner-sm" style={{ width: '28px', height: '28px', margin: '0 auto 1rem', borderColor: 'var(--primary-400)', borderTopColor: 'transparent' }} />
+          <div>Randevularınız yükleniyor...</div>
         </div>
       ) : filteredAppointments.length === 0 ? (
         <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem 2rem', borderRadius: 'var(--radius-lg)' }}>
@@ -275,9 +276,13 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
                       onClick={() => handleCancel(a.id, a.serviceName, `${dateStr} ${timeStr}`)}
                       disabled={cancellingId === a.id}
                       className="btn btn-ghost btn-sm"
-                      style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}
+                      style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
                     >
-                      <Trash2 size={14} />
+                      {cancellingId === a.id ? (
+                        <span className="spinner-sm" style={{ width: '13px', height: '13px', borderColor: '#f87171', borderTopColor: 'transparent' }} />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
                       <span>{cancellingId === a.id ? 'İptal Ediliyor...' : 'Randevuyu İptal Et'}</span>
                     </button>
                   )}

@@ -81,14 +81,14 @@ export const AdminLayout = () => {
         </div>
 
         {/* Tab Navigation Buttons */}
-        <div style={{
+        <div className="nav-tabs-wrapper" style={{
           display: 'flex',
           background: 'rgba(15, 23, 42, 0.7)',
           padding: '4px',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
           flexWrap: 'wrap',
-          gap: '2px'
+          gap: '4px'
         }}>
           {navItems.map((item) => {
             const Icon = item.icon;

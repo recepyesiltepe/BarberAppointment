@@ -11,7 +11,8 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import { servicesApi, employeesApi, appointmentsApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
@@ -210,7 +211,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 fontWeight: 700,
                 fontSize: '0.9rem'
               }}>1</div>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: currentStep === 1 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Hizmet</span>
+              <span className="stepper-label" style={{ color: currentStep === 1 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Hizmet</span>
             </div>
 
             <div style={{ flex: 1, height: '2px', background: currentStep >= 2 ? 'var(--primary-400)' : 'var(--border-subtle)', margin: '0 0.5rem' }} />
@@ -228,7 +229,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 fontWeight: 700,
                 fontSize: '0.9rem'
               }}>2</div>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: currentStep === 2 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Kuaför</span>
+              <span className="stepper-label" style={{ color: currentStep === 2 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Kuaför</span>
             </div>
 
             <div style={{ flex: 1, height: '2px', background: currentStep >= 3 ? 'var(--primary-400)' : 'var(--border-subtle)', margin: '0 0.5rem' }} />
@@ -246,7 +247,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 fontWeight: 700,
                 fontSize: '0.9rem'
               }}>3</div>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: currentStep === 3 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Tarih & Saat</span>
+              <span className="stepper-label" style={{ color: currentStep === 3 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Tarih & Saat</span>
             </div>
 
             <div style={{ flex: 1, height: '2px', background: currentStep >= 4 ? 'var(--primary-400)' : 'var(--border-subtle)', margin: '0 0.5rem' }} />
@@ -264,7 +265,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 fontWeight: 700,
                 fontSize: '0.9rem'
               }}>4</div>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: currentStep === 4 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Onay</span>
+              <span className="stepper-label" style={{ color: currentStep === 4 ? 'var(--primary-400)' : 'var(--text-secondary)' }}>Onay</span>
             </div>
           </div>
         </div>
@@ -272,19 +273,27 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
       {/* Error Alert Box */}
       {error && (
-        <div style={{
+        <div className="alert-card" style={{
+          background: 'rgba(239, 68, 68, 0.15)',
+          borderColor: 'rgba(239, 68, 68, 0.4)',
+          color: '#fca5a5',
+          marginBottom: '1.5rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.75rem',
-          padding: '1rem',
-          background: 'rgba(239, 68, 68, 0.15)',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
-          borderRadius: 'var(--radius-md)',
-          color: '#fca5a5',
-          marginBottom: '1.5rem'
+          justifyContent: 'space-between'
         }}>
-          <AlertCircle size={20} />
-          <span>{error}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertCircle size={20} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="btn btn-ghost btn-sm"
+            style={{ padding: '0.2rem', color: '#fca5a5' }}
+            title="Kapat"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -302,7 +311,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               </p>
             </div>
 
-            <div className="form-input-wrapper" style={{ width: '240px' }}>
+            <div className="form-input-wrapper" style={{ width: '260px' }}>
               <Search size={16} className="form-input-icon" />
               <input
                 type="text"
@@ -310,15 +319,52 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 placeholder="Hizmet ara..."
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
-                style={{ padding: '0.45rem 1rem 0.45rem 2.2rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.45rem 2.2rem 0.45rem 2.2rem', fontSize: '0.85rem' }}
               />
+              {serviceSearch && (
+                <button
+                  type="button"
+                  onClick={() => setServiceSearch('')}
+                  style={{
+                    position: 'absolute',
+                    right: '0.6rem',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0
+                  }}
+                  title="Temizle"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Hizmetler yükleniyor...</div>
+            <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>
+              <div className="spinner-sm" style={{ width: '28px', height: '28px', margin: '0 auto 1rem', borderColor: 'var(--primary-400)', borderTopColor: 'transparent' }} />
+              <div>Hizmetler yükleniyor...</div>
+            </div>
           ) : filteredServices.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Uygun hizmet bulunamadı.</div>
+            <div className="empty-state">
+              <Scissors size={40} className="empty-state-icon" />
+              <h4 className="empty-state-title">Uygun hizmet bulunamadı</h4>
+              <p className="empty-state-text">Arama kriterinize uygun saç, sakal veya bakım hizmeti bulunamadı.</p>
+              {serviceSearch && (
+                <button
+                  type="button"
+                  onClick={() => setServiceSearch('')}
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginTop: '1rem' }}
+                >
+                  Aramayı Temizle
+                </button>
+              )}
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
               {filteredServices.map((srv) => (
@@ -395,7 +441,10 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Personeller yükleniyor...</div>
+            <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>
+              <div className="spinner-sm" style={{ width: '28px', height: '28px', margin: '0 auto 1rem', borderColor: '#38bdf8', borderTopColor: 'transparent' }} />
+              <div>Personeller yükleniyor...</div>
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
               {employees.map((emp) => (
@@ -516,18 +565,27 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             </div>
 
             {loadingSlots ? (
-              <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>Boş slotlar taranıyor...</div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <div className="spinner-sm" style={{ width: '26px', height: '26px', margin: '0 auto 0.75rem', borderColor: '#10b981', borderTopColor: 'transparent' }} />
+                <div>Müsait saatler taranıyor...</div>
+              </div>
             ) : availableSlots.length === 0 ? (
-              <div style={{
-                padding: '1.5rem',
+              <div className="alert-card" style={{
                 background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
+                borderColor: 'rgba(239, 68, 68, 0.3)',
                 color: '#fca5a5',
-                textAlign: 'center',
-                fontSize: '0.9rem'
+                padding: '1.25rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.75rem'
               }}>
-                ⚠️ Seçilen tarihte personelin uygun boş randevu saati kalmamıştır. Lütfen farklı bir gün veya kuaför seçiniz.
+                <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div>
+                  <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>Seçilen günde boş randevu saati kalmamıştır.</div>
+                  <div style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: '#fca5a5' }}>
+                    Lütfen yukarıdaki günlerden farklı bir tarih seçin veya geri dönerek başka bir kuaför personeli tercih edin.
+                  </div>
+                </div>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.75rem' }}>
@@ -570,7 +628,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <button onClick={() => setCurrentStep(2)} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <ChevronLeft size={16} />
-              <span>Geri (Personel Seçimi)</span>
+              <span>Geri (Kuaför Seçimi)</span>
             </button>
           </div>
         </div>
@@ -630,12 +688,13 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           {/* Notes Input */}
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Randevu Notu (İsteğe Bağlı)</label>
-            <input
-              type="text"
+            <textarea
+              rows={3}
               className="form-input no-icon"
               placeholder="Örn: Özel saç sakal modeli veya yıkama tercihi..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              style={{ resize: 'vertical' }}
             />
           </div>
 
@@ -649,9 +708,16 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               onClick={handleConfirmBooking}
               disabled={loading}
               className="btn btn-primary"
-              style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700 }}
+              style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
             >
-              {loading ? 'Randevu Kaydediliyor...' : '🎉 Randevuyu Kesinleştir ve Onayla'}
+              {loading ? (
+                <>
+                  <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                  <span>Randevu Kaydediliyor...</span>
+                </>
+              ) : (
+                <span>🎉 Randevuyu Kesinleştir ve Onayla</span>
+              )}
             </button>
           </div>
         </div>

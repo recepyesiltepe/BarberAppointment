@@ -174,7 +174,7 @@ export const AppointmentsView = ({ onNotify }) => {
 
       {/* Filters Bar */}
       <div className="glass-card" style={{ padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-        <div className="form-input-wrapper" style={{ flex: '1 1 200px' }}>
+        <div className="form-input-wrapper" style={{ flex: '1 1 220px', position: 'relative' }}>
           <Search size={16} className="form-input-icon" />
           <input
             type="text"
@@ -182,11 +182,21 @@ export const AppointmentsView = ({ onNotify }) => {
             placeholder="Müşteri, personel veya hizmet ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: '0.55rem 1rem 0.55rem 2.5rem', fontSize: '0.875rem' }}
+            style={{ padding: '0.55rem 2rem 0.55rem 2.5rem', fontSize: '0.875rem' }}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '0.75rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+              title="Aramayı Temizle"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
-        <div style={{ minWidth: '180px' }}>
+        <div style={{ minWidth: '180px', flex: '1 1 180px' }}>
           <select
             className="form-select"
             value={filterEmployeeId}
@@ -200,7 +210,7 @@ export const AppointmentsView = ({ onNotify }) => {
           </select>
         </div>
 
-        <div style={{ minWidth: '160px' }}>
+        <div style={{ minWidth: '160px', flex: '1 1 160px' }}>
           <select
             className="form-select"
             value={filterStatus}
@@ -227,217 +237,206 @@ export const AppointmentsView = ({ onNotify }) => {
       </div>
 
       {/* Appointments Table */}
-      <div className="glass-card" style={{ overflow: 'hidden', borderRadius: 'var(--radius-lg)' }}>
+      <div className="table-responsive">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            Randevular yükleniyor...
+          <div style={{ textAlign: 'center', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div className="spinner" style={{ width: '36px', height: '36px', border: '3px solid rgba(245,158,11,0.2)', borderTopColor: 'var(--primary-400)', borderRadius: '50%' }} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Randevu takvimi yükleniyor...</div>
           </div>
         ) : filteredAppointments.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            Eşleşen randevu kaydı bulunamadı.
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Calendar size={28} />
+            </div>
+            <div className="empty-state-title">Randevu Bulunamadı</div>
+            <div className="empty-state-desc">
+              Seçilen kriterlere uygun randevu kaydı bulunamadı. Filtreleri temizleyebilir veya yeni randevu oluşturabilirsiniz.
+            </div>
+            {(filterEmployeeId || filterStatus || searchQuery) && (
+              <button
+                onClick={() => { setFilterEmployeeId(''); setFilterStatus(''); setSearchQuery(''); }}
+                className="btn btn-secondary btn-sm"
+              >
+                Filtreleri Sıfırla
+              </button>
+            )}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Müşteri</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet & Fiyat</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Randevu Zamanı</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAppointments.map((a) => {
-                  const start = new Date(a.startAt);
-                  const end = new Date(a.endAt);
-                  const dateStr = start.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
-                  const timeStr = `${start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
+          <table>
+            <thead>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Müşteri</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet & Fiyat</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Randevu Zamanı</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAppointments.map((a) => {
+                const start = new Date(a.startAt);
+                const end = new Date(a.endAt);
+                const dateStr = start.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+                const timeStr = `${start.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`;
 
-                  return (
-                    <tr key={a.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ fontWeight: 600, color: '#fff' }}>{a.customerName}</div>
-                        {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.customerPhone}</div>}
-                      </td>
-                      <td style={{ padding: '1rem', color: '#38bdf8', fontWeight: 500 }}>
-                        {a.employeeName}
-                      </td>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ color: '#fff', fontSize: '0.9rem' }}>{a.serviceName}</div>
-                        <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}>{a.price} ₺ ({a.durationMinutes} dk)</div>
-                      </td>
-                      <td style={{ padding: '1rem' }}>
-                        <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 500 }}>{dateStr}</div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <Clock size={12} /> {timeStr}
-                        </div>
-                      </td>
-                      <td style={{ padding: '1rem' }}>
-                        {getStatusBadge(a.status)}
-                      </td>
-                      <td style={{ padding: '1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
-                          {a.status !== 3 && a.status !== 4 && (
-                            <>
-                              <button
-                                onClick={() => handleComplete(a.id)}
-                                className="btn btn-secondary btn-sm"
-                                title="Tamamlandı Olarak İşaretle"
-                                style={{ padding: '0.35rem 0.6rem', color: '#34d399' }}
-                              >
-                                <CheckCircle2 size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleCancel(a.id)}
-                                className="btn btn-ghost btn-sm"
-                                title="İptal Et"
-                                style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
-                              >
-                                <XCircle size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={a.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{a.customerName}</div>
+                      {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.customerPhone}</div>}
+                    </td>
+                    <td style={{ padding: '1rem', color: '#38bdf8', fontWeight: 500 }}>
+                      {a.employeeName}
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ color: '#fff', fontSize: '0.9rem' }}>{a.serviceName}</div>
+                      <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}>{a.price} ₺ ({a.durationMinutes} dk)</div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 500 }}>{dateStr}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <Clock size={12} /> {timeStr}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      {getStatusBadge(a.status)}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                        {a.status !== 3 && a.status !== 4 && (
+                          <>
+                            <button
+                              onClick={() => handleComplete(a.id)}
+                              className="btn btn-secondary btn-sm"
+                              title="Tamamlandı Olarak İşaretle"
+                              style={{ padding: '0.35rem 0.6rem', color: '#34d399' }}
+                            >
+                              <CheckCircle2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleCancel(a.id)}
+                              className="btn btn-ghost btn-sm"
+                              title="İptal Et"
+                              style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
       {/* Create Appointment Modal */}
       {isCreateModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          padding: '1rem'
-        }}>
-          <div className="glass-card animate-fade-in" style={{
-            width: '100%',
-            maxWidth: '520px',
-            padding: '2rem',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--bg-card-solid)',
-            border: '1px solid var(--border-medium)',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => setIsCreateModalOpen(false)}
-              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <Calendar size={20} color="var(--primary-400)" />
+                <span>Yeni Randevu Oluştur</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-            <h3 style={{ fontSize: '1.35rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Calendar size={20} color="var(--primary-400)" />
-              <span>Yeni Randevu Oluştur</span>
-            </h3>
+            <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="modal-body">
+                {formError && (
+                  <div className="alert-card alert-card-error">
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>{formError}</div>
+                  </div>
+                )}
 
-            {formError && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                background: 'var(--danger-bg)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                color: '#fca5a5',
-                fontSize: '0.85rem',
-                marginBottom: '1rem'
-              }}>
-                <AlertCircle size={16} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCreateSubmit}>
-              <div className="form-group">
-                <label className="form-label">Müşteri Seçimi</label>
-                <select
-                  className="form-select"
-                  value={newUserId}
-                  onChange={(e) => setNewUserId(e.target.value)}
-                  required
-                >
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
-                  ))}
-                  {users.length === 0 && <option value="1">Varsayılan Müşteri (ID: 1)</option>}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Personel</label>
+                  <label className="form-label">Müşteri Seçimi</label>
                   <select
                     className="form-select"
-                    value={newEmployeeId}
-                    onChange={(e) => setNewEmployeeId(e.target.value)}
+                    value={newUserId}
+                    onChange={(e) => setNewUserId(e.target.value)}
                     required
                   >
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
                     ))}
+                    {users.length === 0 && <option value="1">Varsayılan Müşteri (ID: 1)</option>}
                   </select>
                 </div>
 
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Personel</label>
+                    <select
+                      className="form-select"
+                      value={newEmployeeId}
+                      onChange={(e) => setNewEmployeeId(e.target.value)}
+                      required
+                    >
+                      {employees.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Hizmet</label>
+                    <select
+                      className="form-select"
+                      value={newServiceId}
+                      onChange={(e) => setNewServiceId(e.target.value)}
+                      required
+                    >
+                      {services.map(srv => (
+                        <option key={srv.id} value={srv.id}>{srv.name} ({srv.price} ₺)</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label">Hizmet</label>
-                  <select
-                    className="form-select"
-                    value={newServiceId}
-                    onChange={(e) => setNewServiceId(e.target.value)}
+                  <label className="form-label">Randevu Başlangıç Tarihi ve Saati</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input no-icon"
+                    value={newStartAt}
+                    onChange={(e) => setNewStartAt(e.target.value)}
                     required
-                  >
-                    {services.map(srv => (
-                      <option key={srv.id} value={srv.id}>{srv.name} ({srv.price} ₺)</option>
-                    ))}
-                  </select>
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Notlar (İsteğe Bağlı)</label>
+                  <input
+                    type="text"
+                    className="form-input no-icon"
+                    placeholder="Örn: Özel saç modeli isteği"
+                    value={newNotes}
+                    onChange={(e) => setNewNotes(e.target.value)}
+                  />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Randevu Başlangıç Tarihi ve Saati</label>
-                <input
-                  type="datetime-local"
-                  className="form-input no-icon"
-                  value={newStartAt}
-                  onChange={(e) => setNewStartAt(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Notlar (İsteğe Bağlı)</label>
-                <input
-                  type="text"
-                  className="form-input no-icon"
-                  placeholder="Örn: Özel saç modeli isteği"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
                   className="btn btn-secondary btn-sm"
+                  disabled={submitting}
                 >
                   İptal
                 </button>
@@ -445,8 +444,16 @@ export const AppointmentsView = ({ onNotify }) => {
                   type="submit"
                   disabled={submitting}
                   className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  {submitting ? 'Randevu Alınıyor...' : 'Randevuyu Onayla'}
+                  {submitting ? (
+                    <>
+                      <span className="spinner-sm" />
+                      <span>Kaydediliyor...</span>
+                    </>
+                  ) : (
+                    <span>Randevuyu Onayla</span>
+                  )}
                 </button>
               </div>
             </form>

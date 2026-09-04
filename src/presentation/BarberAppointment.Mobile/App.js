@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -45,6 +45,7 @@ const MainApp = () => {
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'home' && styles.navItemActive]}
           onPress={() => setActiveTab('home')}
+          activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>🏠</Text>
           <Text style={[styles.navLabel, activeTab === 'home' && styles.navLabelActive]}>
@@ -55,6 +56,7 @@ const MainApp = () => {
         <TouchableOpacity
           style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive]}
           onPress={() => setActiveTab('book')}
+          activeOpacity={0.8}
         >
           <Text style={styles.bookIcon}>✂️</Text>
           <Text style={styles.bookLabel}>
@@ -65,6 +67,7 @@ const MainApp = () => {
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'appointments' && styles.navItemActive]}
           onPress={() => setActiveTab('appointments')}
+          activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>📅</Text>
           <Text style={[styles.navLabel, activeTab === 'appointments' && styles.navLabelActive]}>
@@ -75,6 +78,7 @@ const MainApp = () => {
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'profile' && styles.navItemActive]}
           onPress={() => setActiveTab('profile')}
+          activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>👤</Text>
           <Text style={[styles.navLabel, activeTab === 'profile' && styles.navLabelActive]}>
@@ -115,7 +119,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingVertical: 8,
-    paddingBottom: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     paddingHorizontal: 10,
     justifyContent: 'space-around',
     alignItems: 'center',

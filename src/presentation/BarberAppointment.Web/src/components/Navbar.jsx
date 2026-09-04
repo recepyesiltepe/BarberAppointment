@@ -50,28 +50,28 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
                 MAKAS <span style={{ color: 'var(--primary-400)' }}>&</span> USTA
               </span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <div className="hide-on-mobile" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <CircleDot size={10} color="#10b981" /> .NET 10 & React Web
             </div>
           </div>
         </div>
 
         {/* Navigation Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isAuthenticated ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.4rem 0.85rem',
+                gap: '0.65rem',
+                padding: '0.35rem 0.75rem',
                 background: 'rgba(255, 255, 255, 0.04)',
                 borderRadius: 'var(--radius-full)',
                 border: '1px solid var(--border-subtle)'
               }}>
                 <div style={{
-                  width: '32px',
-                  height: '32px',
+                  width: '30px',
+                  height: '30px',
                   borderRadius: '50%',
                   background: 'var(--primary-gradient)',
                   color: '#000',
@@ -79,15 +79,16 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.9rem'
+                  fontSize: '0.85rem',
+                  flexShrink: 0
                 }}>
                   {user?.fullName?.charAt(0) || 'U'}
                 </div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                <div className="hide-on-mobile" style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {user?.fullName}
                   </div>
-                  <div style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.7rem', marginTop: '2px' }}>
                     {getRoleBadge()}
                   </div>
                 </div>
@@ -97,10 +98,10 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
                 onClick={logout} 
                 className="btn btn-secondary btn-sm"
                 title="Çıkış Yap"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem' }}
               >
-                <LogOut size={16} />
-                <span>Çıkış</span>
+                <LogOut size={15} />
+                <span className="hide-on-mobile">Çıkış</span>
               </button>
             </div>
           ) : (

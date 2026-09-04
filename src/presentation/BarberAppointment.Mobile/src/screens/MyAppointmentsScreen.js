@@ -132,6 +132,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
         <TouchableOpacity
           style={[styles.pill, filterTab === 'upcoming' && styles.pillActive]}
           onPress={() => setFilterTab('upcoming')}
+          activeOpacity={0.75}
         >
           <Text style={[styles.pillText, filterTab === 'upcoming' && styles.pillTextActive]}>
             Yaklaşan ({appointments.filter(a => (a.status === 1 || a.status === 2) && new Date(a.startAt) >= new Date()).length})
@@ -141,6 +142,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
         <TouchableOpacity
           style={[styles.pill, filterTab === 'history' && styles.pillActive]}
           onPress={() => setFilterTab('history')}
+          activeOpacity={0.75}
         >
           <Text style={[styles.pillText, filterTab === 'history' && styles.pillTextActive]}>
             Geçmiş ({appointments.filter(a => a.status === 3 || a.status === 4 || new Date(a.startAt) < new Date()).length})
@@ -150,6 +152,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
         <TouchableOpacity
           style={[styles.pill, filterTab === 'all' && styles.pillActive]}
           onPress={() => setFilterTab('all')}
+          activeOpacity={0.75}
         >
           <Text style={[styles.pillText, filterTab === 'all' && styles.pillTextActive]}>
             Tümü ({appointments.length})
@@ -161,7 +164,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
       {error && (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>⚠️ {error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchAppointments}>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchAppointments} activeOpacity={0.75}>
             <Text style={styles.retryButtonText}>Yeniden Dene</Text>
           </TouchableOpacity>
         </View>
@@ -179,7 +182,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
             Dilediğiniz uzman kuaför ve uygun saati seçerek hemen randevunuzu oluşturun.
           </Text>
           {onNavigateBooking && (
-            <TouchableOpacity style={styles.bookButton} onPress={onNavigateBooking}>
+            <TouchableOpacity style={styles.bookButton} onPress={onNavigateBooking} activeOpacity={0.8}>
               <Text style={styles.bookButtonText}>+ Hemen Randevu Al</Text>
             </TouchableOpacity>
           )}
@@ -237,6 +240,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
                 <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={() => handleCancel(a.id, a.serviceName, `${dateStr} ${timeStr}`)}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.cancelButtonText}>Randevuyu İptal Et</Text>
                 </TouchableOpacity>

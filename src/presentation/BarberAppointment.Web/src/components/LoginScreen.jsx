@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Phone, Eye, EyeOff, Sparkles, Shield, Scissors, UserCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, Eye, EyeOff, Sparkles, Shield, Scissors, UserCheck, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const LoginScreen = ({ onSuccess }) => {
@@ -169,38 +169,23 @@ export const LoginScreen = ({ onSuccess }) => {
 
         {/* Error / Success Alerts */}
         {error && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.75rem',
-            padding: '0.85rem 1rem',
-            background: 'var(--danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            color: '#fca5a5',
-            fontSize: '0.875rem',
-            marginBottom: '1.25rem'
-          }}>
+          <div className="alert-card alert-card-error">
             <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ whiteSpace: 'pre-line' }}>{error}</div>
+            <div style={{ flex: 1, whiteSpace: 'pre-line' }}>{error}</div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', display: 'flex', padding: '2px' }}
+            >
+              <X size={16} />
+            </button>
           </div>
         )}
 
         {successMsg && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0.85rem 1rem',
-            background: 'var(--success-bg)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: 'var(--radius-md)',
-            color: '#6ee7b7',
-            fontSize: '0.875rem',
-            marginBottom: '1.25rem'
-          }}>
+          <div className="alert-card alert-card-success">
             <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
-            <div>{successMsg}</div>
+            <div style={{ flex: 1 }}>{successMsg}</div>
           </div>
         )}
 
@@ -232,6 +217,7 @@ export const LoginScreen = ({ onSuccess }) => {
                 <input
                   type={showLoginPassword ? 'text' : 'password'}
                   className="form-input"
+                  style={{ paddingRight: '2.85rem' }}
                   placeholder="••••••••"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
@@ -381,6 +367,7 @@ export const LoginScreen = ({ onSuccess }) => {
                 <input
                   type={showRegPassword ? 'text' : 'password'}
                   className="form-input"
+                  style={{ paddingRight: '2.85rem' }}
                   placeholder="En az 6 karakter"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
@@ -410,6 +397,7 @@ export const LoginScreen = ({ onSuccess }) => {
                 <input
                   type={showRegPassword ? 'text' : 'password'}
                   className="form-input"
+                  style={{ paddingRight: '2.85rem' }}
                   placeholder="Şifrenizi tekrar giriniz"
                   value={regConfirmPassword}
                   onChange={(e) => setRegConfirmPassword(e.target.value)}
@@ -422,9 +410,19 @@ export const LoginScreen = ({ onSuccess }) => {
               type="submit"
               className="btn btn-primary"
               disabled={loading}
-              style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem' }}
+              style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-              {loading ? 'Hesap Oluşturuluyor...' : 'Hesap Oluştur'}
+              {loading ? (
+                <>
+                  <span className="spinner-sm" />
+                  <span>Hesap Oluşturuluyor...</span>
+                </>
+              ) : (
+                <>
+                  <UserCheck size={18} />
+                  <span>Hesap Oluştur</span>
+                </>
+              )}
             </button>
           </form>
         )}
