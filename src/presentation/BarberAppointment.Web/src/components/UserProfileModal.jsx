@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail, Edit3, Save, Lock, KeyRound } from 'lucide-react';
+import { User, Shield, CheckCircle2, AlertCircle, X, Smartphone, Calendar, Mail, Edit3, Save, Lock, KeyRound, Sun, Moon, Monitor, Palette } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
+  const { themePreference, setThemePreference, theme } = useTheme();
 
   // Mode: 'view' | 'edit' | 'password'
   const [mode, setMode] = useState('view');
@@ -170,10 +172,10 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
               {mode === 'password' ? <KeyRound size={20} color="#f87171" /> : <Shield size={20} color="#fbbf24" />}
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#fff' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {mode === 'password' ? 'Şifre Değiştirme & Güvenlik' : mode === 'edit' ? 'Profili Düzenle' : 'Güvenli Profilim'}
               </h3>
-              <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' : 'UserProfileDto ile korunan güvenli hesap bilgileri'}
               </p>
             </div>
@@ -432,10 +434,10 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   {user?.fullName?.charAt(0) || 'U'}
                 </div>
                 <div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {user?.fullName}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
                     <Mail size={13} /> {user?.email}
                   </div>
                   <div style={{ display: 'inline-block', marginTop: '4px', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
@@ -446,23 +448,23 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
               {/* Info Items */}
               <div style={{
-                background: 'rgba(255, 255, 255, 0.02)',
+                background: 'var(--btn-secondary-bg)',
                 borderRadius: '10px',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-subtle)',
                 padding: '0.5rem 1rem'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 0', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.85rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Kullanıcı No (ID):</span>
-                  <span style={{ color: '#fff', fontWeight: 600 }}>#{user?.id}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Kullanıcı No (ID):</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>#{user?.id}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.85rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Telefon Numarası:</span>
-                  <span style={{ color: '#fff', fontWeight: 600 }}>{user?.phone || 'Belirtilmedi'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Telefon Numarası:</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{user?.phone || 'Belirtilmedi'}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.85rem' }}>
-                  <span style={{ color: '#94a3b8' }}>SMS Doğrulama:</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>SMS Doğrulama:</span>
                   {user?.isPhoneVerified ? (
                     <span style={{ color: '#34d399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}>
                       <CheckCircle2 size={14} /> Doğrulandı
@@ -475,10 +477,10 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 0', fontSize: '0.85rem' }}>
-                  <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <Calendar size={14} /> Kayıt Tarihi:
                   </span>
-                  <span style={{ color: '#fff', fontWeight: 600 }}>{memberSinceFormatted}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{memberSinceFormatted}</span>
                 </div>
               </div>
 
@@ -493,9 +495,83 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 gap: '0.6rem'
               }}>
                 <Lock size={18} color="#34d399" />
-                <span style={{ fontSize: '0.75rem', color: '#6ee7b7' }}>
+                <span style={{ fontSize: '0.75rem', color: '#34d399' }}>
                   Güvenli DTO İzolasyonu: Parola özetleri, tuzlama verileri ve dahili sistem bayrakları istemciye asla sızdırılmaz.
                 </span>
+              </div>
+
+              {/* Theme Preference Selector (Ek Geliştirme 7) */}
+              <div style={{
+                background: 'var(--btn-secondary-bg)',
+                borderRadius: '12px',
+                border: '1px solid var(--border-subtle)',
+                padding: '0.85rem 1rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    <Palette size={15} color="#f59e0b" /> Görünüm & Tema Tercihi
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Aktif: {theme === 'dark' ? '🌙 Koyu' : '☀️ Açık'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('system')}
+                    className="btn btn-sm"
+                    style={{
+                      background: themePreference === 'system' ? 'var(--bg-card-solid)' : 'transparent',
+                      color: themePreference === 'system' ? 'var(--primary-500)' : 'var(--text-secondary)',
+                      border: themePreference === 'system' ? '1px solid var(--primary-500)' : '1px solid var(--border-subtle)',
+                      fontWeight: themePreference === 'system' ? 700 : 500,
+                      gap: '0.35rem',
+                      padding: '0.5rem 0.25rem'
+                    }}
+                  >
+                    <Monitor size={14} />
+                    <span>Sistem</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('light')}
+                    className="btn btn-sm"
+                    style={{
+                      background: themePreference === 'light' ? 'var(--bg-card-solid)' : 'transparent',
+                      color: themePreference === 'light' ? '#d97706' : 'var(--text-secondary)',
+                      border: themePreference === 'light' ? '1px solid #d97706' : '1px solid var(--border-subtle)',
+                      fontWeight: themePreference === 'light' ? 700 : 500,
+                      gap: '0.35rem',
+                      padding: '0.5rem 0.25rem'
+                    }}
+                  >
+                    <Sun size={14} />
+                    <span>Açık</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setThemePreference('dark')}
+                    className="btn btn-sm"
+                    style={{
+                      background: themePreference === 'dark' ? 'var(--bg-card-solid)' : 'transparent',
+                      color: themePreference === 'dark' ? '#fbbf24' : 'var(--text-secondary)',
+                      border: themePreference === 'dark' ? '1px solid #fbbf24' : '1px solid var(--border-subtle)',
+                      fontWeight: themePreference === 'dark' ? 700 : 500,
+                      gap: '0.35rem',
+                      padding: '0.5rem 0.25rem'
+                    }}
+                  >
+                    <Moon size={14} />
+                    <span>Koyu</span>
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.5rem', textAlign: 'center' }}>
+                  {themePreference === 'system' 
+                    ? '💻 Cihazınızın/tarayıcınızın açık/koyu modu otomatik algılanır.' 
+                    : '📌 Manuel tema seçiminiz bu tarayıcıda kalıcı olarak saklanır.'}
+                </div>
               </div>
 
               {/* Action Buttons */}

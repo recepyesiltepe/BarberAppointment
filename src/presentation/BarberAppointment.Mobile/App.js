@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { BookingScreen } from './src/screens/BookingScreen';
 import { MyAppointmentsScreen } from './src/screens/MyAppointmentsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { colors } from './src/theme/colors';
 
 const MainApp = () => {
   const { isAuthenticated } = useAuth();
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'appointments' | 'profile'
 
   if (!isAuthenticated) {
@@ -18,7 +19,7 @@ const MainApp = () => {
   }
 
   return (
-    <View style={styles.appContainer}>
+    <View style={[styles.appContainer, { backgroundColor: colors.bgMain }]}>
       {/* Active Screen View */}
       <View style={styles.screenContainer}>
         {activeTab === 'home' && (
@@ -41,20 +42,26 @@ const MainApp = () => {
       </View>
 
       {/* 4-Tab Bottom Navigation Bar */}
-      <View style={styles.bottomNav}>
+      <View style={[
+        styles.bottomNav,
+        {
+          backgroundColor: isDark ? 'rgba(17, 24, 39, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+          borderTopColor: colors.border
+        }
+      ]}>
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'home' && styles.navItemActive]}
           onPress={() => setActiveTab('home')}
           activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>🏠</Text>
-          <Text style={[styles.navLabel, activeTab === 'home' && styles.navLabelActive]}>
+          <Text style={[styles.navLabel, { color: activeTab === 'home' ? colors.primary : colors.textSecondary }]}>
             Keşfet
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive]}
+          style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive, { backgroundColor: colors.primary }]}
           onPress={() => setActiveTab('book')}
           activeOpacity={0.8}
         >
@@ -70,7 +77,7 @@ const MainApp = () => {
           activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>📅</Text>
-          <Text style={[styles.navLabel, activeTab === 'appointments' && styles.navLabelActive]}>
+          <Text style={[styles.navLabel, { color: activeTab === 'appointments' ? colors.primary : colors.textSecondary }]}>
             Randevularım
           </Text>
         </TouchableOpacity>
@@ -81,7 +88,7 @@ const MainApp = () => {
           activeOpacity={0.75}
         >
           <Text style={styles.navIcon}>👤</Text>
-          <Text style={[styles.navLabel, activeTab === 'profile' && styles.navLabelActive]}>
+          <Text style={[styles.navLabel, { color: activeTab === 'profile' ? colors.primary : colors.textSecondary }]}>
             Profilim
           </Text>
         </TouchableOpacity>
@@ -90,13 +97,23 @@ const MainApp = () => {
   );
 };
 
+const ThemedContainer = () => {
+  const { colors, isDark } = useTheme();
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bgMain }]}>
+      <StatusBar style={isDark ? "light" : "dark"} backgroundColor={colors.bgMain} />
+      <MainApp />
+    </SafeAreaView>
+  );
+};
+
 export default function App() {
   return (
     <AuthProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" backgroundColor={colors.bgMain} />
-        <MainApp />
-      </SafeAreaView>
+      <ThemeProvider>
+        <ThemedContainer />
+      </ThemeProvider>
     </AuthProvider>
   );
 }
@@ -104,7 +121,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bgMain,
   },
   appContainer: {
     flex: 1,
@@ -115,9 +131,7 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(17, 24, 39, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
     paddingVertical: 8,
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     paddingHorizontal: 10,
@@ -138,28 +152,21 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   navLabel: {
-    color: colors.textSecondary,
     fontSize: 10,
     fontWeight: '600',
   },
-  navLabelActive: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
   bookTabItem: {
-    backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 14,
     borderRadius: 20,
     marginTop: -8,
-    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   },
   bookTabItemActive: {
-    backgroundColor: colors.primaryDark,
+    opacity: 0.9,
   },
   bookIcon: {
     fontSize: 18,

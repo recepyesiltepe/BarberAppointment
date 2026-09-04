@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Scissors, LogOut, Shield, User, Sparkles, CircleDot, Smartphone } from 'lucide-react';
+import { Scissors, LogOut, Shield, User, Sparkles, CircleDot, Smartphone, Sun, Moon, Monitor } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { SmsVerificationModal } from './SmsVerificationModal';
 import { UserProfileModal } from './UserProfileModal';
 
 export const Navbar = ({ currentTab, setCurrentTab }) => {
   const { user, isAuthenticated, logout, roleName } = useAuth();
+  const { themePreference, setThemePreference } = useTheme();
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -23,12 +25,13 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
   return (
     <header style={{
       borderBottom: '1px solid var(--border-subtle)',
-      background: 'rgba(10, 13, 20, 0.85)',
+      background: 'var(--header-bg)',
       backdropFilter: 'blur(16px)',
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      padding: '0.85rem 0'
+      padding: '0.85rem 0',
+      transition: 'background-color 0.25s ease'
     }}>
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* Brand Logo */}
@@ -50,7 +53,7 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
                 MAKAS <span style={{ color: 'var(--primary-400)' }}>&</span> USTA
               </span>
             </div>
@@ -62,6 +65,85 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
 
         {/* Navigation Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Theme Selector (Segmented Auto/Light/Dark) */}
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'var(--btn-secondary-bg)',
+              padding: '3px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--border-subtle)'
+            }}
+            title={`Tema Ayarı: ${themePreference === 'system' ? 'Sistem (Otomatik)' : themePreference === 'light' ? 'Açık Tema' : 'Koyu Tema'}`}
+          >
+            <button
+              onClick={() => setThemePreference('system')}
+              title="Sistem Tercihini Takip Et (Otomatik)"
+              style={{
+                background: themePreference === 'system' ? 'var(--bg-card-solid)' : 'transparent',
+                color: themePreference === 'system' ? 'var(--primary-500)' : 'var(--text-muted)',
+                border: 'none',
+                borderRadius: 'var(--radius-full)',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                boxShadow: themePreference === 'system' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Monitor size={13} />
+              <span className="hide-on-mobile">Oto</span>
+            </button>
+            <button
+              onClick={() => setThemePreference('light')}
+              title="Açık Tema (Light Mode)"
+              style={{
+                background: themePreference === 'light' ? 'var(--bg-card-solid)' : 'transparent',
+                color: themePreference === 'light' ? '#d97706' : 'var(--text-muted)',
+                border: 'none',
+                borderRadius: 'var(--radius-full)',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                boxShadow: themePreference === 'light' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Sun size={13} />
+              <span className="hide-on-mobile">Açık</span>
+            </button>
+            <button
+              onClick={() => setThemePreference('dark')}
+              title="Koyu Tema (Dark Mode)"
+              style={{
+                background: themePreference === 'dark' ? 'var(--bg-card-solid)' : 'transparent',
+                color: themePreference === 'dark' ? '#fbbf24' : 'var(--text-muted)',
+                border: 'none',
+                borderRadius: 'var(--radius-full)',
+                padding: '4px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                boxShadow: themePreference === 'dark' ? 'var(--shadow-sm)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Moon size={13} />
+              <span className="hide-on-mobile">Koyu</span>
+            </button>
+          </div>
           {isAuthenticated ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div 

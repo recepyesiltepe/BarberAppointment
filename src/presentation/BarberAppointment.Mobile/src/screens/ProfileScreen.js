@@ -11,11 +11,14 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getApiUrl, setApiUrl } from '../api/client';
 import { smsApi, authApi } from '../api/barberApi';
 
 export const ProfileScreen = () => {
   const { user, token, roleName, logout, updateUser } = useAuth();
+  const { colors: currentThemeColors, themePreference, setThemePreference } = useTheme();
+  const activeColors = currentThemeColors || colors;
   const [showToken, setShowToken] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
@@ -505,6 +508,70 @@ export const ProfileScreen = () => {
         )}
       </View>
 
+      {/* Theme Preference Card (Ek Geliştirme 7) */}
+      <View style={[styles.card, { backgroundColor: activeColors.bgCard, borderColor: activeColors.border }]}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={[styles.cardTitle, { color: activeColors.textPrimary }]}>🎨 Tema & Görünüm Tercihi</Text>
+          <Text style={{ fontSize: 11, color: activeColors.textMuted }}>
+            {themePreference === 'system' ? '📱 Sistem (Oto)' : themePreference === 'light' ? '☀️ Açık' : '🌙 Koyu'}
+          </Text>
+        </View>
+
+        <Text style={[styles.cardSub, { color: activeColors.textSecondary }]}>
+          Uygulama renk modu varsayılan olarak cihazınızın açık/koyu temasını takip eder.
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <TouchableOpacity
+            style={[
+              styles.themeOptionBtn,
+              {
+                borderColor: themePreference === 'system' ? activeColors.primary : activeColors.border,
+                backgroundColor: themePreference === 'system' ? 'rgba(245, 158, 11, 0.15)' : activeColors.bgInput
+              }
+            ]}
+            onPress={() => setThemePreference('system')}
+          >
+            <Text style={{ fontSize: 16 }}>📱</Text>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'system' ? activeColors.primaryLight : activeColors.textSecondary }]}>
+              Sistem
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.themeOptionBtn,
+              {
+                borderColor: themePreference === 'light' ? '#d97706' : activeColors.border,
+                backgroundColor: themePreference === 'light' ? 'rgba(217, 119, 6, 0.15)' : activeColors.bgInput
+              }
+            ]}
+            onPress={() => setThemePreference('light')}
+          >
+            <Text style={{ fontSize: 16 }}>☀️</Text>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'light' ? '#d97706' : activeColors.textSecondary }]}>
+              Açık
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.themeOptionBtn,
+              {
+                borderColor: themePreference === 'dark' ? '#fbbf24' : activeColors.border,
+                backgroundColor: themePreference === 'dark' ? 'rgba(251, 191, 36, 0.15)' : activeColors.bgInput
+              }
+            ]}
+            onPress={() => setThemePreference('dark')}
+          >
+            <Text style={{ fontSize: 16 }}>🌙</Text>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'dark' ? '#fbbf24' : activeColors.textSecondary }]}>
+              Koyu
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Network Configuration */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
@@ -692,5 +759,19 @@ const styles = StyleSheet.create({
     color: '#f87171',
     fontWeight: '700',
     fontSize: 15,
+  },
+  themeOptionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  themeOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
   }
 });

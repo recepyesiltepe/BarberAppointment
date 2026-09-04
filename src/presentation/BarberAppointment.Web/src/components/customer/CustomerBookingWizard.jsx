@@ -988,13 +988,13 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             🎉
           </div>
 
-          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#fff' }}>Randevunuz Başarıyla Oluşturuldu!</h2>
+          <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Randevunuz Başarıyla Oluşturuldu!</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', maxWidth: '540px', margin: '0 auto 2rem' }}>
             Rezervasyonunuz onaylandı. Kuaför salonumuzda sizi ağırlamaktan mutluluk duyacağız.
           </p>
 
           <div style={{
-            background: '#0a0d14',
+            background: 'var(--btn-secondary-bg)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             padding: '1.5rem',
