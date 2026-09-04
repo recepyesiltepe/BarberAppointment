@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
-import { barberApi } from '../api/barberApi';
+import { barberApi, smsApi } from '../api/barberApi';
 
 export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   // Wizard Step: 1 = Service, 2 = Employee, 3 = Date & Slot, 4 = Review / Success
   const [currentStep, setCurrentStep] = useState(1);
@@ -36,6 +36,94 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
 
   // Result State
   const [createdAppointment, setCreatedAppointment] = useState(null);
+
+  // SMS Verification Flow States (Ek Geliştirme 4)
+  const [smsPhone, setSmsPhone] = useState(user?.phone || '05553334455');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsStep, setSmsStep] = useState(1); // 1 = Phone Input, 2 = Code Input
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [smsCooldown, setSmsCooldown] = useState(0);
+  const [simulationCode, setSimulationCode] = useState(null);
+  const [smsError, setSmsError] = useState(null);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    let timer;
+    if (smsCooldown > 0) {
+      timer = setInterval(() => {
+        setSmsCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [smsCooldown]);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setSmsPhone(user.phone);
+    }
+  }, [user]);
+
+  const handleSendSmsCode = async () => {
+    if (!smsPhone || smsPhone.trim().length < 10) {
+      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz.');
+      return;
+    }
+
+    setSmsLoading(true);
+    setSmsError(null);
+    try {
+      const res = await smsApi.sendCode(smsPhone.trim());
+      if (res.success && res.data) {
+        setSmsCooldown(res.data.cooldownSeconds || 60);
+        if (res.data.simulationCode) {
+          setSimulationCode(res.data.simulationCode);
+        }
+        setSmsStep(2);
+        Alert.alert('SMS Gönderildi', `Doğrulama kodu ${res.data.maskedPhoneNumber || smsPhone} numarasına gönderildi.`);
+      } else {
+        setSmsError(res.message || 'SMS kodu gönderilemedi.');
+      }
+    } catch (err) {
+      setSmsError(err.message || 'SMS gönderim hatası.');
+    } finally {
+      setSmsLoading(false);
+    }
+  };
+
+  const handleVerifyAndBook = async () => {
+    if (!smsCode || smsCode.trim().length !== 6) {
+      setSmsError('Lütfen 6 haneli doğrulama kodunu giriniz.');
+      return;
+    }
+
+    setLoading(true);
+    setSmsError(null);
+    try {
+      const appointmentPayload = {
+        userId: user?.id || 1,
+        employeeId: selectedEmployee.id,
+        serviceId: selectedService.id,
+        startAt: selectedSlot.startAt,
+        notes: notes || null
+      };
+
+      const res = await smsApi.verifyAndBook(smsPhone.trim(), smsCode.trim(), appointmentPayload);
+      if (res.success && res.data) {
+        if (updateUser) {
+          updateUser({ isPhoneVerified: true, phone: smsPhone.trim() });
+        }
+        setCreatedAppointment(res.data.appointment);
+        setCurrentStep(5);
+        Alert.alert('Tebrikler 🎉', 'Telefonunuz doğrulandı ve randevunuz başarıyla oluşturuldu!');
+      } else {
+        setSmsError(res.message || 'Doğrulama veya randevu oluşturma başarısız.');
+      }
+    } catch (err) {
+      setSmsError(err.message || 'Randevu işlemi gerçekleştirilemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Gelecek 7 günün tarih listesini üret
   const getNext7Days = () => {
@@ -438,21 +526,171 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             />
           </View>
 
-          <TouchableOpacity
-            style={[styles.confirmButton, loading && { opacity: 0.8 }]}
-            onPress={handleConfirmBooking}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
+          {/* Phone Verification Section (Ek Geliştirme 4) */}
+          {user?.isPhoneVerified ? (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 12,
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              borderWidth: 1,
+              borderColor: 'rgba(16, 185, 129, 0.3)',
+              borderRadius: 10,
+              marginBottom: 16
+            }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <ActivityIndicator color="#000" />
-                <Text style={styles.confirmButtonText}>Randevu Kaydediliyor...</Text>
+                <Text style={{ fontSize: 18 }}>🛡️</Text>
+                <View>
+                  <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>Telefon Doğrulanmış</Text>
+                  <Text style={{ color: '#fff', fontSize: 12 }}>{user?.phone || 'Kayıtlı Numara'}</Text>
+                </View>
               </View>
-            ) : (
-              <Text style={styles.confirmButtonText}>🎉 Randevuyu Kesinleştir ve Onayla</Text>
-            )}
-          </TouchableOpacity>
+              <View style={{ backgroundColor: '#10b981', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                <Text style={{ color: '#000', fontSize: 11, fontWeight: '700' }}>✓ Onaylı</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={{
+              backgroundColor: 'rgba(245, 158, 11, 0.05)',
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+              borderRadius: 10,
+              padding: 14,
+              marginBottom: 16
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <Text style={{ fontSize: 18 }}>📱</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>
+                  SMS Telefon Doğrulaması (Gerekli)
+                </Text>
+              </View>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12, lineHeight: 16 }}>
+                Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <Text style={{ fontWeight: '700', color: colors.primary }}>otomatik olarak tamamlanacaktır</Text>.
+              </Text>
+
+              {smsError && (
+                <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', borderRadius: 8, padding: 8, marginBottom: 10 }}>
+                  <Text style={{ color: '#fca5a5', fontSize: 12 }}>⚠️ {smsError}</Text>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, height: 44, marginVertical: 0 }]}
+                  placeholder="05XXXXXXXXX"
+                  placeholderTextColor={colors.textMuted}
+                  value={smsPhone}
+                  onChangeText={setSmsPhone}
+                  keyboardType="phone-pad"
+                  editable={!(smsStep === 2 && smsCooldown > 0)}
+                />
+
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: 8,
+                    height: 44,
+                    paddingHorizontal: 12,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}
+                  onPress={handleSendSmsCode}
+                  disabled={smsLoading || smsCooldown > 0}
+                  activeOpacity={0.75}
+                >
+                  {smsLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>
+                      {smsCooldown > 0 ? `${smsCooldown}s` : smsStep === 2 ? 'Yeniden İste' : 'Kod Gönder'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {smsStep === 2 && (
+                <View style={{ marginTop: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.08)' }}>
+                  {simulationCode && (
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(56, 189, 248, 0.3)',
+                        borderRadius: 8,
+                        padding: 8,
+                        marginBottom: 10
+                      }}
+                      onPress={() => setSmsCode(simulationCode)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: '#7dd3fc', fontSize: 12 }}>🧪 Test Kodu: <Text style={{ fontWeight: '800' }}>{simulationCode}</Text></Text>
+                      <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700' }}>Kodu Doldur ↵</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>6 Haneli Kodu Giriniz:</Text>
+                  <TextInput
+                    style={[styles.input, { height: 44, fontSize: 18, fontWeight: '800', letterSpacing: 6, textAlign: 'center', marginVertical: 0, marginBottom: 12 }]}
+                    placeholder="123456"
+                    placeholderTextColor={colors.textMuted}
+                    value={smsCode}
+                    onChangeText={(val) => setSmsCode(val.replace(/\D/g, ''))}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                  />
+
+                  <TouchableOpacity
+                    style={[styles.confirmButton, { height: 46, backgroundColor: colors.primary, marginTop: 4 }, (loading || smsCode.length !== 6) && { opacity: 0.6 }]}
+                    onPress={handleVerifyAndBook}
+                    disabled={loading || smsCode.length !== 6}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator color="#000" />
+                        <Text style={[styles.confirmButtonText, { fontSize: 13 }]}>Doğrulanıyor & Randevu Alınıyor...</Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.confirmButtonText, { fontSize: 13 }]}>✓ Doğrula ve Randevuyu Otomatik Tamamla</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {user?.isPhoneVerified ? (
+            <TouchableOpacity
+              style={[styles.confirmButton, loading && { opacity: 0.8 }]}
+              onPress={handleConfirmBooking}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator color="#000" />
+                  <Text style={styles.confirmButtonText}>Randevu Kaydediliyor...</Text>
+                </View>
+              ) : (
+                <Text style={styles.confirmButtonText}>🎉 Randevuyu Kesinleştir ve Onayla</Text>
+              )}
+            </TouchableOpacity>
+          ) : smsStep === 1 ? (
+            <TouchableOpacity
+              style={[styles.confirmButton, smsLoading && { opacity: 0.8 }]}
+              onPress={handleSendSmsCode}
+              disabled={smsLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.confirmButtonText}>SMS Kodu İsteyerek Devam Et</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={styles.backButton}

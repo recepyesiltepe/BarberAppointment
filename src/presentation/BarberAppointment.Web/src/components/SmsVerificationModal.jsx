@@ -4,7 +4,7 @@ import { smsApi } from '../api/barberApi';
 import { useAuth } from '../context/AuthContext';
 
 export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateUser } = useAuth();
 
   const [phoneNumber, setPhoneNumber] = useState(user?.phone || '');
   const [code, setCode] = useState('');
@@ -91,6 +91,9 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
 
       if (res.success) {
         setStep(3);
+        if (updateUser) {
+          updateUser({ isPhoneVerified: true, phone: phoneNumber.trim() });
+        }
         if (onSuccess) onSuccess(phoneNumber);
       } else {
         throw new Error(res.message || 'Doğrulama kodu geçersiz.');

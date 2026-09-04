@@ -97,6 +97,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (updatedFields) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('barber_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const refreshProfile = async () => {
+    try {
+      const profileRes = await authApi.getProfile();
+      if (profileRes.success && profileRes.data) {
+        setUser(profileRes.data);
+        localStorage.setItem('barber_user', JSON.stringify(profileRes.data));
+        return profileRes.data;
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const value = {
     user,
     token,
@@ -106,6 +128,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUser,
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

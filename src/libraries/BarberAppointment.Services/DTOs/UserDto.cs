@@ -10,6 +10,7 @@ public class UserDto
     public string? Phone { get; set; }
     public UserRole Role { get; set; }
     public bool IsActive { get; set; }
+    public bool IsPhoneVerified { get; set; }
 }
 
 public class CreateUserDto

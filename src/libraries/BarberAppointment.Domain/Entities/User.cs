@@ -10,6 +10,7 @@ public class User : BaseEntity
     public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
     public byte[] PasswordSalt { get; set; } = Array.Empty<byte>();
     public UserRole Role { get; set; } = UserRole.Customer;
+    public bool IsPhoneVerified { get; set; } = false;
 
     // Navigation properties
     public virtual Employee? Employee { get; set; }

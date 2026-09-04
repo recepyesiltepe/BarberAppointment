@@ -91,6 +91,7 @@ public class UserService : IUserService
         Email = u.Email,
         Phone = u.Phone,
         Role = u.Role,
-        IsActive = u.IsActive
+        IsActive = u.IsActive,
+        IsPhoneVerified = u.IsPhoneVerified
     };
 }

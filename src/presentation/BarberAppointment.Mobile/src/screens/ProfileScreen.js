@@ -15,7 +15,7 @@ import { getApiUrl, setApiUrl } from '../api/client';
 import { smsApi } from '../api/barberApi';
 
 export const ProfileScreen = () => {
-  const { user, token, roleName, logout } = useAuth();
+  const { user, token, roleName, logout, updateUser } = useAuth();
   const [showToken, setShowToken] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
@@ -23,11 +23,11 @@ export const ProfileScreen = () => {
   // SMS Verification State
   const [phoneInput, setPhoneInput] = useState(user?.phone || '');
   const [smsCode, setSmsCode] = useState('');
-  const [smsStep, setSmsStep] = useState(1); // 1 = Phone Input, 2 = Code Input, 3 = Verified
+  const [smsStep, setSmsStep] = useState(user?.isPhoneVerified ? 3 : 1); // 1 = Phone Input, 2 = Code Input, 3 = Verified
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsCooldown, setSmsCooldown] = useState(0);
   const [simulationCode, setSimulationCode] = useState(null);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(!!user?.isPhoneVerified);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -81,6 +81,9 @@ export const ProfileScreen = () => {
       if (res.success) {
         setIsPhoneVerified(true);
         setSmsStep(3);
+        if (updateUser) {
+          updateUser({ isPhoneVerified: true, phone: phoneInput.trim() });
+        }
         Alert.alert('Tebrikler 🎉', 'Telefon numaranız başarıyla doğrulandı ve profilinize kaydedildi.');
       } else {
         Alert.alert('Hata', res.message || 'Doğrulama kodu geçersiz.');

@@ -102,5 +102,8 @@ export const smsApi = {
   },
   verifyMyPhone: async (phoneNumber, code) => {
     return await client.post('/api/sms/verify-my-phone', { phoneNumber, code });
+  },
+  verifyAndBook: async (phoneNumber, code, appointment) => {
+    return await client.post('/api/sms/verify-and-book', { phoneNumber, code, appointment });
   }
 };

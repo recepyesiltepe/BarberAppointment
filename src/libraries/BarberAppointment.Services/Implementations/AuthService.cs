@@ -149,6 +149,7 @@ public class AuthService : IAuthService
         Email = u.Email,
         Phone = u.Phone,
         Role = u.Role,
-        IsActive = u.IsActive
+        IsActive = u.IsActive,
+        IsPhoneVerified = u.IsPhoneVerified
     };
 }

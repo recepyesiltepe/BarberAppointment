@@ -12,13 +12,17 @@ import {
   FileText,
   DollarSign,
   Search,
-  X
+  X,
+  Smartphone,
+  KeyRound,
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
-import { servicesApi, employeesApi, appointmentsApi } from '../../api/barberApi';
+import { servicesApi, employeesApi, appointmentsApi, smsApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 
 export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   // Wizard Step: 1 = Service, 2 = Employee, 3 = Date & Slot, 4 = Review, 5 = Success
   const [currentStep, setCurrentStep] = useState(1);
@@ -41,6 +45,93 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
   // Result
   const [createdAppointment, setCreatedAppointment] = useState(null);
+
+  // SMS Verification Flow States (Ek Geliştirme 4)
+  const [smsPhone, setSmsPhone] = useState(user?.phone || '05553334455');
+  const [smsCode, setSmsCode] = useState('');
+  const [smsStep, setSmsStep] = useState(1); // 1 = Phone Input, 2 = Code Input
+  const [smsCooldown, setSmsCooldown] = useState(0);
+  const [smsSimulationCode, setSmsSimulationCode] = useState(null);
+  const [smsLoading, setSmsLoading] = useState(false);
+  const [smsError, setSmsError] = useState(null);
+
+  // Cooldown timer
+  useEffect(() => {
+    let timer;
+    if (smsCooldown > 0) {
+      timer = setInterval(() => {
+        setSmsCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [smsCooldown]);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setSmsPhone(user.phone);
+    }
+  }, [user]);
+
+  const handleSendSmsCode = async () => {
+    if (!smsPhone || smsPhone.trim().length < 10) {
+      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz.');
+      return;
+    }
+
+    setSmsLoading(true);
+    setSmsError(null);
+    try {
+      const res = await smsApi.sendCode(smsPhone.trim());
+      if (res.success && res.data) {
+        setSmsCooldown(res.data.cooldownSeconds || 60);
+        if (res.data.simulationCode) {
+          setSmsSimulationCode(res.data.simulationCode);
+        }
+        setSmsStep(2);
+      } else {
+        setSmsError(res.message || 'SMS kodu gönderilemedi.');
+      }
+    } catch (err) {
+      setSmsError(err.message || 'SMS gönderim hatası.');
+    } finally {
+      setSmsLoading(false);
+    }
+  };
+
+  const handleVerifyAndBook = async () => {
+    if (!smsCode || smsCode.trim().length !== 6) {
+      setSmsError('Lütfen 6 haneli doğrulama kodunu giriniz.');
+      return;
+    }
+
+    setLoading(true);
+    setSmsError(null);
+    try {
+      const appointmentPayload = {
+        userId: user?.id || 1,
+        employeeId: selectedEmployee.id,
+        serviceId: selectedService.id,
+        startAt: selectedSlot.startAt,
+        notes: notes || null
+      };
+
+      const res = await smsApi.verifyAndBook(smsPhone.trim(), smsCode.trim(), appointmentPayload);
+      if (res.success && res.data) {
+        if (updateUser) {
+          updateUser({ isPhoneVerified: true, phone: smsPhone.trim() });
+        }
+        setCreatedAppointment(res.data.appointment);
+        setCurrentStep(5);
+        if (onNotify) onNotify('Telefonunuz başarıyla doğrulandı ve randevunuz oluşturuldu!', 'success');
+      } else {
+        setSmsError(res.message || 'Doğrulama veya randevu oluşturma başarısız.');
+      }
+    } catch (err) {
+      setSmsError(err.message || 'Randevu işlemi gerçekleştirilemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Generate next 7 days
   const getNext7Days = () => {
@@ -698,27 +789,177 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             />
           </div>
 
+          {/* Phone Verification Section (Ek Geliştirme 4) */}
+          {user?.isPhoneVerified ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.85rem 1.25rem',
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <ShieldCheck size={20} color="#10b981" />
+                <div>
+                  <span style={{ fontWeight: 600, color: '#10b981' }}>Telefon Doğrulanmış: </span>
+                  <span style={{ color: '#fff' }}>{user?.phone || 'Kayıtlı Telefon'}</span>
+                </div>
+              </div>
+              <span className="badge badge-confirmed" style={{ fontSize: '0.75rem' }}>Doğrulandı</span>
+            </div>
+          ) : (
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.05)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1.5rem',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                <Smartphone size={22} color="#fbbf24" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', margin: 0 }}>
+                  SMS Telefon Doğrulaması (Gerekli)
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+                Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <strong>otomatik olarak tamamlanacaktır</strong>.
+              </p>
+
+              {smsError && (
+                <div className="alert-card" style={{ marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+                  <AlertCircle size={16} />
+                  <span>{smsError}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>Cep Telefonu Numaranız</label>
+                  <input
+                    type="tel"
+                    className="form-input no-icon"
+                    placeholder="05XXXXXXXXX"
+                    value={smsPhone}
+                    onChange={(e) => setSmsPhone(e.target.value)}
+                    disabled={smsStep === 2 && smsCooldown > 0}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSendSmsCode}
+                  disabled={smsLoading || smsCooldown > 0}
+                  className="btn btn-secondary"
+                  style={{ whiteSpace: 'nowrap', height: '42px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {smsLoading ? (
+                    <span className="spinner-sm" style={{ width: '16px', height: '16px' }} />
+                  ) : smsCooldown > 0 ? (
+                    <span>{smsCooldown}s Bekleyin</span>
+                  ) : (
+                    <span>{smsStep === 2 ? 'Yeniden Kod İste' : 'SMS Kodu Gönder'}</span>
+                  )}
+                </button>
+              </div>
+
+              {smsStep === 2 && (
+                <div className="animate-fade-in" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  {smsSimulationCode && (
+                    <div style={{
+                      padding: '0.6rem 0.85rem',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      borderRadius: 'var(--radius-sm)',
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '0.8rem', color: '#7dd3fc' }}>🧪 Test Simülasyon Kodu: <strong>{smsSimulationCode}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => setSmsCode(smsSimulationCode)}
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                      >
+                        Kodu Doldur
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <KeyRound size={16} color="#fbbf24" />
+                      <span>6 Haneli Doğrulama Kodunu Giriniz</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      className="form-input no-icon"
+                      placeholder="Örn: 123456"
+                      value={smsCode}
+                      onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ''))}
+                      style={{ letterSpacing: '0.3em', fontSize: '1.25rem', fontWeight: 700, textAlign: 'center' }}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleVerifyAndBook}
+                    disabled={loading || smsCode.length !== 6}
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '0.85rem', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                        <span>Doğrulanıyor ve Randevu Oluşturuluyor...</span>
+                      </>
+                    ) : (
+                      <span>✓ Doğrula ve Randevuyu Otomatik Tamamla</span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <button onClick={() => setCurrentStep(3)} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <ChevronLeft size={16} />
               <span>Geri (Saat Değiştir)</span>
             </button>
 
-            <button
-              onClick={handleConfirmBooking}
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                  <span>Randevu Kaydediliyor...</span>
-                </>
-              ) : (
-                <span>🎉 Randevuyu Kesinleştir ve Onayla</span>
-              )}
-            </button>
+            {user?.isPhoneVerified ? (
+              <button
+                onClick={handleConfirmBooking}
+                disabled={loading}
+                className="btn btn-primary"
+                style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Randevu Kaydediliyor...</span>
+                  </>
+                ) : (
+                  <span>🎉 Randevuyu Kesinleştir ve Onayla</span>
+                )}
+              </button>
+            ) : smsStep === 1 ? (
+              <button
+                type="button"
+                onClick={handleSendSmsCode}
+                disabled={smsLoading}
+                className="btn btn-primary"
+                style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
+              >
+                <span>SMS Kodu İsteyerek Devam Et</span>
+              </button>
+            ) : null}
           </div>
         </div>
       )}
