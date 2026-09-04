@@ -7,6 +7,12 @@ export const authApi = {
   register: async (userData) => {
     return await client.post('/api/auth/register', userData);
   },
+  verifyEmail: async (data) => {
+    return await client.post('/api/auth/verify-email', data);
+  },
+  resendVerificationEmail: async (email) => {
+    return await client.post('/api/auth/resend-verification-email', { email });
+  },
   getProfile: async () => {
     return await client.get('/api/auth/me');
   },
@@ -15,6 +21,9 @@ export const authApi = {
   },
   changePassword: async (passwordData) => {
     return await client.put('/api/auth/change-password', passwordData);
+  },
+  confirmPasswordChange: async (data) => {
+    return await client.put('/api/auth/change-password/confirm', data);
   }
 };
 

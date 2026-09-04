@@ -17,9 +17,11 @@ import { servicesApi, employeesApi, appointmentsApi } from '../api/barberApi';
 import { CustomerBookingWizard } from './customer/CustomerBookingWizard';
 import { CustomerAppointmentsView } from './customer/CustomerAppointmentsView';
 
-export const DashboardScreen = () => {
-  const { user, token, roleName } = useAuth();
-  const [activeTab, setActiveTab] = useState('book'); // 'book' | 'appointments' | 'explore' | 'profile'
+export const DashboardScreen = ({ activeTab: propActiveTab, setActiveTab: propSetActiveTab }) => {
+  const { user, roleName } = useAuth();
+  const [internalActiveTab, setInternalActiveTab] = useState('book'); // 'book' | 'appointments' | 'explore' | 'profile'
+  const activeTab = propActiveTab !== undefined ? propActiveTab : internalActiveTab;
+  const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setInternalActiveTab;
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [myAppointments, setMyAppointments] = useState([]);
@@ -87,8 +89,8 @@ export const DashboardScreen = () => {
       <div className="glass-card" style={{
         padding: '2rem 2.5rem',
         borderRadius: 'var(--radius-lg)',
-        background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(30, 41, 59, 0.7) 100%)',
-        border: '1px solid var(--border-medium)',
+        background: 'var(--hero-bg)',
+        border: '1px solid var(--hero-border)',
         marginBottom: '2rem',
         position: 'relative',
         overflow: 'hidden'
@@ -206,7 +208,7 @@ export const DashboardScreen = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', padding: '0.6rem 1.25rem' }}
         >
           <User size={16} />
-          <span>Profil & JWT Oturumu</span>
+          <span>Hesap Bilgilerim</span>
         </button>
       </div>
 
@@ -253,12 +255,12 @@ export const DashboardScreen = () => {
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '0.85rem 1rem',
-                      background: 'rgba(255, 255, 255, 0.02)',
+                      background: 'var(--card-nested-bg)',
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-subtle)'
                     }}>
                       <div>
-                        <div style={{ fontWeight: 600, color: '#fff' }}>{srv.name}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{srv.name}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px' }}>
                           <Clock size={12} /> {srv.durationMinutes} dakika
                         </div>
@@ -301,7 +303,7 @@ export const DashboardScreen = () => {
                       alignItems: 'center',
                       gap: '1rem',
                       padding: '0.85rem 1rem',
-                      background: 'rgba(255, 255, 255, 0.02)',
+                      background: 'var(--card-nested-bg)',
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-subtle)'
                     }}>
@@ -320,7 +322,7 @@ export const DashboardScreen = () => {
                         {emp.fullName?.charAt(0)}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: '#fff' }}>{emp.fullName}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.fullName}</div>
                         <div style={{ fontSize: '0.8rem', color: '#38bdf8' }}>{emp.title || 'Usta Kuaför'}</div>
                       </div>
                       <span className="badge badge-employee">Aktif</span>
@@ -333,54 +335,48 @@ export const DashboardScreen = () => {
         </div>
       )}
 
-      {/* ─── TAB 4: PROFİL & JWT TOKEN İNCELEME ─────────────────────────────── */}
+      {/* ─── TAB 4: HESAP BİLGİLERİ ────────────────────────────────────────── */}
       {activeTab === 'profile' && (
         <div className="glass-card animate-fade-in" style={{
           padding: '2rem',
           borderRadius: 'var(--radius-lg)',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
-          background: 'rgba(15, 23, 42, 0.95)'
+          border: '1px solid var(--hero-border)',
+          background: 'var(--bg-card)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fbbf24' }}>
-              <Key size={20} /> Aktif JWT Access Token & Kimlik Doğrulama
+              <User size={20} /> Hesap Bilgilerim
             </h3>
-            <span className="badge badge-customer">Müşteri Oturumu</span>
+            <span className="badge badge-customer">Aktif Hesap</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Müşteri ID (nameid)</div>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: '1.1rem', marginTop: '2px' }}>{user?.id}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Müşteri Numarası</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>#{user?.id}</div>
             </div>
-            <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Müşteri Ad Soyad</div>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: '1.1rem', marginTop: '2px' }}>{user?.fullName}</div>
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ad Soyad</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>{user?.fullName}</div>
             </div>
-            <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>E-Posta</div>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: '1.1rem', marginTop: '2px' }}>{user?.email}</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>{user?.email}</div>
             </div>
-            <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Yetki Rolü</div>
-              <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '1.1rem', marginTop: '2px' }}>{roleName} (Rol: {user?.role})</div>
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Telefon</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>{user?.phoneNumber || user?.phone || 'Belirtilmemiş'}</div>
             </div>
-          </div>
-
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Raw JWT Access Token (Bearer):</div>
-          <div style={{
-            background: '#090d16',
-            padding: '1rem',
-            borderRadius: 'var(--radius-md)',
-            fontFamily: 'monospace',
-            fontSize: '0.85rem',
-            color: '#a7f3d0',
-            wordBreak: 'break-all',
-            maxHeight: '140px',
-            overflowY: 'auto',
-            border: '1px solid var(--border-subtle)'
-          }}>
-            {token}
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Hesap Türü</div>
+              <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '1.1rem', marginTop: '2px' }}>
+                {roleName === 'Admin' ? '👑 Yönetici' : roleName === 'Employee' ? '✂️ Kuaför / Personel' : '👤 Müşteri'}
+              </div>
+            </div>
+            <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Hesap Durumu</div>
+              <div style={{ fontWeight: 700, color: '#10b981', fontSize: '1.1rem', marginTop: '2px' }}>Aktif</div>
+            </div>
           </div>
         </div>
       )}

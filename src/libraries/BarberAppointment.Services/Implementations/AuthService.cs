@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using BarberAppointment.Core.Enums;
 using BarberAppointment.Core.Exceptions;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
@@ -50,7 +51,7 @@ public class AuthService : IAuthService
             FullName = dto.FullName.Trim(),
             Email = dto.Email.Trim().ToLowerInvariant(),
             Phone = dto.Phone?.Trim(),
-            Role = dto.Role,
+            Role = UserRole.Customer, // Kayıt olan tüm kullanıcılar daima Customer rolündedir
             PasswordHash = passwordHash,
             PasswordSalt = passwordSalt,
             IsActive = true,
@@ -76,17 +77,15 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "[AuthService] Hoş geldin e-postası iletilemedi: {Email}", user.Email);
         }
 
-        // 4. JWT Access Token üretimi
-        var token = _jwtTokenService.GenerateToken(user);
-        var expiresIn = _jwtTokenService.GetExpirationSeconds();
-
+        // 4. Kayıt sonrası ilk giriş için e-posta onayı zorunludur; bu nedenle kayıt anında JWT token üretilmez.
         return new AuthResponseDto
         {
-            AccessToken = token,
+            AccessToken = string.Empty,
             TokenType = "Bearer",
-            ExpiresIn = expiresIn,
+            ExpiresIn = 0,
             User = MapToProfileDto(user),
-            SimulationToken = verificationToken
+            SimulationToken = verificationToken,
+            RequiresEmailVerification = true
         };
     }
 
@@ -114,7 +113,13 @@ public class AuthService : IAuthService
             throw new BusinessException("E-posta adresi veya şifre hatalı.");
         }
 
-        // 4. Personel kaydı bağlı mı kontrol et
+        // 4. E-Posta doğrulama kontrolü (Kullanıcı e-posta adresini onaylamadan sisteme giriş yapamaz)
+        if (!user.IsEmailVerified)
+        {
+            throw new BusinessException("Giriş yapabilmek için lütfen önce e-posta adresinizi doğrulayınız. E-postanıza gönderilen 6 haneli doğrulama kodunu kullanınız.");
+        }
+
+        // 5. Personel kaydı bağlı mı kontrol et
         int? employeeId = user.Employee?.Id;
         if (!employeeId.HasValue && user.Role == Core.Enums.UserRole.Employee)
         {
@@ -123,7 +128,7 @@ public class AuthService : IAuthService
             employeeId = emp?.Id;
         }
 
-        // 5. JWT Access Token üretimi
+        // 6. JWT Access Token üretimi
         var token = _jwtTokenService.GenerateToken(user, employeeId);
         var expiresIn = _jwtTokenService.GetExpirationSeconds();
 
@@ -132,7 +137,8 @@ public class AuthService : IAuthService
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
-            User = MapToProfileDto(user)
+            User = MapToProfileDto(user),
+            RequiresEmailVerification = false
         };
     }
 
@@ -169,7 +175,7 @@ public class AuthService : IAuthService
         return MapToProfileDto(user);
     }
 
-    public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
+    public async Task<ChangePasswordResponseDto> ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
         if (user == null)
@@ -177,25 +183,88 @@ public class AuthService : IAuthService
             throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
         }
 
+        // 1. Mevcut şifreyi doğrula
         var isOldPasswordValid = _passwordHasher.VerifyPasswordHash(dto.CurrentPassword, user.PasswordHash, user.PasswordSalt);
         if (!isOldPasswordValid)
         {
             throw new BusinessException("Mevcut şifreniz hatalı.");
         }
 
+        // 2. Yeni şifre mevcut şifreyle aynı olamaz
         if (dto.NewPassword == dto.CurrentPassword)
         {
             throw new BusinessException("Yeni şifre mevcut şifrenizle aynı olamaz.");
         }
 
-        _passwordHasher.CreatePasswordHash(dto.NewPassword, out var newHash, out var newSalt);
-        user.PasswordHash = newHash;
-        user.PasswordSalt = newSalt;
+        // 3. Yeni şifrenin hash'ini beklemede tut (kod doğrulanana kadar uygulanmaz)
+        _passwordHasher.CreatePasswordHash(dto.NewPassword, out var pendingHash, out var pendingSalt);
+
+        // 4. 6 haneli doğrulama kodu üret ve 15 dakika geçerli olacak şekilde kaydet
+        var verificationCode = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        user.PendingPasswordHash = pendingHash;
+        user.PendingPasswordSalt = pendingSalt;
+        user.PasswordChangeToken = verificationCode;
+        user.PasswordChangeTokenExpiresAt = DateTime.UtcNow.AddMinutes(15);
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Ek Geliştirme 6: Başarılı değişiklik sonrası güvenlik bildirim e-postası gönder
+        // 5. Doğrulama kodunu e-posta ile gönder
+        try
+        {
+            await _emailService.SendPasswordChangeVerificationAsync(user.Email, user.FullName, verificationCode, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AuthService] Şifre değişikliği doğrulama e-postası iletilemedi: {Email}", user.Email);
+        }
+
+        return new ChangePasswordResponseDto
+        {
+            RequiresVerification = true,
+            Message = "Şifre değişikliğini onaylamak için e-posta adresinize gönderilen 6 haneli kodu giriniz. Kod 15 dakika geçerlidir.",
+            SimulationToken = verificationCode
+        };
+    }
+
+    public async Task ConfirmPasswordChangeAsync(int userId, ConfirmPasswordChangeDto dto, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
+        }
+
+        // 1. Bekleyen token kontrolü
+        if (string.IsNullOrWhiteSpace(user.PasswordChangeToken) || user.PasswordChangeToken != dto.VerificationCode.Trim())
+        {
+            throw new BusinessException("Geçersiz veya hatalı doğrulama kodu.");
+        }
+
+        // 2. Süre kontrolü (15 dakika)
+        if (user.PasswordChangeTokenExpiresAt.HasValue && user.PasswordChangeTokenExpiresAt.Value < DateTime.UtcNow)
+        {
+            throw new BusinessException("Doğrulama kodunun süresi dolmuş (15 dakika). Lütfen şifre değiştirme işlemini yeniden başlatınız.");
+        }
+
+        // 3. Bekleyen hash'in mevcut olduğunu doğrula
+        if (user.PendingPasswordHash == null || user.PendingPasswordSalt == null)
+        {
+            throw new BusinessException("Bekleyen şifre değişikliği bulunamadı. Lütfen işlemi yeniden başlatınız.");
+        }
+
+        // 4. Yeni şifreyi uygula ve tüm bekleyen alanları temizle
+        user.PasswordHash = user.PendingPasswordHash;
+        user.PasswordSalt = user.PendingPasswordSalt;
+        user.PendingPasswordHash = null;
+        user.PendingPasswordSalt = null;
+        user.PasswordChangeToken = null;
+        user.PasswordChangeTokenExpiresAt = null;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // 5. Güvenlik bildirim e-postası gönder
         try
         {
             await _emailService.SendPasswordChangedNotificationAsync(
@@ -248,7 +317,7 @@ public class AuthService : IAuthService
         return new EmailVerificationResponseDto
         {
             Success = true,
-            Message = "E-posta adresiniz başarıyla doğrulandı!"
+            Message = "E-posta adresiniz başarıyla doğrulandı! Artık şifrenizle giriş yapabilirsiniz."
         };
     }
 

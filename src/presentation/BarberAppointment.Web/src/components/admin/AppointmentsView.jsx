@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, DollarSign, AlertCircle, X } from 'lucide-react';
+import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
 
 export const AppointmentsView = ({ onNotify }) => {
@@ -285,18 +285,18 @@ export const AppointmentsView = ({ onNotify }) => {
                   <tr key={a.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{a.customerName}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.customerName}</div>
                       {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.customerPhone}</div>}
                     </td>
-                    <td style={{ padding: '1rem', color: '#38bdf8', fontWeight: 500 }}>
+                    <td style={{ padding: '1rem', color: '#0284c7', fontWeight: 500 }}>
                       {a.employeeName}
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ color: '#fff', fontSize: '0.9rem' }}>{a.serviceName}</div>
+                      <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{a.serviceName}</div>
                       <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}>{a.price} ₺ ({a.durationMinutes} dk)</div>
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 500 }}>{dateStr}</div>
+                      <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 500 }}>{dateStr}</div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                         <Clock size={12} /> {timeStr}
                       </div>

@@ -47,5 +47,9 @@ public interface IEmailService
     /// Şifresini unutan kullanıcıya tek kullanımlık süreli şifre sıfırlama linki/token'ı iletir.
     /// </summary>
     Task<bool> SendPasswordResetEmailAsync(string toEmail, string fullName, string token, CancellationToken cancellationToken = default);
-}
 
+    /// <summary>
+    /// Giriş yapmış kullanıcının şifre değişikliği isteği sırasında kimlik doğrulama kodu gönderir.
+    /// </summary>
+    Task<bool> SendPasswordChangeVerificationAsync(string toEmail, string fullName, string token, CancellationToken cancellationToken = default);
+}

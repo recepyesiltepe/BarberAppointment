@@ -6,9 +6,11 @@ import { EmployeesView } from './EmployeesView';
 import { AppointmentsView } from './AppointmentsView';
 import { useAuth } from '../../context/AuthContext';
 
-export const AdminLayout = () => {
+export const AdminLayout = ({ activeTab: propActiveTab, setActiveTab: propSetActiveTab }) => {
   const { user, roleName } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'services' | 'employees' | 'appointments'
+  const [internalActiveTab, setInternalActiveTab] = useState('dashboard'); // 'dashboard' | 'services' | 'employees' | 'appointments'
+  const activeTab = propActiveTab !== undefined ? propActiveTab : internalActiveTab;
+  const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setInternalActiveTab;
   
   // Toast Notification State
   const [toast, setToast] = useState(null);
@@ -20,10 +22,12 @@ export const AdminLayout = () => {
     }, 4000);
   };
 
+  const isAdmin = roleName === 'Admin' || user?.role === 2;
+
   const navItems = [
     { id: 'dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
     { id: 'services', label: 'Hizmetler', icon: Scissors },
-    { id: 'employees', label: 'Personeller', icon: Users },
+    ...(isAdmin ? [{ id: 'employees', label: 'Personeller', icon: Users }] : []),
     { id: 'appointments', label: 'Randevular', icon: Calendar },
   ];
 
@@ -83,7 +87,7 @@ export const AdminLayout = () => {
         {/* Tab Navigation Buttons */}
         <div className="nav-tabs-wrapper" style={{
           display: 'flex',
-          background: 'rgba(15, 23, 42, 0.7)',
+          background: 'var(--tab-nav-bg)',
           padding: '4px',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
@@ -122,7 +126,7 @@ export const AdminLayout = () => {
 
       {/* Active Tab View Rendering */}
       <div className="animate-fade-in">
-        {activeTab === 'dashboard' && (
+        {(!isAdmin && activeTab === 'employees' ? 'dashboard' : activeTab) === 'dashboard' && (
           <DashboardView 
             onNavigateTab={(tab) => setActiveTab(tab)} 
             onNotify={showNotification} 
@@ -131,7 +135,7 @@ export const AdminLayout = () => {
         {activeTab === 'services' && (
           <ServicesView onNotify={showNotification} />
         )}
-        {activeTab === 'employees' && (
+        {activeTab === 'employees' && isAdmin && (
           <EmployeesView onNotify={showNotification} />
         )}
         {activeTab === 'appointments' && (

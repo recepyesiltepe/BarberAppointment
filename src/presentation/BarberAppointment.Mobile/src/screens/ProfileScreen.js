@@ -16,10 +16,9 @@ import { getApiUrl, setApiUrl } from '../api/client';
 import { smsApi, authApi } from '../api/barberApi';
 
 export const ProfileScreen = () => {
-  const { user, token, roleName, logout, updateUser } = useAuth();
+  const { user, roleName, logout, updateUser } = useAuth();
   const { colors: currentThemeColors, themePreference, setThemePreference } = useTheme();
   const activeColors = currentThemeColors || colors;
-  const [showToken, setShowToken] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
 
@@ -31,10 +30,13 @@ export const ProfileScreen = () => {
 
   // Change Password State
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordStep, setPasswordStep] = useState('form'); // 'form' | 'verify'
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSimToken, setPasswordSimToken] = useState(null);
+  const [passwordVerifyCode, setPasswordVerifyCode] = useState('');
 
   // SMS Verification State
   const [phoneInput, setPhoneInput] = useState(user?.phone || '');
@@ -165,20 +167,53 @@ export const ProfileScreen = () => {
         confirmNewPassword
       });
 
+      if (res.success && res.data?.requiresVerification) {
+        setPasswordSimToken(res.data.simulationToken || null);
+        setPasswordVerifyCode('');
+        setPasswordStep('verify');
+        Alert.alert(
+          'Doğrulama Kodu Gönderildi 📬',
+          'Şifre değişikliğini onaylamak için e-posta adresinize gönderilen 6 haneli kodu giriniz.'
+        );
+      } else {
+        Alert.alert('Hata', res.message || 'Şifre değiştirme başlatılamadı.');
+      }
+    } catch (err) {
+      Alert.alert('Hata', err.message || 'Şifre güncellenirken bir hata oluştu.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleConfirmPasswordChange = async () => {
+    if (!passwordVerifyCode || passwordVerifyCode.trim().length !== 6) {
+      Alert.alert('Uyarı', 'Lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu giriniz.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await authApi.confirmPasswordChange({
+        verificationCode: passwordVerifyCode.trim()
+      });
+
       if (res.success) {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
+        setPasswordVerifyCode('');
+        setPasswordSimToken(null);
+        setPasswordStep('form');
         setShowPasswordChange(false);
         Alert.alert(
           'Şifre Değiştirildi 🎉',
           'Giriş şifreniz başarıyla güncellendi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme e-postası iletildi.'
         );
       } else {
-        Alert.alert('Hata', res.message || 'Şifre değiştirilemedi.');
+        Alert.alert('Hata', res.message || 'Doğrulama başarısız.');
       }
     } catch (err) {
-      Alert.alert('Hata', err.message || 'Şifre güncellenirken bir hata oluştu.');
+      Alert.alert('Hata', err.message || 'Doğrulama sırasında bir hata oluştu.');
     } finally {
       setPasswordLoading(false);
     }
@@ -286,11 +321,18 @@ export const ProfileScreen = () => {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Telefon:</Text>
-              <Text style={styles.infoVal}>{user?.phone || 'Belirtilmedi'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.infoVal}>{user?.phone || 'Belirtilmedi'}</Text>
+                {isPhoneVerified && (
+                  <View style={{ backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ color: colors.success, fontSize: 10, fontWeight: '700' }}>✓ Doğrulandı</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Rol & Unvan:</Text>
+              <Text style={styles.infoLabel}>Hesap Türü:</Text>
               <Text style={styles.infoVal}>
                 {user?.roleName || (roleName === 'Admin' ? 'Yönetici' : roleName === 'Employee' ? 'Personel' : 'Müşteri')}
               </Text>
@@ -315,125 +357,131 @@ export const ProfileScreen = () => {
         )}
       </View>
 
-      {/* SMS Verification Card */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>📱 SMS Telefon Doğrulama</Text>
-          {isPhoneVerified && (
-            <View style={{ backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-              <Text style={{ color: colors.success, fontSize: 10, fontWeight: '700' }}>✓ Doğrulandı</Text>
-            </View>
-          )}
-        </View>
+      {/* SMS Verification Card (yalnızca henüz doğrulanmamışsa gösterilir) */}
+      {!isPhoneVerified && (
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>📱 SMS Telefon Doğrulama</Text>
+          </View>
 
-        <Text style={styles.cardSub}>
-          Randevu onay ve hatırlatma SMS'leri için telefon numaranızı doğrulayınız.
-        </Text>
+          <Text style={styles.cardSub}>
+            Randevu onay ve hatırlatma SMS'leri için telefon numaranızı doğrulayınız.
+          </Text>
 
-        <View style={{ marginTop: 10 }}>
-          <Text style={styles.infoLabel}>Cep Telefonu Numarası</Text>
-          <TextInput
-            style={styles.input}
-            value={phoneInput}
-            onChangeText={setPhoneInput}
-            placeholder="05551234567"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="phone-pad"
-            editable={smsStep !== 3}
-          />
+          <View style={{ marginTop: 10 }}>
+            <Text style={styles.infoLabel}>Cep Telefonu Numarası</Text>
+            <TextInput
+              style={styles.input}
+              value={phoneInput}
+              onChangeText={setPhoneInput}
+              placeholder="05551234567"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="phone-pad"
+              editable={smsStep !== 3}
+            />
 
-          {smsStep === 1 && (
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: 4 }]}
-              onPress={handleSendSmsCode}
-              disabled={smsLoading}
-              activeOpacity={0.8}
-            >
-              {smsLoading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
-                  SMS Doğrulama Kodu Gönder
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {smsStep === 2 && (
-            <View style={{ marginTop: 8 }}>
-              {simulationCode && (
-                <TouchableOpacity
-                  style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1, padding: 8, borderRadius: 8, marginBottom: 8, alignItems: 'center' }}
-                  onPress={() => setSmsCode(simulationCode)}
-                >
-                  <Text style={{ color: '#34d399', fontSize: 12, fontWeight: '700' }}>
-                    🧪 Test Kodu: {simulationCode} (Doldurmak için tıkla)
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              <Text style={styles.infoLabel}>6 Haneli Doğrulama Kodu</Text>
-              <TextInput
-                style={[styles.input, { textAlign: 'center', fontSize: 18, letterSpacing: 6, fontWeight: '700' }]}
-                value={smsCode}
-                onChangeText={(t) => setSmsCode(t.replace(/\D/g, ''))}
-                placeholder="123456"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-
+            {smsStep === 1 && (
               <TouchableOpacity
                 style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: 4 }]}
-                onPress={handleVerifySmsCode}
-                disabled={smsLoading || smsCode.length !== 6}
+                onPress={handleSendSmsCode}
+                disabled={smsLoading}
                 activeOpacity={0.8}
               >
                 {smsLoading ? (
                   <ActivityIndicator color="#000" />
                 ) : (
                   <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
-                    ✓ Kodu Onayla ve Doğrula
+                    SMS Doğrulama Kodu Gönder
                   </Text>
                 )}
               </TouchableOpacity>
+            )}
 
-              <TouchableOpacity
-                style={{ alignItems: 'center', marginTop: 10 }}
-                onPress={handleSendSmsCode}
-                disabled={smsCooldown > 0 || smsLoading}
-              >
-                <Text style={{ color: smsCooldown > 0 ? colors.textMuted : colors.primaryLight, fontSize: 12 }}>
-                  {smsCooldown > 0 ? `Yeniden kod istemek için (${smsCooldown}s)` : 'Yeni Kod Gönder'}
+            {smsStep === 2 && (
+              <View style={{ marginTop: 8 }}>
+                {simulationCode && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1, padding: 8, borderRadius: 8, marginBottom: 8, alignItems: 'center' }}
+                    onPress={() => setSmsCode(simulationCode)}
+                  >
+                    <Text style={{ color: '#34d399', fontSize: 12, fontWeight: '700' }}>
+                      🧪 Test Kodu: {simulationCode} (Doldurmak için tıkla)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <Text style={styles.infoLabel}>6 Haneli Doğrulama Kodu</Text>
+                <TextInput
+                  style={[styles.input, { textAlign: 'center', fontSize: 18, letterSpacing: 6, fontWeight: '700' }]}
+                  value={smsCode}
+                  onChangeText={(t) => setSmsCode(t.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: 4 }]}
+                  onPress={handleVerifySmsCode}
+                  disabled={smsLoading || smsCode.length !== 6}
+                  activeOpacity={0.8}
+                >
+                  {smsLoading ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
+                      ✓ Kodu Onayla ve Doğrula
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ alignItems: 'center', marginTop: 10 }}
+                  onPress={handleSendSmsCode}
+                  disabled={smsCooldown > 0 || smsLoading}
+                >
+                  <Text style={{ color: smsCooldown > 0 ? colors.textMuted : colors.primaryLight, fontSize: 12 }}>
+                    {smsCooldown > 0 ? `Yeniden kod istemek için (${smsCooldown}s)` : 'Yeni Kod Gönder'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {smsStep === 3 && (
+              <View style={{ backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, padding: 12, borderRadius: 10, marginTop: 8, alignItems: 'center' }}>
+                <Text style={{ color: colors.success, fontWeight: '700', fontSize: 14 }}>
+                  🎉 Telefon numaranız başarıyla doğrulandı!
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {smsStep === 3 && (
-            <View style={{ backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, padding: 12, borderRadius: 10, marginTop: 8, alignItems: 'center' }}>
-              <Text style={{ color: colors.success, fontWeight: '700', fontSize: 14 }}>
-                🎉 Telefon numaranız başarıyla doğrulandı!
-              </Text>
-            </View>
-          )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Password Change Card (Ek Geliştirme 6) */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardTitle}>🔒 Şifre Değiştirme</Text>
-          <TouchableOpacity onPress={() => setShowPasswordChange(!showPasswordChange)}>
+          <TouchableOpacity onPress={() => {
+            if (showPasswordChange) {
+              setShowPasswordChange(false);
+              setPasswordStep('form');
+              setPasswordSimToken(null);
+              setPasswordVerifyCode('');
+            } else {
+              setShowPasswordChange(true);
+            }
+          }}>
             <Text style={styles.toggleText}>{showPasswordChange ? 'Kapat' : 'Şifreyi Değiştir'}</Text>
           </TouchableOpacity>
         </View>
 
         <Text style={styles.cardSub}>
-          Şifrenizi güncellediğinizde kayıtlı e-posta adresinize güvenlik bildirimi gönderilir.
+          Şifrenizi değiştirmek için e-posta adresinize gönderilen 6 haneli kod ile doğrulama yapmanız gerekmektedir.
         </Text>
 
-        {showPasswordChange && (
+        {showPasswordChange && passwordStep === 'form' && (
           <View style={{ marginTop: 12 }}>
             <Text style={styles.infoLabel}>Mevcut Şifreniz</Text>
             <TextInput
@@ -465,8 +513,14 @@ export const ProfileScreen = () => {
               secureTextEntry
             />
 
+            <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.25)', borderRadius: 8, padding: 10, marginBottom: 10 }}>
+              <Text style={{ color: '#c4b5fd', fontSize: 12 }}>
+                🔐 Devam ettiğinizde kayıtlı e-posta adresinize ({user?.email}) 6 haneli onay kodu gönderilecektir.
+              </Text>
+            </View>
+
             <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: '#ef4444', marginTop: 6 }]}
+              style={[styles.saveButton, { backgroundColor: '#8b5cf6', marginTop: 4 }]}
               onPress={handleChangePassword}
               disabled={passwordLoading}
               activeOpacity={0.8}
@@ -475,36 +529,72 @@ export const ProfileScreen = () => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={[styles.saveButtonText, { color: '#fff', fontWeight: '700' }]}>
-                  ✓ Şifremi Değiştir & Bildir
+                  ✉️ Doğrulama Kodu Gönder
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         )}
-      </View>
 
-      {/* JWT Security Card */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>🔑 Güvenlik & JWT</Text>
-          <TouchableOpacity onPress={() => setShowToken(!showToken)}>
-            <Text style={styles.toggleText}>{showToken ? 'Gizle' : 'Görüntüle'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {showToken ? (
-          <View style={{ marginTop: 10 }}>
-            <View style={styles.tokenBox}>
-              <Text style={styles.tokenText}>{token}</Text>
+        {showPasswordChange && passwordStep === 'verify' && (
+          <View style={{ marginTop: 12 }}>
+            <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.3)', borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ fontSize: 24, marginBottom: 4 }}>📬</Text>
+              <Text style={{ color: '#c4b5fd', fontWeight: '700', fontSize: 14, marginBottom: 2 }}>Doğrulama Kodu Gönderildi</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center' }}>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{user?.email}</Text> adresinize iletilen 6 haneli kodu giriniz. Kod 15 dakika geçerlidir.
+              </Text>
             </View>
-            <Text style={styles.tokenHint}>
-              Stateless Bearer Token — İsteklerde otomatik taşınır.
-            </Text>
+
+            {passwordSimToken && (
+              <TouchableOpacity
+                onPress={() => setPasswordVerifyCode(passwordSimToken)}
+                style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.4)', borderStyle: 'dashed', borderRadius: 8, padding: 8, marginBottom: 12, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#fbbf24', fontSize: 12 }}>
+                  🧪 <Text style={{ fontWeight: '700' }}>Simülasyon Kodu:</Text> {passwordSimToken} (Tıkla doldur)
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <Text style={styles.infoLabel}>6 Haneli Doğrulama Kodu</Text>
+            <TextInput
+              style={[styles.input, { textAlign: 'center', fontSize: 20, letterSpacing: 8, fontWeight: '700', fontFamily: 'monospace', borderColor: '#8b5cf6' }]}
+              value={passwordVerifyCode}
+              onChangeText={(t) => setPasswordVerifyCode(t.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={6}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+              <TouchableOpacity
+                style={[styles.saveButton, { flex: 1, backgroundColor: colors.bgInput, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => {
+                  setPasswordStep('form');
+                  setPasswordVerifyCode('');
+                }}
+              >
+                <Text style={[styles.saveButtonText, { color: colors.textMuted }]}>Geri</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.saveButton, { flex: 2, backgroundColor: '#8b5cf6' }]}
+                onPress={handleConfirmPasswordChange}
+                disabled={passwordLoading || passwordVerifyCode.length !== 6}
+                activeOpacity={0.8}
+              >
+                {passwordLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.saveButtonText, { color: '#fff', fontWeight: '700' }]}>
+                    ✓ Şifreyi Onayla
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : (
-          <Text style={styles.cardSub}>
-            Oturumunuz HMAC-SHA512 ve JWT Bearer standardıyla şifrelenmiştir.
-          </Text>
         )}
       </View>
 
@@ -708,21 +798,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  tokenBox: {
-    backgroundColor: '#000',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  tokenText: {
-    color: '#a7f3d0',
-    fontSize: 10,
-    fontFamily: 'monospace',
-  },
-  tokenHint: {
-    color: colors.textMuted,
-    fontSize: 11,
   },
   input: {
     backgroundColor: colors.bgInput,

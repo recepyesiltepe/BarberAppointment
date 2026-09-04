@@ -10,7 +10,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
   const { themePreference, setThemePreference, theme } = useTheme();
 
-  // Mode: 'view' | 'edit' | 'password'
+  // Mode: 'view' | 'edit' | 'password' | 'password-verify'
   const [mode, setMode] = useState('view');
   const [isVerifyEmailOpen, setIsVerifyEmailOpen] = useState(false);
 
@@ -22,6 +22,10 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  // Password Change Verification (Adım 2)
+  const [verifyCode, setVerifyCode] = useState('');
+  const [simulationToken, setSimulationToken] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -57,6 +61,8 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
+      setVerifyCode('');
+      setSimulationToken(null);
     }
   }, [isOpen, user]);
 
@@ -125,17 +131,49 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
         confirmNewPassword
       });
 
-      if (res.success) {
-        setSuccessMsg('Şifreniz başarıyla değiştirildi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme e-postası gönderildi.');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmNewPassword('');
-        setMode('view');
+      if (res.success && res.data?.requiresVerification) {
+        // Adım 1 tamamlandı — doğrulama ekranına geç
+        setSimulationToken(res.data.simulationToken || null);
+        setVerifyCode('');
+        setError(null);
+        setMode('password-verify');
       } else {
-        setError(res.message || 'Şifre değiştirilemedi.');
+        setError(res.message || 'Şifre değiştirme başlatılamadı.');
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Şifre değiştirilirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmPasswordChange = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!verifyCode || verifyCode.trim().length !== 6) {
+      setError('Lütfen e-postanıza gönderilen 6 haneli kodu giriniz.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await authApi.confirmPasswordChange({ verificationCode: verifyCode.trim() });
+
+      if (res.success) {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setVerifyCode('');
+        setSimulationToken(null);
+        setMode('view');
+        setSuccessMsg('Şifreniz başarıyla değiştirildi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme e-postası gönderildi.');
+      } else {
+        setError(res.message || 'Doğrulama başarısız.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Doğrulama sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -185,11 +223,11 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
         {/* Modal Header */}
         <div style={{
           padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: 'rgba(255, 255, 255, 0.02)'
+          background: 'var(--card-nested-bg)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{
@@ -208,7 +246,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 {mode === 'password' ? 'Şifre Değiştirme & Güvenlik' : mode === 'edit' ? 'Profili Düzenle' : 'Güvenli Profilim'}
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' : 'UserProfileDto ile korunan güvenli hesap bilgileri'}
+                {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' : 'Hesap ve profil bilgilerinizi yönetin'}
               </p>
             </div>
           </div>
@@ -217,7 +255,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#94a3b8',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               padding: '0.4rem',
               borderRadius: '8px',
@@ -271,7 +309,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
           {mode === 'edit' && (
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Ad Soyad
                 </label>
                 <input
@@ -284,16 +322,16 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff'
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)'
                   }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Telefon Numarası
                 </label>
                 <input
@@ -306,9 +344,9 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff'
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)'
                   }}
                 />
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.25rem', display: 'block' }}>
@@ -341,7 +379,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
           {mode === 'password' && (
             <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Mevcut Şifreniz
                 </label>
                 <input
@@ -354,16 +392,16 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff'
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)'
                   }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Yeni Şifre (En az 6 karakter)
                 </label>
                 <input
@@ -376,16 +414,16 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff'
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)'
                   }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Yeni Şifre Tekrar
                 </label>
                 <input
@@ -398,23 +436,23 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     width: '100%',
                     padding: '0.75rem',
                     borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff'
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)'
                   }}
                   required
                 />
               </div>
 
               <div style={{
-                background: 'rgba(59, 130, 246, 0.08)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
                 borderRadius: '8px',
                 padding: '0.65rem 0.85rem',
                 fontSize: '0.75rem',
-                color: '#93c5fd'
+                color: '#c4b5fd'
               }}>
-                📧 Şifreniz değiştirildiğinde <strong>{user?.email}</strong> adresinize anında bilgilendirme e-postası iletilecektir.
+                🔐 Devam ettiğinizde <strong>{user?.email}</strong> adresinize 6 haneli bir doğrulama kodu gönderilecektir. Kodu girdikten sonra şifreniz değiştirilecektir.
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
@@ -430,10 +468,96 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   type="submit"
                   className="btn btn-primary"
                   disabled={loading}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}
                 >
                   <KeyRound size={16} />
-                  <span>{loading ? 'Güncelleniyor...' : 'Şifreyi Değiştir'}</span>
+                  <span>{loading ? 'Kod gönderiliyor...' : 'Doğrulama Kodu Gönder'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mode === 'password-verify' && (
+            <form onSubmit={handleConfirmPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{
+                background: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                borderRadius: '10px',
+                padding: '1rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📬</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#c4b5fd', marginBottom: '0.25rem' }}>
+                  Doğrulama Kodu Gönderildi
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                  <strong style={{ color: '#e2e8f0' }}>{user?.email}</strong> adresinize 6 haneli bir kod iletildi. Kodu aşağıya giriniz.
+                </div>
+              </div>
+
+              {simulationToken && (
+                <div
+                  onClick={() => setVerifyCode(simulationToken)}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px dashed rgba(245, 158, 11, 0.4)',
+                    borderRadius: '8px',
+                    padding: '0.6rem 0.85rem',
+                    fontSize: '0.74rem',
+                    color: '#fbbf24',
+                    cursor: 'pointer',
+                    textAlign: 'center'
+                  }}
+                >
+                  🧪 <strong>Simülasyon Kodu:</strong> {simulationToken} — <span style={{ textDecoration: 'underline' }}>tıkla otomatik doldur</span>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.4rem' }}>
+                  6 Haneli Doğrulama Kodu
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    color: 'var(--text-primary)',
+                    fontSize: '1.5rem',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.4em',
+                    textAlign: 'center'
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('password'); setError(null); setVerifyCode(''); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Geri
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading || verifyCode.length !== 6}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}
+                >
+                  <Shield size={16} />
+                  <span>{loading ? 'Onaylanıyor...' : 'Şifreyi Onayla'}</span>
                 </button>
               </div>
             </form>
@@ -447,9 +571,9 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 alignItems: 'center',
                 gap: '1rem',
                 padding: '1rem',
-                background: 'rgba(255, 255, 255, 0.03)',
+                background: 'var(--card-nested-bg)',
                 borderRadius: '12px',
-                border: '1px solid rgba(255, 255, 255, 0.06)'
+                border: '1px solid var(--card-nested-border)'
               }}>
                 <div style={{
                   width: '56px',
@@ -473,7 +597,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                     <Mail size={13} /> {user?.email}
                   </div>
                   <div style={{ display: 'inline-block', marginTop: '4px', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                    Rol: {user?.roleName || (user?.role === 2 ? 'Admin' : user?.role === 3 ? 'Employee' : 'Customer')}
+                    {user?.role === 2 ? '👑 Yönetici' : user?.role === 3 ? '✂️ Kuaför / Personel' : '👤 Müşteri Hesabı'}
                   </div>
                 </div>
               </div>
@@ -486,7 +610,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 padding: '0.5rem 1rem'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Kullanıcı No (ID):</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Müşteri Numarası:</span>
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>#{user?.id}</span>
                 </div>
 
@@ -537,22 +661,6 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   </span>
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{memberSinceFormatted}</span>
                 </div>
-              </div>
-
-              {/* Security Shield Callout */}
-              <div style={{
-                background: 'rgba(16, 185, 129, 0.06)',
-                border: '1px solid rgba(16, 185, 129, 0.2)',
-                borderRadius: '10px',
-                padding: '0.75rem 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.6rem'
-              }}>
-                <Lock size={18} color="#34d399" />
-                <span style={{ fontSize: '0.75rem', color: '#34d399' }}>
-                  Güvenli DTO İzolasyonu: Parola özetleri, tuzlama verileri ve dahili sistem bayrakları istemciye asla sızdırılmaz.
-                </span>
               </div>
 
               {/* Theme Preference Selector (Ek Geliştirme 7) */}

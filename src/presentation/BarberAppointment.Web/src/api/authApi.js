@@ -21,9 +21,14 @@ export const authApi = {
     return await client.put('/api/auth/me', profileData);
   },
 
-  // Şifre Değiştir
+  // Şifre Değiştir (Adım 1 — Doğrulama Kodu Gönderir)
   changePassword: async (passwordData) => {
     return await client.put('/api/auth/change-password', passwordData);
+  },
+
+  // Şifre Değiştirmeyi Onayla (Adım 2 — Kod ile Şifreyi Uygula)
+  confirmPasswordChange: async (data) => {
+    return await client.put('/api/auth/change-password/confirm', data);
   },
 
   // E-Posta Doğrula

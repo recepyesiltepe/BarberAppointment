@@ -4,17 +4,17 @@ import { Mail, CheckCircle2, AlertCircle, X, RefreshCw, KeyRound, Sparkles } fro
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 
-export const VerifyEmailModal = ({ isOpen, onClose, onSuccess }) => {
+export const VerifyEmailModal = ({ isOpen, onClose, onSuccess, initialEmail, initialSimulationToken }) => {
   const { user, updateUser } = useAuth();
 
-  const [email, setEmail] = useState(user?.email || '');
+  const [email, setEmail] = useState(initialEmail || user?.email || '');
   const [token, setToken] = useState('');
   const [step, setStep] = useState(1); // 1 = Verify, 2 = Success
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState(null);
   const [infoMsg, setInfoMsg] = useState(null);
-  const [simulationToken, setSimulationToken] = useState(null);
+  const [simulationToken, setSimulationToken] = useState(initialSimulationToken || null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,19 +37,23 @@ export const VerifyEmailModal = ({ isOpen, onClose, onSuccess }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setEmail(user?.email || '');
+      setEmail(initialEmail || user?.email || '');
       setToken('');
       setStep(1);
       setError(null);
       setInfoMsg(null);
-      setSimulationToken(null);
+      setSimulationToken(initialSimulationToken || null);
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, initialEmail, initialSimulationToken]);
 
   if (!isOpen) return null;
 
   const handleVerify = async (e) => {
     if (e) e.preventDefault();
+    if (!email || email.trim().length === 0) {
+      setError('Lütfen doğrulanacak e-posta adresini giriniz.');
+      return;
+    }
     if (!token || token.trim().length === 0) {
       setError('Lütfen e-posta adresinize gelen 6 haneli doğrulama kodunu giriniz.');
       return;
@@ -62,10 +66,10 @@ export const VerifyEmailModal = ({ isOpen, onClose, onSuccess }) => {
       const res = await authApi.verifyEmail({ email: email.trim(), token: token.trim() });
       if (res.data?.success || res.success) {
         setStep(2);
-        if (updateUser) {
+        if (updateUser && user?.email?.toLowerCase() === email.trim().toLowerCase()) {
           updateUser({ isEmailVerified: true });
         }
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(email.trim());
       } else {
         throw new Error(res.data?.message || res.message || 'Doğrulama başarısız.');
       }

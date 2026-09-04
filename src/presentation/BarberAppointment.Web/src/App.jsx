@@ -4,55 +4,26 @@ import { Navbar } from './components/Navbar';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
-import { Scissors, Shield, Clock, Calendar, CheckCircle2, ChevronRight, LayoutDashboard, User } from 'lucide-react';
+import { Scissors, Clock, Calendar, CheckCircle2, ChevronRight } from 'lucide-react';
 
-const MainContent = ({ currentTab, setCurrentTab }) => {
+const MainContent = ({
+  currentTab,
+  setCurrentTab,
+  customerTab,
+  setCustomerTab,
+  adminTab,
+  setAdminTab
+}) => {
   const { isAuthenticated, user, roleName } = useAuth();
-  const [viewMode, setViewMode] = useState('admin'); // 'admin' | 'customer'
 
   if (isAuthenticated) {
     // Admin veya Personel ise Yönetim Paneli göster
     if (roleName === 'Admin' || roleName === 'Employee') {
-      return (
-        <div>
-          {/* Mode Switcher Bar */}
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.08)',
-            borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
-            padding: '0.5rem 0'
-          }}>
-            <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '0.85rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
-                <Shield size={14} /> Yönetici / Personel Oturumu Aktif
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  onClick={() => setViewMode('admin')}
-                  className={`btn btn-sm ${viewMode === 'admin' ? 'btn-primary' : 'btn-ghost'}`}
-                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
-                >
-                  <LayoutDashboard size={14} />
-                  <span>Yönetim Paneli</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('customer')}
-                  className={`btn btn-sm ${viewMode === 'customer' ? 'btn-primary' : 'btn-ghost'}`}
-                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
-                >
-                  <User size={14} />
-                  <span>Müşteri Önizleme</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {viewMode === 'admin' ? <AdminLayout /> : <DashboardScreen />}
-        </div>
-      );
+      return <AdminLayout activeTab={adminTab} setActiveTab={setAdminTab} />;
     }
 
     // Müşteri oturumu
-    return <DashboardScreen />;
+    return <DashboardScreen activeTab={customerTab} setActiveTab={setCustomerTab} />;
   }
 
   // Giriş Yapılmamışsa
@@ -124,13 +95,33 @@ const MainContent = ({ currentTab, setCurrentTab }) => {
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
+  const [customerTab, setCustomerTab] = useState('book');
+  const [adminTab, setAdminTab] = useState('dashboard');
+
+  const handleNavigateHome = () => {
+    setCurrentTab('home');
+    setCustomerTab('book');
+    setAdminTab('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <AuthProvider>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+        <Navbar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          onNavigateHome={handleNavigateHome}
+        />
         <main style={{ flex: 1 }}>
-          <MainContent currentTab={currentTab} setCurrentTab={setCurrentTab} />
+          <MainContent
+            currentTab={currentTab}
+            setCurrentTab={setCurrentTab}
+            customerTab={customerTab}
+            setCustomerTab={setCustomerTab}
+            adminTab={adminTab}
+            setAdminTab={setAdminTab}
+          />
         </main>
         
         {/* Footer */}

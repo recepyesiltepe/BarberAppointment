@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../api/barberApi';
 import { getApiUrl, setApiUrl } from '../api/client';
 
 export const LoginScreen = () => {
@@ -32,7 +33,16 @@ export const LoginScreen = () => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState(1);
+
+  // Email Verification State
+  const [showVerifyView, setShowVerifyView] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
+  const [simulationToken, setSimulationToken] = useState(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState(null);
+  const [isUnverifiedError, setIsUnverifiedError] = useState(false);
 
   // Focus tracking for input border highlight
   const [focusedField, setFocusedField] = useState(null);
@@ -47,6 +57,7 @@ export const LoginScreen = () => {
     setEmail(demoEmail);
     setPassword(demoPassword);
     setError(null);
+    setIsUnverifiedError(false);
   };
 
   const handleLoginSubmit = async () => {
@@ -55,10 +66,15 @@ export const LoginScreen = () => {
       return;
     }
     setError(null);
+    setIsUnverifiedError(false);
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(err.message || 'Giriş yapılamadı.');
+      const errMsg = err.message || 'Giriş yapılamadı.';
+      setError(errMsg);
+      if (errMsg.toLowerCase().includes('doğrula') || errMsg.toLowerCase().includes('dogrula')) {
+        setIsUnverifiedError(true);
+      }
     }
   };
 
@@ -72,17 +88,74 @@ export const LoginScreen = () => {
       return;
     }
     setError(null);
+    setIsUnverifiedError(false);
     try {
-      await register({
+      const res = await register({
         fullName: fullName.trim(),
         email: regEmail.trim(),
         phone: phone ? phone.trim() : null,
         password: regPassword,
         confirmPassword: confirmPassword,
-        role: Number(role)
+        role: 1
       });
+      if (res?.requiresEmailVerification) {
+        setVerifyEmail(regEmail.trim());
+        setSimulationToken(res.simulationToken || null);
+        setVerifyToken(res.simulationToken || '');
+        setShowVerifyView(true);
+        Alert.alert(
+          'Kayıt Başarılı',
+          'Hesabınız oluşturuldu! Sisteme ilk girişinizi yapabilmek için lütfen e-postanıza gönderilen 6 haneli doğrulama kodunu onaylayınız.'
+        );
+      }
     } catch (err) {
       setError(err.message || 'Kayıt işlemi başarısız.');
+    }
+  };
+
+  const handleVerifySubmit = async () => {
+    if (!verifyEmail || !verifyToken) {
+      setVerifyError('Lütfen 6 haneli doğrulama kodunu giriniz.');
+      return;
+    }
+    setVerifyLoading(true);
+    setVerifyError(null);
+    try {
+      const res = await authApi.verifyEmail({ email: verifyEmail.trim(), token: verifyToken.trim() });
+      if (res.success || res.data?.success) {
+        setShowVerifyView(false);
+        setActiveTab('login');
+        setEmail(verifyEmail.trim());
+        setPassword('');
+        setError(null);
+        setIsUnverifiedError(false);
+        Alert.alert('Tebrikler 🎉', 'E-posta adresiniz başarıyla doğrulandı! Şimdi şifrenizle giriş yapabilirsiniz.');
+      } else {
+        throw new Error(res.message || res.data?.message || 'Doğrulama başarısız.');
+      }
+    } catch (err) {
+      setVerifyError(err.message || 'Doğrulama kodu geçersiz.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!verifyEmail) return;
+    setResendLoading(true);
+    setVerifyError(null);
+    try {
+      const res = await authApi.resendVerificationEmail(verifyEmail.trim());
+      if (res.data?.simulationToken || res.data?.data?.simulationToken) {
+        const sim = res.data?.simulationToken || res.data?.data?.simulationToken;
+        setSimulationToken(sim);
+        setVerifyToken(sim);
+      }
+      Alert.alert('Bilgi', 'Yeni doğrulama kodu e-posta adresinize gönderildi.');
+    } catch (err) {
+      setVerifyError(err.message || 'Kod gönderilemedi.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -116,38 +189,132 @@ export const LoginScreen = () => {
         {/* Card Container */}
         <View style={styles.card}>
           {/* Tab Switcher */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'login' && styles.tabButtonActive]}
-              onPress={() => { setActiveTab('login'); setError(null); }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, activeTab === 'login' && styles.tabTextActive]}>
-                Giriş Yap
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'register' && styles.tabButtonActive]}
-              onPress={() => { setActiveTab('register'); setError(null); }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, activeTab === 'register' && styles.tabTextActive]}>
-                Kayıt Ol
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Error Message Box */}
-          {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {error}</Text>
-              <TouchableOpacity onPress={() => setError(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={{ color: '#fca5a5', fontWeight: '700', fontSize: 16 }}>✕</Text>
+          {!showVerifyView && (
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'login' && styles.tabButtonActive]}
+                onPress={() => { setActiveTab('login'); setError(null); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabText, activeTab === 'login' && styles.tabTextActive]}>
+                  Giriş Yap
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'register' && styles.tabButtonActive]}
+                onPress={() => { setActiveTab('register'); setError(null); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabText, activeTab === 'register' && styles.tabTextActive]}>
+                  Kayıt Ol
+                </Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {activeTab === 'login' ? (
+          {/* Error Message Box */}
+          {error && !showVerifyView && (
+            <View style={styles.errorBoxWrapper}>
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠️ {error}</Text>
+                <TouchableOpacity onPress={() => setError(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={{ color: '#fca5a5', fontWeight: '700', fontSize: 16 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {isUnverifiedError && (
+                <TouchableOpacity
+                  style={styles.verifyActionBtn}
+                  onPress={() => {
+                    setVerifyEmail(email.trim());
+                    setVerifyToken('');
+                    setShowVerifyView(true);
+                    setError(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.verifyActionBtnText}>✉️ E-Posta Doğrulama Kodunu Gir</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {showVerifyView ? (
+            /* EMAIL VERIFICATION FORM */
+            <View>
+              <View style={styles.verifyHeader}>
+                <Text style={styles.verifyTitle}>✉️ E-Posta Doğrulama</Text>
+                <Text style={styles.verifySubtitle}>
+                  {verifyEmail} adresine gönderilen 6 haneli kodu giriniz.
+                </Text>
+              </View>
+
+              {verifyError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>⚠️ {verifyError}</Text>
+                  <TouchableOpacity onPress={() => setVerifyError(null)}>
+                    <Text style={{ color: '#fca5a5', fontWeight: '700', fontSize: 16 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {simulationToken && (
+                <TouchableOpacity
+                  style={styles.simBadge}
+                  onPress={() => setVerifyToken(simulationToken)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.simBadgeText}>✨ Test Kodu: {simulationToken} (Doldurmak için tıkla)</Text>
+                </TouchableOpacity>
+              )}
+
+              <Text style={styles.label}>6 Haneli Doğrulama Kodu</Text>
+              <TextInput
+                style={[styles.input, styles.codeInput, focusedField === 'verifyToken' && styles.inputFocused]}
+                placeholder="123456"
+                placeholderTextColor={colors.textMuted}
+                value={verifyToken}
+                onChangeText={setVerifyToken}
+                keyboardType="number-pad"
+                maxLength={6}
+                onFocus={() => setFocusedField('verifyToken')}
+                onBlur={() => setFocusedField(null)}
+              />
+
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleVerifySubmit}
+                disabled={verifyLoading}
+                activeOpacity={0.8}
+              >
+                {verifyLoading ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.submitButtonText}>✓ E-Postayı Doğrula</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 }}>
+                <TouchableOpacity
+                  onPress={handleResendCode}
+                  disabled={resendLoading}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
+                    {resendLoading ? 'Gönderiliyor...' : '🔄 Yeni Kod Gönder'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowVerifyView(false)}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+                    Giriş Ekranına Dön
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : activeTab === 'login' ? (
             /* LOGIN FORM */
             <View>
               <Text style={styles.label}>E-Posta Adresi</Text>
@@ -432,16 +599,73 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontWeight: '700',
   },
+  errorBoxWrapper: {
+    marginBottom: 15,
+  },
   errorBox: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderColor: colors.danger,
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
-    marginBottom: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  verifyActionBtn: {
+    marginTop: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  verifyActionBtnText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  verifyHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  verifyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  verifySubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  simBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  simBadgeText: {
+    color: '#34d399',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  codeInput: {
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 6,
   },
   errorText: {
     color: '#fca5a5',

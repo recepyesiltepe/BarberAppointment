@@ -176,7 +176,6 @@ dotnet ef database update --project src/libraries/BarberAppointment.Data --start
   - **Hizmetler (Services CRUD):** Hizmet listeleme, canlı arama, Ekleme/Düzenleme/Silme modalları ve süre/fiyat validasyonu
   - **Personeller (Employees CRUD):** Personel kadrosu yönetimi, Ekleme/Düzenleme ve Hizmet Yetkisi Atama (`Checklist`)
   - **Randevular (Appointments):** Çok kriterli filtreleme (Personele, Duruma göre), Tamamlama (`Complete`), İptal Etme (`Cancel`) ve Yeni Randevu Oluşturma modalı
-  - **Rol Bazlı Mod Değiştirici:** Yönetici/Personel için Yönetim Paneli ve Müşteri Önizleme arasında anlık geçiş
 
 ## Gün 16 çıktısı
 

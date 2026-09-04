@@ -183,7 +183,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
       ) : filteredAppointments.length === 0 ? (
         <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem 2rem', borderRadius: 'var(--radius-lg)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✂️</div>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: '#fff' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
             {filterTab === 'upcoming' ? 'Yaklaşan Randevunuz Bulunmuyor' : 'Bu kategoride randevu kaydı yok'}
           </h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '450px', margin: '0 auto 1.5rem' }}>
@@ -214,16 +214,16 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
                   padding: '1.5rem',
                   borderRadius: 'var(--radius-lg)',
                   border: canCancel ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-subtle)',
-                  background: 'rgba(15, 23, 42, 0.7)'
+                  background: 'var(--bg-card)'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>{a.serviceName}</h3>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>{a.serviceName}</h3>
                       {getStatusBadge(a.status)}
                     </div>
-                    <div style={{ fontSize: '0.9rem', color: '#38bdf8', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#0284c7', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <User size={14} /> Kuaför: {a.employeeName}
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
 
                 <div style={{
                   padding: '0.85rem 1rem',
-                  background: 'rgba(255, 255, 255, 0.02)',
+                  background: 'var(--card-nested-bg)',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-subtle)',
                   display: 'flex',
@@ -263,7 +263,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
                   flexWrap: 'wrap',
                   gap: '0.75rem'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#fff', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
                     <Calendar size={16} color="var(--primary-400)" />
                     <span>{dateStr}</span>
                     <span style={{ color: 'var(--text-muted)' }}>•</span>

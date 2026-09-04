@@ -58,7 +58,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [isOpen, user]);
 
-  if (!isOpen) return null;
+  if (!isOpen || user?.isPhoneVerified) return null;
 
   const handleSendCode = async (e) => {
     if (e) e.preventDefault();

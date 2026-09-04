@@ -165,6 +165,18 @@ public class EmailService : IEmailService
         return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
     }
 
+    public async Task<bool> SendPasswordChangeVerificationAsync(
+        string toEmail,
+        string fullName,
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = "Şifre Değişikliği Doğrulama Kodu — Kuaför Randevu Sistemi";
+        var body = GeneratePasswordChangeVerificationHtml(fullName, toEmail, token);
+
+        return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
+    }
+
     // ─── HTML E-Posta Şablon Üreteçleri ────────────────────────────────────────
 
     private static string GetEmailHeader(string accentColor, string title, string subtitle)
@@ -599,5 +611,52 @@ public class EmailService : IEmailService
 
         return sb.ToString();
     }
-}
 
+    private static string GeneratePasswordChangeVerificationHtml(string fullName, string email, string token)
+    {
+        var sb = new StringBuilder();
+        sb.Append(GetEmailBaseContainer());
+        sb.Append(GetEmailHeader("#8b5cf6", "ŞİFRE DEĞİŞİKLİĞİ DOĞRULAMA", "Kimlik Doğrulama Kodu"));
+
+        sb.Append($"""
+                <div style="padding: 28px 24px;">
+                    <div style="display: inline-block; background-color: #f5f3ff; color: #7c3aed; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 18px;">
+                        🔐 Şifre Değişikliği Talebi
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        Sayın {System.Net.WebUtility.HtmlEncode(fullName)},
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                        <strong>{System.Net.WebUtility.HtmlEncode(email)}</strong> hesabınız için bir şifre değişikliği talebi alındı. İşlemi onaylamak için aşağıdaki 6 haneli doğrulama kodunu kullanınız:
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+                            Tek Kullanımlık Doğrulama Kodunuz
+                        </div>
+                        <div style="font-size: 32px; font-weight: 800; color: #0f172a; letter-spacing: 6px; font-family: monospace; background: #ffffff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 14px 20px; display: inline-block;">
+                            {token}
+                        </div>
+                    </div>
+
+                    <div style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                        <div style="font-weight: 700; color: #b45309; font-size: 13px; margin-bottom: 4px;">
+                            ⏱️ Bu kod <strong>15 dakika</strong> boyunca geçerlidir.
+                        </div>
+                        <div style="font-size: 13px; color: #92400e; line-height: 1.5;">
+                            Eğer bu talebi siz yapmadıysanız lütfen bu e-postayı dikkate almayınız. Hesabınız güvendedir, şifreniz değiştirilmemiştir.
+                        </div>
+                    </div>
+                </div>
+        """);
+
+        sb.Append(GetEmailFooter());
+        sb.Append("""
+            </div>
+        </body>
+        </html>
+        """);
+
+        return sb.ToString();
+    }
+}

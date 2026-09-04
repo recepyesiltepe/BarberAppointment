@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Edit2, Trash2, Search, Scissors, Shield, Check, X, AlertCircle } from 'lucide-react';
 import { employeesApi, servicesApi } from '../../api/barberApi';
+import { useAuth } from '../../context/AuthContext';
 
 export const EmployeesView = ({ onNotify }) => {
+  const { user, roleName } = useAuth();
+  const isAdmin = roleName === 'Admin' || user?.role === 2;
   const [employees, setEmployees] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,7 @@ export const EmployeesView = ({ onNotify }) => {
   }, []);
 
   const handleOpenAdd = () => {
+    if (!isAdmin) return;
     setEditingEmployee(null);
     setFullName('');
     setTitle('Kuaför & Stilist');
@@ -50,6 +54,7 @@ export const EmployeesView = ({ onNotify }) => {
   };
 
   const handleOpenEdit = (emp) => {
+    if (!isAdmin) return;
     setEditingEmployee(emp);
     setFullName(emp.fullName);
     setTitle(emp.title || '');
@@ -70,6 +75,7 @@ export const EmployeesView = ({ onNotify }) => {
   };
 
   const handleDelete = async (id, name) => {
+    if (!isAdmin) return;
     if (!window.confirm(`"${name}" personelini silmek istediğinize emin misiniz?`)) return;
 
     try {
@@ -86,6 +92,7 @@ export const EmployeesView = ({ onNotify }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin) return;
     setFormError(null);
 
     if (!fullName.trim()) {
@@ -157,10 +164,12 @@ export const EmployeesView = ({ onNotify }) => {
             />
           </div>
 
-          <button onClick={handleOpenAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Plus size={16} />
-            <span>Yeni Personel Ekle</span>
-          </button>
+          {isAdmin && (
+            <button onClick={handleOpenAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Plus size={16} />
+              <span>Yeni Personel Ekle</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -183,7 +192,9 @@ export const EmployeesView = ({ onNotify }) => {
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unvan</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verdiği Hizmetler</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+                  {isAdmin && (
+                    <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -206,7 +217,7 @@ export const EmployeesView = ({ onNotify }) => {
                           {emp.fullName?.charAt(0)}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, color: '#fff' }}>{emp.fullName}</div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.fullName}</div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: #{emp.id}</div>
                         </div>
                       </div>
@@ -243,26 +254,28 @@ export const EmployeesView = ({ onNotify }) => {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleOpenEdit(emp)}
-                          className="btn btn-secondary btn-sm"
-                          title="Düzenle / Hizmet Ata"
-                          style={{ padding: '0.35rem 0.6rem' }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(emp.id, emp.fullName)}
-                          className="btn btn-ghost btn-sm"
-                          title="Sil"
-                          style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => handleOpenEdit(emp)}
+                            className="btn btn-secondary btn-sm"
+                            title="Düzenle / Hizmet Ata"
+                            style={{ padding: '0.35rem 0.6rem' }}
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(emp.id, emp.fullName)}
+                            className="btn btn-ghost btn-sm"
+                            title="Sil"
+                            style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -328,7 +341,7 @@ export const EmployeesView = ({ onNotify }) => {
                       }}>
                         {emp.fullName.charAt(0)}
                       </div>
-                      <div style={{ fontWeight: 600, color: '#fff' }}>{emp.fullName}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.fullName}</div>
                     </div>
                   </td>
                   <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -394,7 +407,7 @@ export const EmployeesView = ({ onNotify }) => {
       </div>
 
       {/* Add / Edit Modal */}
-      {isModalOpen && (
+      {isModalOpen && isAdmin && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
@@ -488,7 +501,7 @@ export const EmployeesView = ({ onNotify }) => {
                           }}>
                             {isSelected && <Check size={12} strokeWidth={3} />}
                           </div>
-                          <span style={{ fontSize: '0.85rem', color: isSelected ? '#fff' : 'var(--text-secondary)' }}>
+                          <span style={{ fontSize: '0.85rem', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                             {srv.name}
                           </span>
                         </div>
@@ -506,7 +519,7 @@ export const EmployeesView = ({ onNotify }) => {
                       onChange={(e) => setIsActive(e.target.checked)}
                       style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#38bdf8' }}
                     />
-                    <label htmlFor="isEmpActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
+                    <label htmlFor="isEmpActiveCheck" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
                       Personel Aktif Olarak Randevu Alabilir
                     </label>
                   </div>

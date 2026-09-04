@@ -46,6 +46,18 @@ public static class DbInitializer
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordResetExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordResetExpiresAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordChangeToken') BEGIN ALTER TABLE dbo.Users ADD PasswordChangeToken NVARCHAR(128) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordChangeTokenExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordChangeTokenExpiresAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PendingPasswordHash') BEGIN ALTER TABLE dbo.Users ADD PendingPasswordHash VARBINARY(64) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PendingPasswordSalt') BEGIN ALTER TABLE dbo.Users ADD PendingPasswordSalt VARBINARY(128) NULL; END");
             }
             catch (Exception ex)
             {

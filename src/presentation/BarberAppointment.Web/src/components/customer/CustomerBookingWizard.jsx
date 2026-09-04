@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
-  DollarSign,
   Search,
   X,
   Smartphone,
@@ -312,7 +311,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: currentStep >= 2 ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.08)',
+                background: currentStep >= 2 ? 'var(--primary-gradient)' : 'var(--btn-secondary-bg)',
                 color: currentStep >= 2 ? '#000' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
@@ -330,7 +329,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: currentStep >= 3 ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.08)',
+                background: currentStep >= 3 ? 'var(--primary-gradient)' : 'var(--btn-secondary-bg)',
                 color: currentStep >= 3 ? '#000' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
@@ -348,7 +347,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: currentStep >= 4 ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.08)',
+                background: currentStep >= 4 ? 'var(--primary-gradient)' : 'var(--btn-secondary-bg)',
                 color: currentStep >= 4 ? '#000' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
@@ -465,7 +464,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                   style={{
                     padding: '1.25rem',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: 'var(--card-nested-bg)',
                     border: selectedService?.id === srv.id ? '2px solid var(--primary-400)' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -479,7 +478,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 >
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{srv.name}</h4>
+                      <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{srv.name}</h4>
                       <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>{srv.price} ₺</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -514,7 +513,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             alignItems: 'center'
           }}>
             <div style={{ fontSize: '0.9rem', color: '#fbbf24' }}>
-              ✂️ Seçilen Hizmet: <strong style={{ color: '#fff' }}>{selectedService?.name}</strong> ({selectedService?.price} ₺ • {selectedService?.durationMinutes} dk)
+              ✂️ Seçilen Hizmet: <strong style={{ color: 'var(--text-primary)' }}>{selectedService?.name}</strong> ({selectedService?.price} ₺ • {selectedService?.durationMinutes} dk)
             </div>
             <button onClick={() => setCurrentStep(1)} className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}>
               Değiştir
@@ -545,7 +544,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                   style={{
                     padding: '1.25rem',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: 'var(--card-nested-bg)',
                     border: selectedEmployee?.id === emp.id ? '2px solid #38bdf8' : '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -571,7 +570,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                     {emp.fullName?.charAt(0)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#fff', fontSize: '1.05rem' }}>{emp.fullName}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>{emp.fullName}</div>
                     <div style={{ fontSize: '0.8rem', color: '#38bdf8', marginTop: '2px' }}>{emp.title || 'Usta Kuaför'}</div>
                   </div>
                   <ChevronRight size={18} color="var(--text-muted)" />
@@ -631,9 +630,9 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                   style={{
                     padding: '0.75rem 1.25rem',
                     borderRadius: 'var(--radius-md)',
-                    background: isSelected ? 'var(--primary-gradient)' : 'rgba(255, 255, 255, 0.03)',
-                    border: isSelected ? 'none' : '1px solid var(--border-subtle)',
-                    color: isSelected ? '#000' : '#fff',
+                    background: isSelected ? 'var(--primary-gradient)' : 'var(--slot-bg)',
+                    border: isSelected ? 'none' : '1px solid var(--border-medium)',
+                    color: isSelected ? '#000' : 'var(--text-primary)',
                     textAlign: 'center',
                     cursor: 'pointer',
                     minWidth: '85px',
@@ -650,7 +649,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
           {/* Time Slots Grid */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>Müsait Randevu Saatleri ({availableSlots.length} Boş Saat)</span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateHuman(selectedDate)}</span>
             </div>
@@ -672,7 +671,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               }}>
                 <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <div>
-                  <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>Seçilen günde boş randevu saati kalmamıştır.</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Seçilen günde boş randevu saati kalmamıştır.</div>
                   <div style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: '#fca5a5' }}>
                     Lütfen yukarıdaki günlerden farklı bir tarih seçin veya geri dönerek başka bir kuaför personeli tercih edin.
                   </div>
@@ -693,9 +692,9 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                       style={{
                         padding: '0.75rem 0.5rem',
                         borderRadius: 'var(--radius-md)',
-                        background: isSelected ? 'var(--primary-gradient)' : 'rgba(255, 255, 255, 0.04)',
-                        border: isSelected ? 'none' : '1px solid var(--border-subtle)',
-                        color: isSelected ? '#000' : '#fff',
+                        background: isSelected ? 'var(--primary-gradient)' : 'var(--slot-bg)',
+                        border: isSelected ? 'none' : '1px solid var(--border-medium)',
+                        color: isSelected ? '#000' : 'var(--text-primary)',
                         fontWeight: 700,
                         fontSize: '1rem',
                         cursor: 'pointer',
@@ -739,7 +738,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           </div>
 
           <div style={{
-            background: 'rgba(255, 255, 255, 0.02)',
+            background: 'var(--card-nested-bg)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             padding: '1.5rem',
@@ -748,7 +747,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hizmet</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginTop: '2px' }}>{selectedService?.name}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{selectedService?.name}</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedService?.durationMinutes} Dakika İşlem</div>
               </div>
 
@@ -760,7 +759,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Randevu Zamanı</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginTop: '2px' }}>{formatDateHuman(selectedDate)}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{formatDateHuman(selectedDate)}</div>
                 <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fbbf24', marginTop: '2px' }}>
                   {formatTime(selectedSlot?.startAt)} – {formatTime(selectedSlot?.endAt)}
                 </div>
@@ -789,143 +788,143 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             />
           </div>
 
-          {/* Phone Verification Section (Ek Geliştirme 4) */}
-          {user?.isPhoneVerified ? (
+          {/* Phone Verification Section: Telefon doğrulanmış olsa dahi yeni randevu için onay kodu zorunludur */}
+          {user?.isPhoneVerified && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '0.85rem 1.25rem',
-              background: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              padding: '0.75rem 1.25rem',
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               borderRadius: 'var(--radius-md)',
-              marginBottom: '1.5rem'
+              marginBottom: '1rem'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <ShieldCheck size={20} color="#10b981" />
+                <ShieldCheck size={18} color="#10b981" />
                 <div>
-                  <span style={{ fontWeight: 600, color: '#10b981' }}>Telefon Doğrulanmış: </span>
-                  <span style={{ color: '#fff' }}>{user?.phone || 'Kayıtlı Telefon'}</span>
+                  <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>Kayıtlı Telefon Numaranız: </span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{user?.phone}</span>
                 </div>
               </div>
-              <span className="badge badge-confirmed" style={{ fontSize: '0.75rem' }}>Doğrulandı</span>
+              <span className="badge badge-confirmed" style={{ fontSize: '0.75rem' }}>Profilde Onaylı</span>
             </div>
-          ) : (
-            <div style={{
-              background: 'rgba(245, 158, 11, 0.05)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: 'var(--radius-md)',
-              padding: '1.5rem',
-              marginBottom: '1.5rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-                <Smartphone size={22} color="#fbbf24" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', margin: 0 }}>
-                  SMS Telefon Doğrulaması (Gerekli)
-                </h3>
+          )}
+
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.05)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+              <Smartphone size={22} color="#fbbf24" />
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Randevu Onay Kodu (SMS Doğrulaması Gerekli)
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
+              Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <strong>otomatik olarak kesinleştirilecektir</strong>.
+            </p>
+
+            {smsError && (
+              <div className="alert-card" style={{ marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+                <AlertCircle size={16} />
+                <span>{smsError}</span>
               </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-                Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <strong>otomatik olarak tamamlanacaktır</strong>.
-              </p>
+            )}
 
-              {smsError && (
-                <div className="alert-card" style={{ marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
-                  <AlertCircle size={16} />
-                  <span>{smsError}</span>
-                </div>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem' }}>Cep Telefonu Numaranız</label>
+                <input
+                  type="tel"
+                  className="form-input no-icon"
+                  placeholder="05XXXXXXXXX"
+                  value={smsPhone}
+                  onChange={(e) => setSmsPhone(e.target.value)}
+                  disabled={smsStep === 2 && smsCooldown > 0}
+                />
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.85rem' }}>Cep Telefonu Numaranız</label>
+              <button
+                type="button"
+                onClick={handleSendSmsCode}
+                disabled={smsLoading || smsCooldown > 0}
+                className="btn btn-secondary"
+                style={{ whiteSpace: 'nowrap', height: '42px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                {smsLoading ? (
+                  <span className="spinner-sm" style={{ width: '16px', height: '16px' }} />
+                ) : smsCooldown > 0 ? (
+                  <span>{smsCooldown}s Bekleyin</span>
+                ) : (
+                  <span>{smsStep === 2 ? 'Yeniden Kod İste' : 'SMS Kodu Gönder'}</span>
+                )}
+              </button>
+            </div>
+
+            {smsStep === 2 && (
+              <div className="animate-fade-in" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                {smsSimulationCode && (
+                  <div style={{
+                    padding: '0.6rem 0.85rem',
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: 'var(--radius-sm)',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.8rem', color: '#7dd3fc' }}>🧪 Test Simülasyon Kodu: <strong>{smsSimulationCode}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setSmsCode(smsSimulationCode)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                    >
+                      Kodu Doldur
+                    </button>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <KeyRound size={16} color="#fbbf24" />
+                    <span>6 Haneli Doğrulama Kodunu Giriniz</span>
+                  </label>
                   <input
-                    type="tel"
+                    type="text"
+                    maxLength={6}
                     className="form-input no-icon"
-                    placeholder="05XXXXXXXXX"
-                    value={smsPhone}
-                    onChange={(e) => setSmsPhone(e.target.value)}
-                    disabled={smsStep === 2 && smsCooldown > 0}
+                    placeholder="Örn: 123456"
+                    value={smsCode}
+                    onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ''))}
+                    style={{ letterSpacing: '0.3em', fontSize: '1.25rem', fontWeight: 700, textAlign: 'center' }}
                   />
                 </div>
 
                 <button
                   type="button"
-                  onClick={handleSendSmsCode}
-                  disabled={smsLoading || smsCooldown > 0}
-                  className="btn btn-secondary"
-                  style={{ whiteSpace: 'nowrap', height: '42px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={handleVerifyAndBook}
+                  disabled={loading || smsCode.length !== 6}
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '0.85rem', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                 >
-                  {smsLoading ? (
-                    <span className="spinner-sm" style={{ width: '16px', height: '16px' }} />
-                  ) : smsCooldown > 0 ? (
-                    <span>{smsCooldown}s Bekleyin</span>
+                  {loading ? (
+                    <>
+                      <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                      <span>Doğrulanıyor ve Randevu Oluşturuluyor...</span>
+                    </>
                   ) : (
-                    <span>{smsStep === 2 ? 'Yeniden Kod İste' : 'SMS Kodu Gönder'}</span>
+                    <span>✓ Doğrula ve Randevuyu Otomatik Tamamla</span>
                   )}
                 </button>
               </div>
-
-              {smsStep === 2 && (
-                <div className="animate-fade-in" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  {smsSimulationCode && (
-                    <div style={{
-                      padding: '0.6rem 0.85rem',
-                      background: 'rgba(56, 189, 248, 0.1)',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
-                      borderRadius: 'var(--radius-sm)',
-                      marginBottom: '1rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.8rem', color: '#7dd3fc' }}>🧪 Test Simülasyon Kodu: <strong>{smsSimulationCode}</strong></span>
-                      <button
-                        type="button"
-                        onClick={() => setSmsCode(smsSimulationCode)}
-                        className="btn btn-ghost btn-sm"
-                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
-                      >
-                        Kodu Doldur
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <KeyRound size={16} color="#fbbf24" />
-                      <span>6 Haneli Doğrulama Kodunu Giriniz</span>
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      className="form-input no-icon"
-                      placeholder="Örn: 123456"
-                      value={smsCode}
-                      onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ''))}
-                      style={{ letterSpacing: '0.3em', fontSize: '1.25rem', fontWeight: 700, textAlign: 'center' }}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleVerifyAndBook}
-                    disabled={loading || smsCode.length !== 6}
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '0.85rem', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                  >
-                    {loading ? (
-                      <>
-                        <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                        <span>Doğrulanıyor ve Randevu Oluşturuluyor...</span>
-                      </>
-                    ) : (
-                      <span>✓ Doğrula ve Randevuyu Otomatik Tamamla</span>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <button onClick={() => setCurrentStep(3)} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -933,33 +932,24 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               <span>Geri (Saat Değiştir)</span>
             </button>
 
-            {user?.isPhoneVerified ? (
-              <button
-                onClick={handleConfirmBooking}
-                disabled={loading}
-                className="btn btn-primary"
-                style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
-              >
-                {loading ? (
-                  <>
-                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                    <span>Randevu Kaydediliyor...</span>
-                  </>
-                ) : (
-                  <span>🎉 Randevuyu Kesinleştir ve Onayla</span>
-                )}
-              </button>
-            ) : smsStep === 1 ? (
+            {smsStep === 1 && (
               <button
                 type="button"
                 onClick={handleSendSmsCode}
-                disabled={smsLoading}
+                disabled={smsLoading || smsCooldown > 0}
                 className="btn btn-primary"
                 style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
               >
-                <span>SMS Kodu İsteyerek Devam Et</span>
+                {smsLoading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Kod Gönderiliyor...</span>
+                  </>
+                ) : (
+                  <span>SMS Kodu İsteyerek Devam Et</span>
+                )}
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       )}
@@ -970,8 +960,8 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           padding: '3rem 2rem',
           borderRadius: 'var(--radius-lg)',
           textAlign: 'center',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
-          background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)'
+          border: '1px solid var(--hero-border)',
+          background: 'var(--hero-bg)'
         }}>
           <div style={{
             width: '80px',
@@ -1008,7 +998,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Hizmet:</span>
-              <span style={{ fontWeight: 600, color: '#fff' }}>{createdAppointment?.serviceName} ({createdAppointment?.durationMinutes} dk)</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{createdAppointment?.serviceName} ({createdAppointment?.durationMinutes} dk)</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kuaför:</span>

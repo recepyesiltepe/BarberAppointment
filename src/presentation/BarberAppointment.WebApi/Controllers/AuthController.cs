@@ -20,7 +20,7 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Yeni bir kullanıcı (varsayılan: Müşteri) kaydı oluşturur ve JWT Access Token döner.
+    /// Yeni bir kullanıcı (varsayılan: Müşteri) kaydı oluşturur. İlk giriş öncesinde e-posta doğrulaması gereklidir.
     /// </summary>
     [HttpPost("register")]
     [AllowAnonymous]
@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
     {
         var result = await _authService.RegisterAsync(dto, cancellationToken);
         return StatusCode(StatusCodes.Status201Created,
-            ApiResponse<AuthResponseDto>.Ok(result, "Kullanıcı kaydı başarıyla oluşturuldu.", StatusCodes.Status201Created));
+            ApiResponse<AuthResponseDto>.Ok(result, "Kullanıcı kaydı başarıyla oluşturuldu. Giriş yapabilmek için lütfen e-posta adresinizi doğrulayınız.", StatusCodes.Status201Created));
     }
 
     /// <summary>
@@ -84,11 +84,12 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Giriş yapmış kullanıcının şifresini değiştirir (JWT Token gerektirir).
+    /// Giriş yapmış kullanıcının şifre değişikliği sürecini başlatır (JWT Token gerektirir).
+    /// Mevcut şifre doğrulanır ve e-postaya 6 haneli onay kodu gönderilir. Şifre bu adımda değişmez.
     /// </summary>
     [HttpPut("change-password")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse>> ChangePassword(
+    public async Task<ActionResult<ApiResponse<ChangePasswordResponseDto>>> ChangePassword(
         [FromBody] ChangePasswordDto dto,
         CancellationToken cancellationToken)
     {
@@ -98,7 +99,27 @@ public class AuthController : ControllerBase
             return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
         }
 
-        await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
+        var result = await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
+        return Ok(ApiResponse<ChangePasswordResponseDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>
+    /// E-postaya gelen 6 haneli doğrulama kodu ile şifre değişikliğini onaylar ve uygular (JWT Token gerektirir).
+    /// Başarılı onay sonrası yeni şifre aktif olur ve güvenlik bildirim e-postası gönderilir.
+    /// </summary>
+    [HttpPut("change-password/confirm")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse>> ConfirmPasswordChange(
+        [FromBody] ConfirmPasswordChangeDto dto,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
+        }
+
+        await _authService.ConfirmPasswordChangeAsync(userId, dto, cancellationToken);
         return Ok(ApiResponse.Ok("Şifreniz başarıyla güncellendi. Güvenliğiniz için kayıtlı e-posta adresinize bilgilendirme iletildi."));
     }
 

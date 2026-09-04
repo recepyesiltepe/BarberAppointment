@@ -5,11 +5,20 @@ import { useTheme } from '../context/ThemeContext';
 import { SmsVerificationModal } from './SmsVerificationModal';
 import { UserProfileModal } from './UserProfileModal';
 
-export const Navbar = ({ currentTab, setCurrentTab }) => {
+export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
   const { user, isAuthenticated, logout, roleName } = useAuth();
   const { themePreference, setThemePreference } = useTheme();
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const handleLogoClick = () => {
+    if (onNavigateHome) {
+      onNavigateHome();
+    } else {
+      setCurrentTab('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const getRoleBadge = () => {
     switch (roleName) {
@@ -37,8 +46,32 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* Brand Logo */}
         <div 
-          onClick={() => setCurrentTab('home')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+          onClick={handleLogoClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleLogoClick();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          title="Ana Sayfaya Dön"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'transform 0.15s ease, opacity 0.15s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.02)';
+            e.currentTarget.style.opacity = '0.92';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.opacity = '1';
+          }}
         >
           <div style={{
             width: '42px',
@@ -187,15 +220,17 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowSmsModal(true)}
-                className="btn btn-secondary btn-sm"
-                title="SMS Telefon Doğrulama"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem' }}
-              >
-                <Smartphone size={15} color="#fbbf24" />
-                <span className="hide-on-mobile">SMS Doğrula</span>
-              </button>
+              {!user?.isPhoneVerified && (
+                <button
+                  onClick={() => setShowSmsModal(true)}
+                  className="btn btn-secondary btn-sm"
+                  title="SMS Telefon Doğrulama"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem' }}
+                >
+                  <Smartphone size={15} color="#fbbf24" />
+                  <span className="hide-on-mobile">SMS Doğrula</span>
+                </button>
+              )}
 
               <button 
                 onClick={logout} 
@@ -236,7 +271,7 @@ export const Navbar = ({ currentTab, setCurrentTab }) => {
 
       {/* SMS Verification Modal */}
       <SmsVerificationModal
-        isOpen={showSmsModal}
+        isOpen={showSmsModal && !user?.isPhoneVerified}
         onClose={() => setShowSmsModal(false)}
       />
 

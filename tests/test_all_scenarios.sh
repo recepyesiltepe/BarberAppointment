@@ -37,6 +37,18 @@ else
     run_test "Customer Registration" 201 "$STATUS"
 fi
 
+# 1.b Attempting Admin Registration via Public Register forces Role to Customer (1)
+ATTEMPT_ADMIN_EMAIL="fakeadmin.$(date +%s)@example.com"
+REG_ADMIN_ATTEMPT=$(curl -s -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Fake Admin","email":"'$ATTEMPT_ADMIN_EMAIL'","phone":"5559998877","password":"Password123!","confirmPassword":"Password123!","role":2}')
+REG_USER_ROLE=$(echo "$REG_ADMIN_ATTEMPT" | grep -o '"role":[0-9]*' | head -1 | cut -d: -f2)
+if [ "$REG_USER_ROLE" = "1" ]; then
+    run_test "Public Registration forces Customer Role (Role: 2 ignored -> 1)" 200 200
+else
+    run_test "Public Registration forces Customer Role" 1 "$REG_USER_ROLE"
+fi
+
 # Login
 LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
@@ -144,6 +156,20 @@ run_test "GET /api/auth/me (Yetkisiz -> 401 Unauthorized)" 401 "$STATUS"
 # 403 Forbidden (Customer accessing Admin route)
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $CUST_TOKEN" "$BASE_URL/api/users")
 run_test "GET /api/users (Müşteri Yetkisiz -> 403 Forbidden)" 403 "$STATUS"
+
+# 403 Forbidden (Customer attempting to create employee)
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/employees" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Yetkisiz Personel","title":"Stilist","serviceIds":[1]}')
+run_test "POST /api/employees (Müşteri Personel Ekleyemez -> 403 Forbidden)" 403 "$STATUS"
+
+# 403 Forbidden (Customer attempting to create user)
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/users" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Yetkisiz Kullanıcı","email":"unauth.user@example.com"}')
+run_test "POST /api/users (Müşteri Kullanıcı Ekleyemez -> 403 Forbidden)" 403 "$STATUS"
 
 # 403 Forbidden (Customer accessing another user's appointments)
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $CUST_TOKEN" "$BASE_URL/api/appointments/user/999")
@@ -347,60 +373,117 @@ run_test "PUT /api/auth/me (Geçersiz/Boş Ad Soyad -> 400 Bad Request)" 400 "$V
 echo ""
 echo "--- 10. Ek Geliştirme 6: Şifre Değiştirme ve E-posta Bildirimi ---"
 
-# 10.1 Özel Test Kullanıcısı Oluştur ve Giriş Yap
+# 10.1 Özel Test Kullanıcısı Oluştur — E-posta Doğrulama Zorunluluğu ile
 SEC_USER_EMAIL="sec_user_$RANDOM@example.com"
 SEC_OLD_PASS="InitialPass123!"
 SEC_NEW_PASS="BrandNewPass456!"
 
 REG_SEC_RES=$(curl -s -X POST "$BASE_URL/api/auth/register" \
   -H "Content-Type: application/json" \
-  -d '{"fullName":"Şifre Test Kullanıcısı","email":"'$SEC_USER_EMAIL'","phone":"5559876543","password":"'$SEC_OLD_PASS'","confirmPassword":"'$SEC_OLD_PASS'","role":1}')
-SEC_TOKEN=$(echo "$REG_SEC_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+  -d '{"fullName":"Şifre Test Kullanıcısı","email":"'"$SEC_USER_EMAIL"'","phone":"5559876543","password":"'"$SEC_OLD_PASS"'","confirmPassword":"'"$SEC_OLD_PASS"'","role":1}')
+SEC_SIM_TOKEN=$(echo "$REG_SEC_RES" | grep -o '"simulationToken":"[^"]*' | cut -d'"' -f4)
+SEC_REQ_VERIFY=$(echo "$REG_SEC_RES" | grep -o '"requiresEmailVerification":true' || true)
 
-if [ -n "$SEC_TOKEN" ]; then
-  run_test "Ek 6 Test Kullanıcısı Kaydı & Token" 200 200
+if [ -n "$SEC_SIM_TOKEN" ] && [ -n "$SEC_REQ_VERIFY" ]; then
+  run_test "Ek 6 Test Kullanıcısı Kaydı (requiresEmailVerification: true)" 200 200
 else
   run_test "Ek 6 Test Kullanıcısı Kaydı" 200 500
+fi
+
+# 10.1b — Doğrulama Öncesi Giriş Denemesi E-posta Doğrulanmamış Hatası Vermeli (400)
+PRE_VERIFY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'"$SEC_USER_EMAIL"'","password":"'"$SEC_OLD_PASS"'"}')
+run_test "POST /api/auth/login (E-posta Doğrulanmamış -> 400 Bad Request)" 400 "$PRE_VERIFY_STATUS"
+
+# 10.1c — E-posta Doğrula
+VERIFY_SEC_RES=$(curl -s -X POST "$BASE_URL/api/auth/verify-email" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'"$SEC_USER_EMAIL"'","token":"'"$SEC_SIM_TOKEN"'"}')
+VERIFY_SEC_OK=$(echo "$VERIFY_SEC_RES" | grep -o '"success":true' || true)
+if [ -n "$VERIFY_SEC_OK" ]; then
+  run_test "POST /api/auth/verify-email (Ek 6 Kullanıcı E-posta Doğrulama -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/verify-email (Ek 6 Kullanıcı Doğrulama)" 200 500
+fi
+
+# 10.1d — Doğrulama Sonrası Giriş ile Token Al
+SEC_LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'"$SEC_USER_EMAIL"'","password":"'"$SEC_OLD_PASS"'"}')
+SEC_TOKEN=$(echo "$SEC_LOGIN_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$SEC_TOKEN" ]; then
+  run_test "POST /api/auth/login (E-posta Doğrulama Sonrası -> 200 OK, Token Alındı)" 200 200
+else
+  run_test "POST /api/auth/login (E-posta Doğrulama Sonrası)" 200 500
 fi
 
 # 10.2 Yanlış Mevcut Şifre ile İstek (400 Bad Request)
 WRONG_CURR_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
   -H "Authorization: Bearer $SEC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"currentPassword":"WrongPassword999!","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"'$SEC_NEW_PASS'"}')
+  -d '{"currentPassword":"WrongPassword999!","newPassword":"'"$SEC_NEW_PASS"'","confirmNewPassword":"'"$SEC_NEW_PASS"'"}')
 run_test "PUT /api/auth/change-password (Yanlış Mevcut Şifre -> 400)" 400 "$WRONG_CURR_STATUS"
 
 # 10.3 Eşleşmeyen Yeni Şifre Tekrarı (400 Bad Request)
 MISMATCH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
   -H "Authorization: Bearer $SEC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"MismatchPass789!"}')
+  -d '{"currentPassword":"'"$SEC_OLD_PASS"'","newPassword":"'"$SEC_NEW_PASS"'","confirmNewPassword":"MismatchPass789!"}')
 run_test "PUT /api/auth/change-password (Eşleşmeyen Yeni Şifre -> 400)" 400 "$MISMATCH_STATUS"
 
 # 10.4 Mevcut Şifreyle Aynı Yeni Şifre Denemesi (400 Bad Request)
 SAME_PASS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password" \
   -H "Authorization: Bearer $SEC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_OLD_PASS'","confirmNewPassword":"'$SEC_OLD_PASS'"}')
+  -d '{"currentPassword":"'"$SEC_OLD_PASS"'","newPassword":"'"$SEC_OLD_PASS"'","confirmNewPassword":"'"$SEC_OLD_PASS"'"}')
 run_test "PUT /api/auth/change-password (Aynı Şifre Kuralı -> 400)" 400 "$SAME_PASS_STATUS"
 
-# 10.5 Başarılı Şifre Değiştirme ve E-posta Bildirimi Tetikleme (200 OK)
-CHANGE_RES=$(curl -s -X PUT "$BASE_URL/api/auth/change-password" \
+# 10.5 Adım 1: Şifre Değişikliği Başlatma & Doğrulama Kodu Talebi (200 OK, requiresVerification: true)
+CHANGE_REQ_RES=$(curl -s -X PUT "$BASE_URL/api/auth/change-password" \
   -H "Authorization: Bearer $SEC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"currentPassword":"'$SEC_OLD_PASS'","newPassword":"'$SEC_NEW_PASS'","confirmNewPassword":"'$SEC_NEW_PASS'"}')
-CHANGE_SUCCESS=$(echo "$CHANGE_RES" | grep -o '"success":true' || true)
+  -d '{"currentPassword":"'"$SEC_OLD_PASS"'","newPassword":"'"$SEC_NEW_PASS"'","confirmNewPassword":"'"$SEC_NEW_PASS"'"}')
+CHANGE_REQ_SUCCESS=$(echo "$CHANGE_REQ_RES" | grep -o '"requiresVerification":true' || true)
+CHANGE_SIM_TOKEN=$(echo "$CHANGE_REQ_RES" | grep -o '"simulationToken":"[^"]*' | cut -d'"' -f4)
 
-if [ -n "$CHANGE_SUCCESS" ]; then
-  run_test "PUT /api/auth/change-password (Başarılı Değişim & E-posta Bildirimi)" 200 200
+if [ -n "$CHANGE_REQ_SUCCESS" ] && [ -n "$CHANGE_SIM_TOKEN" ]; then
+  run_test "PUT /api/auth/change-password (Adım 1: Kod Talebi & requiresVerification: true)" 200 200
 else
-  run_test "PUT /api/auth/change-password (Başarılı Değişim)" 200 500
+  run_test "PUT /api/auth/change-password (Adım 1: Kod Talebi)" 200 500
+fi
+
+# 10.5b Onay Öncesi Yeni Şifre ile Girişin Başarısız Olması (400 Bad Request — Şifre henüz uygulanmadı)
+PRE_CONFIRM_LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'"$SEC_USER_EMAIL"'","password":"'"$SEC_NEW_PASS"'"}')
+run_test "POST /api/auth/login (Onay Öncesi Yeni Şifre Engellendi -> 400 Bad Request)" 400 "$PRE_CONFIRM_LOGIN_STATUS"
+
+# 10.5c Yanlış Kod ile Onay Denemesi (400 Bad Request)
+WRONG_CONFIRM_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/auth/change-password/confirm" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"verificationCode":"999999"}')
+run_test "PUT /api/auth/change-password/confirm (Yanlış Kod -> 400 Bad Request)" 400 "$WRONG_CONFIRM_STATUS"
+
+# 10.5d Adım 2: Doğru Kod ile Şifre Değişikliğini Onaylama (200 OK & E-posta Bildirimi)
+CONFIRM_RES=$(curl -s -X PUT "$BASE_URL/api/auth/change-password/confirm" \
+  -H "Authorization: Bearer $SEC_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"verificationCode":"'"$CHANGE_SIM_TOKEN"'"}')
+CONFIRM_SUCCESS=$(echo "$CONFIRM_RES" | grep -o '"success":true' || true)
+
+if [ -n "$CONFIRM_SUCCESS" ]; then
+  run_test "PUT /api/auth/change-password/confirm (Adım 2: Kod Onayı & Yeni Şifre Aktif)" 200 200
+else
+  run_test "PUT /api/auth/change-password/confirm (Adım 2: Kod Onayı)" 200 500
 fi
 
 # 10.6 Yeni Şifre ile Başarılı Giriş (200 OK)
 NEW_LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"'$SEC_USER_EMAIL'","password":"'$SEC_NEW_PASS'"}')
+  -d '{"email":"'"$SEC_USER_EMAIL"'","password":"'"$SEC_NEW_PASS"'"}')
 NEW_LOGIN_TOKEN=$(echo "$NEW_LOGIN_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
 if [ -n "$NEW_LOGIN_TOKEN" ]; then
@@ -412,7 +495,7 @@ fi
 # 10.7 Eski Şifre ile Girişin Reddedilmesi (400 Bad Request)
 OLD_LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"'$SEC_USER_EMAIL'","password":"'$SEC_OLD_PASS'"}')
+  -d '{"email":"'"$SEC_USER_EMAIL"'","password":"'"$SEC_OLD_PASS"'"}')
 run_test "POST /api/auth/login (Eski Şifre ile Giriş Engellendi -> 400)" 400 "$OLD_LOGIN_STATUS"
 
 # 11. E-POSTA DOĞRULAMA VE ŞİFREMİ UNUTTUM AKIŞI
@@ -423,19 +506,26 @@ EMAIL_TEST_USER="mail_user_$RANDOM@example.com"
 EMAIL_TEST_PASS="EmailUserPass123!"
 RESET_NEW_PASS="ResetNewPass789!"
 
-# 11.1 Yeni Kullanıcı Kaydı (isEmailVerified: false ve simulationToken gelmeli)
+# 11.1 Yeni Kullanıcı Kaydı (isEmailVerified: false, requiresEmailVerification: true ve simulationToken gelmeli)
 REG_EMAIL_RES=$(curl -s -X POST "$BASE_URL/api/auth/register" \
   -H "Content-Type: application/json" \
   -d '{"fullName":"Eposta Test Kullanıcısı","email":"'$EMAIL_TEST_USER'","phone":"5551112233","password":"'$EMAIL_TEST_PASS'","confirmPassword":"'$EMAIL_TEST_PASS'","role":1}')
 
 IS_EMAIL_VERIFIED=$(echo "$REG_EMAIL_RES" | grep -o '"isEmailVerified":false' || true)
 VERIFY_TOKEN=$(echo "$REG_EMAIL_RES" | grep -o '"simulationToken":"[^"]*' | cut -d'"' -f4)
+REQ_VERIFY=$(echo "$REG_EMAIL_RES" | grep -o '"requiresEmailVerification":true' || true)
 
-if [ -n "$IS_EMAIL_VERIFIED" ] && [ -n "$VERIFY_TOKEN" ]; then
-  run_test "POST /api/auth/register (isEmailVerified: false ve Doğrulama Kodu Üretildi)" 200 200
+if [ -n "$IS_EMAIL_VERIFIED" ] && [ -n "$VERIFY_TOKEN" ] && [ -n "$REQ_VERIFY" ]; then
+  run_test "POST /api/auth/register (isEmailVerified: false, requiresEmailVerification: true, Doğrulama Kodu Üretildi)" 200 200
 else
   run_test "POST /api/auth/register (E-Posta Doğrulama Kodu Üretimi)" 200 500
 fi
+
+# 11.1b — Kayıt Sonrası Doğrulama Yapılmadan Giriş Engellenmeli (400 Bad Request)
+LOGIN_UNVERIFIED_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"'$EMAIL_TEST_USER'","password":"'$EMAIL_TEST_PASS'"}')
+run_test "POST /api/auth/login (Doğrulama Öncesi Giriş Engellendi -> 400 Bad Request)" 400 "$LOGIN_UNVERIFIED_STATUS"
 
 # 11.2 Yanlış Token ile E-posta Doğrulama (400 Bad Request)
 WRONG_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/verify-email" \

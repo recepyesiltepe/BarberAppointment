@@ -31,11 +31,19 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.register(userData);
       if (res.success && res.data) {
-        const { accessToken, user: newUser } = res.data;
-        setToken(accessToken);
-        setUser(newUser);
-        setClientToken(accessToken);
-        return { success: true, user: newUser };
+        const { accessToken, user: newUser, requiresEmailVerification, simulationToken } = res.data;
+        if (accessToken && !requiresEmailVerification) {
+          setToken(accessToken);
+          setUser(newUser);
+          setClientToken(accessToken);
+        }
+        return {
+          success: true,
+          user: newUser,
+          requiresEmailVerification: requiresEmailVerification ?? true,
+          simulationToken,
+          message: res.message
+        };
       }
       throw new Error(res.message || 'Kayıt başarısız.');
     } finally {

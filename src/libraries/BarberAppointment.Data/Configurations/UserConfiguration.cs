@@ -65,6 +65,22 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.PasswordResetExpiresAt)
             .IsRequired(false);
 
+        // Şifre değişikliği e-posta doğrulama alanları
+        builder.Property(u => u.PasswordChangeToken)
+            .HasMaxLength(128)
+            .IsRequired(false);
+
+        builder.Property(u => u.PasswordChangeTokenExpiresAt)
+            .IsRequired(false);
+
+        builder.Property(u => u.PendingPasswordHash)
+            .HasMaxLength(64)
+            .IsRequired(false);
+
+        builder.Property(u => u.PendingPasswordSalt)
+            .HasMaxLength(128)
+            .IsRequired(false);
+
         builder.Property(u => u.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

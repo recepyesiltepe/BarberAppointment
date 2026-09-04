@@ -67,12 +67,20 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.register(userData);
       if (res.success && res.data) {
-        const { accessToken, user: registeredUser } = res.data;
-        setToken(accessToken);
-        setUser(registeredUser);
-        localStorage.setItem('barber_jwt_token', accessToken);
-        localStorage.setItem('barber_user', JSON.stringify(registeredUser));
-        return { success: true, user: registeredUser };
+        const { accessToken, user: registeredUser, requiresEmailVerification, simulationToken } = res.data;
+        if (accessToken && !requiresEmailVerification) {
+          setToken(accessToken);
+          setUser(registeredUser);
+          localStorage.setItem('barber_jwt_token', accessToken);
+          localStorage.setItem('barber_user', JSON.stringify(registeredUser));
+        }
+        return {
+          success: true,
+          user: registeredUser,
+          requiresEmailVerification: requiresEmailVerification ?? true,
+          simulationToken,
+          message: res.message
+        };
       }
       throw new Error(res.message || 'Kayıt işlemi başarısız.');
     } finally {

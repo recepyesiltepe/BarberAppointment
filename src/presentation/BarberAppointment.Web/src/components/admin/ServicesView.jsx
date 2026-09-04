@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Scissors, Plus, Edit2, Trash2, Search, Clock, DollarSign, Check, X, AlertCircle, Sparkles } from 'lucide-react';
+import { Scissors, Plus, Edit2, Trash2, Search, Clock, Check, X, AlertCircle, Sparkles } from 'lucide-react';
 import { servicesApi } from '../../api/barberApi';
+import { useAuth } from '../../context/AuthContext';
 
 export const ServicesView = ({ onNotify }) => {
+  const { user, roleName } = useAuth();
+  const isAdmin = roleName === 'Admin' || user?.role === 2;
+
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -165,7 +169,7 @@ export const ServicesView = ({ onNotify }) => {
           {/* Status Filter Tabs */}
           <div style={{
             display: 'flex',
-            background: 'rgba(15, 23, 42, 0.6)',
+            background: 'var(--tab-nav-bg)',
             padding: '3px',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border-subtle)'
@@ -181,7 +185,8 @@ export const ServicesView = ({ onNotify }) => {
                 color: statusFilter === 'all' ? '#000' : 'var(--text-secondary)',
                 fontWeight: 600,
                 fontSize: '0.8rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
             >
               Tümü ({services.length})
@@ -197,7 +202,8 @@ export const ServicesView = ({ onNotify }) => {
                 color: statusFilter === 'active' ? '#000' : 'var(--text-secondary)',
                 fontWeight: 600,
                 fontSize: '0.8rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
             >
               Aktif ({services.filter(s => s.isActive).length})
@@ -213,7 +219,8 @@ export const ServicesView = ({ onNotify }) => {
                 color: statusFilter === 'inactive' ? '#000' : 'var(--text-secondary)',
                 fontWeight: 600,
                 fontSize: '0.8rem',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
             >
               Pasif ({services.filter(s => !s.isActive).length})
@@ -232,10 +239,12 @@ export const ServicesView = ({ onNotify }) => {
             />
           </div>
 
-          <button onClick={handleOpenAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Plus size={16} />
-            <span>Yeni Hizmet Ekle</span>
-          </button>
+          {isAdmin && (
+            <button onClick={handleOpenAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Plus size={16} />
+              <span>Yeni Hizmet Ekle</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -255,32 +264,24 @@ export const ServicesView = ({ onNotify }) => {
             <div className="empty-state-desc">
               Aradığınız kriterlere uygun hizmet bulunamadı. Yeni bir hizmet ekleyebilir veya filtreleri temizleyebilirsiniz.
             </div>
-            <button
-              onClick={handleOpenAdd}
-              className="btn btn-primary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              <Plus size={16} />
-              <span>Yeni Hizmet Ekle</span>
-            </button>
           </div>
         ) : (
           <table>
             <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <tr style={{ background: 'var(--btn-secondary-bg)', borderBottom: '1px solid var(--border-subtle)' }}>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet Adı</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Süre</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fiyat</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
+                {isAdmin && <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>}
               </tr>
             </thead>
             <tbody>
               {filteredServices.map((srv) => (
                 <tr key={srv.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
                   <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{srv.id}</td>
-                  <td style={{ padding: '1rem', fontWeight: 600, color: '#fff' }}>{srv.name}</td>
+                  <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{srv.name}</td>
                   <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                       <Clock size={14} color="var(--text-muted)" />
@@ -293,7 +294,7 @@ export const ServicesView = ({ onNotify }) => {
                   <td style={{ padding: '1rem' }}>
                     {srv.isActive ? (
                       <span className="badge badge-customer">Aktif</span>
-                    ) : (
+                    ) : isAdmin ? (
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(srv)}
@@ -314,28 +315,32 @@ export const ServicesView = ({ onNotify }) => {
                         <span>Pasif</span>
                         <span style={{ fontSize: '0.65rem', textDecoration: 'underline' }}>(Aktifleştir)</span>
                       </button>
+                    ) : (
+                      <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>Pasif</span>
                     )}
                   </td>
-                  <td style={{ padding: '1rem', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => handleOpenEdit(srv)}
-                        className="btn btn-secondary btn-sm"
-                        title="Düzenle"
-                        style={{ padding: '0.35rem 0.6rem' }}
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(srv.id, srv.name)}
-                        className="btn btn-ghost btn-sm"
-                        title={srv.isActive ? "Sil / Pasife Al" : "Kalıcı Olarak Sil"}
-                        style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleOpenEdit(srv)}
+                          className="btn btn-secondary btn-sm"
+                          title="Düzenle"
+                          style={{ padding: '0.35rem 0.6rem' }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(srv.id, srv.name)}
+                          className="btn btn-ghost btn-sm"
+                          title={srv.isActive ? "Sil / Pasife Al" : "Kalıcı Olarak Sil"}
+                          style={{ padding: '0.35rem 0.6rem', color: '#f87171' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -422,7 +427,7 @@ export const ServicesView = ({ onNotify }) => {
                       onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                       style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-500)' }}
                     />
-                    <label htmlFor="isActiveCheck" style={{ fontSize: '0.9rem', color: '#fff', cursor: 'pointer' }}>
+                    <label htmlFor="isActiveCheck" style={{ fontSize: '0.9rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
                       Hizmet Aktif Olarak Sunulsun
                     </label>
                   </div>

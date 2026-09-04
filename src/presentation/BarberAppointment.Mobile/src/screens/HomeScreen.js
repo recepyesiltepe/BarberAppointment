@@ -12,15 +12,13 @@ import {
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { barberApi } from '../api/barberApi';
-import { getApiUrl } from '../api/client';
 
 export const HomeScreen = () => {
-  const { user, token, roleName, logout } = useAuth();
+  const { user, roleName, logout } = useAuth();
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showToken, setShowToken] = useState(false);
 
   const loadData = async () => {
     try {
@@ -90,50 +88,12 @@ export const HomeScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* API Connection Indicator */}
+        {/* Status Indicator */}
         <View style={styles.apiIndicator}>
           <View style={styles.greenDot} />
-          <Text style={styles.apiText}>API Bağlantısı: {getApiUrl()}</Text>
+          <Text style={styles.apiText}>Sistem Çevrimiçi</Text>
         </View>
       </View>
-
-      {/* JWT Token Inspector Toggle */}
-      <TouchableOpacity
-        style={styles.tokenToggleCard}
-        onPress={() => setShowToken(!showToken)}
-      >
-        <Text style={styles.tokenToggleTitle}>
-          🔑 {showToken ? 'JWT Token Bilgisini Gizle' : 'JWT Token & Claims İncele'}
-        </Text>
-      </TouchableOpacity>
-
-      {showToken && (
-        <View style={[styles.card, { borderColor: colors.primary }]}>
-          <Text style={styles.sectionTitle}>Aktif Bearer Token</Text>
-          <View style={styles.tokenBox}>
-            <Text style={styles.tokenText}>{token}</Text>
-          </View>
-
-          <View style={styles.tokenGrid}>
-            <View style={styles.tokenGridItem}>
-              <Text style={styles.tokenLabel}>Kullanıcı ID:</Text>
-              <Text style={styles.tokenVal}>#{user?.id}</Text>
-            </View>
-            <View style={styles.tokenGridItem}>
-              <Text style={styles.tokenLabel}>E-Posta:</Text>
-              <Text style={styles.tokenVal}>{user?.email}</Text>
-            </View>
-            <View style={styles.tokenGridItem}>
-              <Text style={styles.tokenLabel}>Rol Kodu:</Text>
-              <Text style={styles.tokenVal}>{user?.role} ({roleName})</Text>
-            </View>
-            <View style={styles.tokenGridItem}>
-              <Text style={styles.tokenLabel}>Hesap:</Text>
-              <Text style={[styles.tokenVal, { color: colors.success }]}>Aktif</Text>
-            </View>
-          </View>
-        </View>
-      )}
 
       {/* Services List Section */}
       <View style={styles.card}>
@@ -266,58 +226,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
   },
-  tokenToggleCard: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  tokenToggleTitle: {
-    color: colors.primaryLight,
-    fontWeight: '700',
-    fontSize: 13,
-  },
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
-  },
-  tokenBox: {
-    backgroundColor: '#000',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  tokenText: {
-    color: '#a7f3d0',
-    fontSize: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  tokenGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tokenGridItem: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: 8,
-    borderRadius: 6,
-  },
-  tokenLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-  },
-  tokenVal: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
   },
   listItem: {
     flexDirection: 'row',

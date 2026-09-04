@@ -17,6 +17,12 @@ public class User : BaseEntity
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetExpiresAt { get; set; }
 
+    // Şifre değişikliği e-posta doğrulama alanları
+    public string? PasswordChangeToken { get; set; }
+    public DateTime? PasswordChangeTokenExpiresAt { get; set; }
+    public byte[]? PendingPasswordHash { get; set; }
+    public byte[]? PendingPasswordSalt { get; set; }
+
     // Navigation properties
     public virtual Employee? Employee { get; set; }
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();

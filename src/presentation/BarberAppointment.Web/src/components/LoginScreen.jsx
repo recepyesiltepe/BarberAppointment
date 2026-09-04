@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, Phone, Eye, EyeOff, Sparkles, Shield, Scissors, UserCheck, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
+import { VerifyEmailModal } from './VerifyEmailModal';
 
 export const LoginScreen = ({ onSuccess }) => {
   const { login, register } = useAuth();
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showVerifyEmailModal, setShowVerifyEmailModal] = useState(false);
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState('');
+  const [pendingSimulationToken, setPendingSimulationToken] = useState(null);
+  const [isUnverifiedError, setIsUnverifiedError] = useState(false);
   
   // Login Form State
   const [loginEmail, setLoginEmail] = useState('');
@@ -19,7 +24,6 @@ export const LoginScreen = ({ onSuccess }) => {
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regRole, setRegRole] = useState(1); // 1 = Customer, 2 = Admin, 3 = Employee
   const [showRegPassword, setShowRegPassword] = useState(false);
 
   // UI Status
@@ -31,12 +35,14 @@ export const LoginScreen = ({ onSuccess }) => {
     setLoginEmail(email);
     setLoginPassword(password);
     setError(null);
+    setIsUnverifiedError(false);
   };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+    setIsUnverifiedError(false);
 
     if (!loginEmail || !loginPassword) {
       setError('Lütfen e-posta ve şifrenizi giriniz.');
@@ -49,7 +55,11 @@ export const LoginScreen = ({ onSuccess }) => {
       setSuccessMsg('Giriş başarılı! Yönlendiriliyorsunuz...');
       if (onSuccess) onSuccess();
     } catch (err) {
-      setError(err.message || 'Giriş yapılamadı.');
+      const errMsg = err.message || 'Giriş yapılamadı.';
+      setError(errMsg);
+      if (errMsg.toLowerCase().includes('doğrula') || errMsg.toLowerCase().includes('dogrula')) {
+        setIsUnverifiedError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -59,6 +69,7 @@ export const LoginScreen = ({ onSuccess }) => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+    setIsUnverifiedError(false);
 
     if (!regFullName || !regEmail || !regPassword || !regConfirmPassword) {
       setError('Lütfen tüm zorunlu alanları doldurunuz.');
@@ -72,21 +83,41 @@ export const LoginScreen = ({ onSuccess }) => {
 
     setLoading(true);
     try {
-      await register({
+      const res = await register({
         fullName: regFullName,
         email: regEmail,
         phone: regPhone || null,
         password: regPassword,
         confirmPassword: regConfirmPassword,
-        role: Number(regRole)
+        role: 1
       });
-      setSuccessMsg('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
-      if (onSuccess) onSuccess();
+
+      if (res?.requiresEmailVerification) {
+        setPendingVerifyEmail(regEmail.trim());
+        setPendingSimulationToken(res.simulationToken || null);
+        setShowVerifyEmailModal(true);
+        setSuccessMsg('Kaydınız başarıyla oluşturuldu! İlk girişinizi yapabilmek için lütfen e-postanıza gönderilen doğrulama kodunu onaylayınız.');
+        setActiveTab('login');
+        setLoginEmail(regEmail.trim());
+      } else {
+        setSuccessMsg('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
+        if (onSuccess) onSuccess();
+      }
     } catch (err) {
       setError(err.message || 'Kayıt sırasında bir hata oluştu.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifySuccess = (verifiedEmail) => {
+    setActiveTab('login');
+    if (verifiedEmail) {
+      setLoginEmail(verifiedEmail);
+    }
+    setSuccessMsg('E-posta adresiniz başarıyla doğrulandı! Şimdi şifrenizle giriş yapabilirsiniz.');
+    setError(null);
+    setIsUnverifiedError(false);
   };
 
   return (
@@ -125,7 +156,7 @@ export const LoginScreen = ({ onSuccess }) => {
         {/* Tab Selector */}
         <div style={{
           display: 'flex',
-          background: 'rgba(15, 23, 42, 0.6)',
+          background: 'var(--tab-nav-bg)',
           padding: '4px',
           borderRadius: 'var(--radius-md)',
           marginBottom: '1.5rem',
@@ -171,16 +202,41 @@ export const LoginScreen = ({ onSuccess }) => {
 
         {/* Error / Success Alerts */}
         {error && (
-          <div className="alert-card alert-card-error">
-            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ flex: 1, whiteSpace: 'pre-line' }}>{error}</div>
-            <button
-              type="button"
-              onClick={() => setError(null)}
-              style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', display: 'flex', padding: '2px' }}
-            >
-              <X size={16} />
-            </button>
+          <div className="alert-card alert-card-error" style={{ display: 'block' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ flex: 1, whiteSpace: 'pre-line' }}>{error}</div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', display: 'flex', padding: '2px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {isUnverifiedError && (
+              <div style={{ marginTop: '0.65rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingVerifyEmail(loginEmail.trim());
+                    setShowVerifyEmailModal(true);
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '0.35rem 0.75rem',
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    borderColor: 'rgba(245, 158, 11, 0.4)',
+                    color: '#fbbf24',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✉️ E-Posta Doğrulama Kodunu Gir
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -365,19 +421,6 @@ export const LoginScreen = ({ onSuccess }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Hesap Türü / Rol</label>
-              <select
-                className="form-select"
-                value={regRole}
-                onChange={(e) => setRegRole(e.target.value)}
-              >
-                <option value={1}>👤 Müşteri (Randevu Alan)</option>
-                <option value={3}>✂️ Personel (Kuaför)</option>
-                <option value={2}>👑 Yönetici (Admin)</option>
-              </select>
-            </div>
-
-            <div className="form-group">
               <label className="form-label">Şifre</label>
               <div className="form-input-wrapper">
                 <Lock size={18} className="form-input-icon" />
@@ -449,6 +492,14 @@ export const LoginScreen = ({ onSuccess }) => {
         isOpen={showForgotPasswordModal}
         onClose={() => setShowForgotPasswordModal(false)}
         initialEmail={loginEmail}
+      />
+
+      <VerifyEmailModal
+        isOpen={showVerifyEmailModal}
+        onClose={() => setShowVerifyEmailModal(false)}
+        onSuccess={handleVerifySuccess}
+        initialEmail={pendingVerifyEmail || loginEmail || regEmail}
+        initialSimulationToken={pendingSimulationToken}
       />
     </div>
   );

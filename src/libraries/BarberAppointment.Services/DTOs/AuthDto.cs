@@ -25,6 +25,7 @@ public class AuthResponseDto
     public int ExpiresIn { get; set; }
     public UserProfileDto User { get; set; } = null!;
     public string? SimulationToken { get; set; }
+    public bool RequiresEmailVerification { get; set; }
 }
 
 public class ChangePasswordDto
@@ -32,4 +33,23 @@ public class ChangePasswordDto
     public string CurrentPassword { get; set; } = string.Empty;
     public string NewPassword { get; set; } = string.Empty;
     public string ConfirmNewPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Adım 1 yanıtı: Şifre değişikliği e-posta doğrulaması başlatıldı.
+/// RequiresVerification = true ise kod e-posta ile gönderildi, şifre henüz değişmedi.
+/// </summary>
+public class ChangePasswordResponseDto
+{
+    public bool RequiresVerification { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? SimulationToken { get; set; }
+}
+
+/// <summary>
+/// Adım 2 isteği: E-postaya gelen 6 haneli doğrulama kodu ile şifre değişikliği onaylanır.
+/// </summary>
+public class ConfirmPasswordChangeDto
+{
+    public string VerificationCode { get; set; } = string.Empty;
 }
