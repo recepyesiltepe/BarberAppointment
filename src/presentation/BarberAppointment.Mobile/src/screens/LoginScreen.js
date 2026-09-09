@@ -14,7 +14,6 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/barberApi';
-import { getApiUrl, setApiUrl } from '../api/client';
 import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
 import { isStrongPassword } from '../utils/passwordUtils';
 import { PasswordStrengthIndicator } from '../components/PasswordStrengthIndicator';
@@ -63,10 +62,6 @@ export const LoginScreen = () => {
 
   // Focus tracking for input border highlight
   const [focusedField, setFocusedField] = useState(null);
-
-  // Server URL State
-  const [serverUrl, setServerUrlState] = useState(getApiUrl());
-  const [showUrlConfig, setShowUrlConfig] = useState(false);
 
   const [error, setError] = useState(null);
 
@@ -242,14 +237,6 @@ export const LoginScreen = () => {
       setVerifyError(err.message || 'Kod gönderilemedi.');
     } finally {
       setResendLoading(false);
-    }
-  };
-
-  const handleSaveUrl = () => {
-    if (serverUrl) {
-      setApiUrl(serverUrl.trim());
-      setShowUrlConfig(false);
-      Alert.alert('Başarılı', `API URL güncellendi:\n${serverUrl}`);
     }
   };
 
@@ -732,31 +719,6 @@ export const LoginScreen = () => {
               </TouchableOpacity>
             </View>
           )}
-
-          {/* API Server URL Configurator */}
-          <TouchableOpacity
-            style={styles.configToggle}
-            onPress={() => setShowUrlConfig(!showUrlConfig)}
-          >
-            <Text style={styles.configToggleText}>
-              ⚙️ Sunucu API URL: {getApiUrl()}
-            </Text>
-          </TouchableOpacity>
-
-          {showUrlConfig && (
-            <View style={styles.urlBox}>
-              <Text style={styles.urlLabel}>Backend API Adresi:</Text>
-              <TextInput
-                style={styles.input}
-                value={serverUrl}
-                onChangeText={setServerUrlState}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.saveUrlButton} onPress={handleSaveUrl}>
-                <Text style={styles.saveUrlButtonText}>URL Kaydet & Güncelle</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -770,8 +732,8 @@ const createStyles = (colors) => StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 50,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 32,
   },
   header: {
     alignItems: 'center',

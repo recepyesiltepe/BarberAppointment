@@ -103,7 +103,7 @@ export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
         {/* Status Indicator */}
         <View style={styles.apiIndicator}>
           <View style={styles.greenDot} />
-          <Text style={styles.apiText}>Sistem ve Veritabanı Çevrimiçi</Text>
+          <Text style={styles.apiText}>Sistem Aktif</Text>
         </View>
       </View>
 

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl, setApiUrl } from '../api/client';
 import { smsApi, authApi } from '../api/barberApi';
 import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
 import { isStrongPassword } from '../utils/passwordUtils';
@@ -21,8 +20,6 @@ export const ProfileScreen = () => {
   const { user, roleName, logout, updateUser } = useAuth();
   const { colors, themePreference, setThemePreference } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverUrl, setServerUrlState] = useState(getApiUrl());
 
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -224,14 +221,6 @@ export const ProfileScreen = () => {
       Alert.alert('Hata', err.message || 'Doğrulama sırasında bir hata oluştu.');
     } finally {
       setPasswordLoading(false);
-    }
-  };
-
-  const handleSaveUrl = () => {
-    if (serverUrl) {
-      setApiUrl(serverUrl.trim());
-      setShowServerConfig(false);
-      Alert.alert('Başarılı', `API URL güncellendi:\n${serverUrl}`);
     }
   };
 
@@ -673,34 +662,6 @@ export const ProfileScreen = () => {
         </View>
       </View>
 
-      {/* Network Configuration */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>🌐 Sunucu & API Ayarları</Text>
-          <TouchableOpacity onPress={() => setShowServerConfig(!showServerConfig)}>
-            <Text style={styles.toggleText}>{showServerConfig ? 'Kapat' : 'Düzenle'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.cardSub}>Bağlı Sunucu: {getApiUrl()}</Text>
-
-        {showServerConfig && (
-          <View style={{ marginTop: 12 }}>
-            <TextInput
-              style={styles.input}
-              value={serverUrl}
-              onChangeText={setServerUrlState}
-              placeholder="http://192.168.1.X:5184"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveUrl}>
-              <Text style={styles.saveButtonText}>Sunucu URL Kaydet</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>🚪 Güvenli Çıkış Yap</Text>
@@ -716,8 +677,8 @@ const createStyles = (colors) => StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: 45,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
   profileHeader: {
     alignItems: 'center',

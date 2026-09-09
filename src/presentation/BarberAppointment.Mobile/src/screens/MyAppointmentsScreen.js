@@ -327,8 +327,8 @@ const createStyles = (colors) => StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: 45,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
   header: {
     marginBottom: 16,

@@ -277,7 +277,13 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.scrollContent,
+        currentStep === 5 && styles.scrollContentSuccess
+      ]}
+    >
       {/* Step Indicator Header */}
       {currentStep < 5 && (
         <View style={styles.stepHeader}>
@@ -484,7 +490,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         <View>
           <Text style={styles.instruction}>Randevu bilgilerinizi kontrol edip onaylayın:</Text>
 
-          <View style={styles.card}>
+          <View style={styles.summaryCard}>
             <Text style={styles.summaryHeading}>📋 Randevu Özeti</Text>
 
             <View style={styles.summaryRow}>
@@ -518,7 +524,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           </View>
 
           {/* Not Ekleme */}
-          <View style={[styles.card, { flexDirection: 'column', alignItems: 'stretch' }]}>
+          <View style={styles.summaryCard}>
             <Text style={styles.label}>Randevu Notu (İsteğe Bağlı)</Text>
             <TextInput
               style={[styles.input, { minHeight: 65, textAlignVertical: 'top' }]}
@@ -705,20 +711,20 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           </Text>
 
           <View style={styles.ticketBox}>
-            <Text style={styles.ticketRow}>
-              <Text style={{ color: colors.textMuted }}>Hizmet: </Text>
-              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{createdAppointment?.serviceName}</Text>
-            </Text>
-            <Text style={styles.ticketRow}>
-              <Text style={{ color: colors.textMuted }}>Personel: </Text>
-              <Text style={{ color: colors.info, fontWeight: '600' }}>{createdAppointment?.employeeName}</Text>
-            </Text>
-            <Text style={styles.ticketRow}>
-              <Text style={{ color: colors.textMuted }}>Zaman: </Text>
-              <Text style={{ color: colors.primary, fontWeight: '700' }}>
+            <View style={styles.ticketRowItem}>
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Hizmet:</Text>
+              <Text style={{ color: colors.textPrimary, fontWeight: '700', fontSize: 14 }}>{createdAppointment?.serviceName}</Text>
+            </View>
+            <View style={styles.ticketRowItem}>
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Personel:</Text>
+              <Text style={{ color: colors.info, fontWeight: '700', fontSize: 14 }}>{createdAppointment?.employeeName}</Text>
+            </View>
+            <View style={[styles.ticketRowItem, { borderBottomWidth: 0 }]}>
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Zaman:</Text>
+              <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 14 }}>
                 {new Date(createdAppointment?.startAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} {formatTime(createdAppointment?.startAt)}
               </Text>
-            </Text>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -755,17 +761,23 @@ const createStyles = (colors) => StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: 45,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  scrollContentSuccess: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   stepHeader: {
-    marginBottom: 20,
+    marginBottom: 16,
     alignItems: 'center',
   },
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   stepDot: {
     width: 28,
@@ -820,6 +832,16 @@ const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  summaryCard: {
+    backgroundColor: colors.bgCard,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   cardSelected: {
     borderColor: colors.primary,
@@ -954,24 +976,27 @@ const createStyles = (colors) => StyleSheet.create({
   summaryHeading: {
     color: colors.textPrimary,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 12,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   summaryLabel: {
     color: colors.textSecondary,
     fontSize: 13,
+    fontWeight: '500',
   },
   summaryVal: {
     color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   label: {
     color: colors.textSecondary,
@@ -991,19 +1016,23 @@ const createStyles = (colors) => StyleSheet.create({
   confirmButton: {
     backgroundColor: colors.primary,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
     marginTop: 10,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   confirmButtonText: {
     color: '#000',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
+    textAlign: 'center',
   },
   backButton: {
     paddingVertical: 12,
@@ -1028,11 +1057,17 @@ const createStyles = (colors) => StyleSheet.create({
   },
   successCard: {
     backgroundColor: colors.bgCard,
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 24,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
     alignItems: 'center',
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   successIconBadge: {
     width: 72,
@@ -1059,14 +1094,18 @@ const createStyles = (colors) => StyleSheet.create({
   ticketBox: {
     width: '100%',
     backgroundColor: colors.bgInput,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 20,
-    gap: 8,
   },
-  ticketRow: {
-    fontSize: 14,
+  ticketRowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   }
 });
