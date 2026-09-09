@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Mail, CheckCircle2, AlertCircle, X, RefreshCw, KeyRound, Sparkles } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export const VerifyEmailModal = ({ isOpen, onClose, onSuccess, initialEmail, initialSimulationToken }) => {
   const { user, updateUser } = useAuth();
@@ -16,6 +17,10 @@ export const VerifyEmailModal = ({ isOpen, onClose, onSuccess, initialEmail, ini
   const [infoMsg, setInfoMsg] = useState(null);
   const [simulationToken, setSimulationToken] = useState(initialSimulationToken || null);
 
+  // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
+  useBodyScrollLock(isOpen);
+
+  // Escape tuşu ile kapatma
   useEffect(() => {
     if (!isOpen) return;
 
@@ -26,12 +31,8 @@ export const VerifyEmailModal = ({ isOpen, onClose, onSuccess, initialEmail, ini
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, onClose]);
 

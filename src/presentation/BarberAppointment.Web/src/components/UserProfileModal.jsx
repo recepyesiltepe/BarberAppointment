@@ -5,6 +5,7 @@ import { authApi } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { VerifyEmailModal } from './VerifyEmailModal';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
@@ -31,7 +32,10 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Escape tuşu ile kapatma ve scroll kilidi
+  // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
+  useBodyScrollLock(isOpen);
+
+  // Escape tuşu ile kapatma
   useEffect(() => {
     if (!isOpen) return;
 
@@ -42,12 +46,8 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, onClose]);
 

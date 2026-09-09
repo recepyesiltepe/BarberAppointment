@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { KeyRound, Mail, Lock, CheckCircle2, AlertCircle, X, Sparkles, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authApi } from '../api/authApi';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
   const [step, setStep] = useState(1); // 1 = Request, 2 = Reset, 3 = Success
@@ -16,6 +17,10 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
   const [successMsg, setSuccessMsg] = useState(null);
   const [simulationToken, setSimulationToken] = useState(null);
 
+  // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
+  useBodyScrollLock(isOpen);
+
+  // Escape tuşu ile kapatma
   useEffect(() => {
     if (!isOpen) return;
 
@@ -26,12 +31,8 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
     };
   }, [isOpen, onClose]);
 

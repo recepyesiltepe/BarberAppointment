@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Smartphone, CheckCircle2, AlertCircle, X, Clock, RefreshCw, KeyRound, Sparkles } from 'lucide-react';
 import { smsApi } from '../api/barberApi';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const { user, isAuthenticated, updateUser } = useAuth();
@@ -16,9 +17,14 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const [simulationCode, setSimulationCode] = useState(null);
   const [maskedPhone, setMaskedPhone] = useState('');
 
-  // Escape tuşu ile kapatma ve arka plan kaydırmayı kilitleme
+  const isModalVisible = Boolean(isOpen && !user?.isPhoneVerified);
+
+  // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
+  useBodyScrollLock(isModalVisible);
+
+  // Escape tuşu ile kapatma
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isModalVisible) return;
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -27,14 +33,10 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = originalOverflow;
     };
-  }, [isOpen, onClose]);
+  }, [isModalVisible, onClose]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -75,7 +77,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [isOpen, user]);
 
-  if (!isOpen || user?.isPhoneVerified) return null;
+  if (!isModalVisible) return null;
 
   const handleSendCode = async (e) => {
     if (e) e.preventDefault();

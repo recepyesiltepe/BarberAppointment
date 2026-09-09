@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { Scissors, Clock, Calendar, CheckCircle2, ChevronRight } from 'lucide-react';
+import { resetScroll } from './utils/scrollLock';
 
 const MainContent = ({
   currentTab,
@@ -97,6 +98,11 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
   const [customerTab, setCustomerTab] = useState('book');
   const [adminTab, setAdminTab] = useState('dashboard');
+
+  // Sekmeler veya paneller arası geçişlerde scroll kilidinin takılı kalmasını önle
+  useEffect(() => {
+    resetScroll();
+  }, [currentTab, customerTab, adminTab]);
 
   const handleNavigateHome = () => {
     setCurrentTab('home');
