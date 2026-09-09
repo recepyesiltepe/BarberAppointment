@@ -13,6 +13,10 @@ using SharpGrip.FluentValidation.AutoValidation.Mvc.Extensions;
 using System.Reflection;
 using System.Text;
 
+using BarberAppointment.WebApi.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. CORS Yapılandırması (Web ve Mobil İstemciler İçin)
@@ -59,6 +63,11 @@ builder.Services.AddBusinessServices(builder.Configuration);
 
 // 4.1. Arka Plan Servisleri (BackgroundService)
 builder.Services.AddHostedService<AppointmentReminderBackgroundService>();
+
+// 4.2. Health Checks Yapılandırması (API Canlılığı ve MSSQL Veritabanı Kontrolü)
+builder.Services.AddHealthChecks()
+    .AddCheck("api", () => HealthCheckResult.Healthy("BarberAppointment REST API çalışıyor ve istekleri karşılıyor."), tags: new[] { "live" })
+    .AddCheck<MssqlDatabaseHealthCheck>("database", tags: new[] { "ready", "db" });
 
 // 5. JWT Authentication & Authorization
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -164,6 +173,27 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// 10. Health Check Endpoint'leri (Genel, Liveness, Readiness)
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse,
+    AllowCachingResponses = false
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse,
+    AllowCachingResponses = false
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse,
+    AllowCachingResponses = false
+});
 
 app.MapControllers();
 

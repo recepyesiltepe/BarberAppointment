@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\libraries\BarberAppointment.Services\BarberAppointment.Services.csproj" />
+    <ProjectReference Include="..\..\src\presentation\BarberAppointment.WebApi\BarberAppointment.WebApi.csproj" />
   </ItemGroup>
 
 </Project>

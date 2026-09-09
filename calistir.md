@@ -1,6 +1,7 @@
 # 1. Backend API (Terminal 1)
 dotnet run --project src/presentation/BarberAppointment.WebApi --launch-profile http
 # API & Swagger: http://localhost:5184/swagger
+# Health Checks: http://localhost:5184/health (Genel), http://localhost:5184/health/live (Liveness), http://localhost:5184/health/ready (Readiness)
 
 # 2. React Web Uygulaması (Terminal 2)
 cd src/presentation/BarberAppointment.Web
