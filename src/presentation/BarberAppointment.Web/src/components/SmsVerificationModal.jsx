@@ -47,7 +47,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // Reset when modal opens
+  // Reset when modal opens & query active session status
   useEffect(() => {
     if (isOpen) {
       setPhoneNumber(user?.phone || '');
@@ -55,6 +55,23 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
       setStep(1);
       setError(null);
       setSimulationCode(null);
+
+      if (user?.phone) {
+        const clean = user.phone.replace(/[\s\-\(\)]/g, '');
+        if (clean.length >= 10) {
+          smsApi.getStatus(clean).then((res) => {
+            if (res?.data) {
+              if (res.data.cooldownRemainingSeconds > 0) {
+                setCooldown(res.data.cooldownRemainingSeconds);
+              }
+              if (res.data.hasPendingCode) {
+                setStep(2);
+                if (res.data.maskedPhoneNumber) setMaskedPhone(res.data.maskedPhoneNumber);
+              }
+            }
+          }).catch(() => {});
+        }
+      }
     }
   }, [isOpen, user]);
 
@@ -62,8 +79,9 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleSendCode = async (e) => {
     if (e) e.preventDefault();
-    if (!phoneNumber || phoneNumber.trim().length < 10) {
-      setError('Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 05551234567).');
+    const cleanPhone = (phoneNumber || '').replace(/[\s\-\(\)]/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setError('Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
 
@@ -71,9 +89,9 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     try {
-      const res = await smsApi.sendCode(phoneNumber.trim());
+      const res = await smsApi.sendCode(cleanPhone);
       if (res.success && res.data) {
-        setMaskedPhone(res.data.maskedPhoneNumber || phoneNumber);
+        setMaskedPhone(res.data.maskedPhoneNumber || cleanPhone);
         setCooldown(res.data.cooldownSeconds || 60);
         if (res.data.simulationCode) {
           setSimulationCode(res.data.simulationCode);
@@ -83,7 +101,17 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
         throw new Error(res.message || 'Doğrulama kodu gönderilemedi.');
       }
     } catch (err) {
-      setError(err.message || 'Kod gönderilirken bir hata oluştu.');
+      const msg = err.message || 'Kod gönderilirken bir hata oluştu.';
+      setError(msg);
+      // Cooldown uyarısı varsa kalan süreyi otomatik olarak sayaca aktar ve kod girme adımına geçir
+      const match = msg.match(/(\d+)\s*saniye/);
+      if (match) {
+        const remaining = parseInt(match[1], 10);
+        if (remaining > 0) {
+          setCooldown(remaining);
+          setStep(2);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -100,20 +128,21 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     try {
+      const cleanPhone = (phoneNumber || '').replace(/[\s\-\(\)]/g, '');
       let res;
       if (isAuthenticated) {
         // Oturum açmış kullanıcı için profil telefonunu da güncelle
-        res = await smsApi.verifyMyPhone(phoneNumber.trim(), code.trim()).catch(() => 
-          smsApi.verifyCode(phoneNumber.trim(), code.trim())
+        res = await smsApi.verifyMyPhone(cleanPhone, code.trim()).catch(() => 
+          smsApi.verifyCode(cleanPhone, code.trim())
         );
       } else {
-        res = await smsApi.verifyCode(phoneNumber.trim(), code.trim());
+        res = await smsApi.verifyCode(cleanPhone, code.trim());
       }
 
       if (res.success) {
         setStep(3);
         if (updateUser) {
-          updateUser({ isPhoneVerified: true, phone: phoneNumber.trim() });
+          updateUser({ isPhoneVerified: true, phone: cleanPhone });
         }
         if (onSuccess) onSuccess(phoneNumber);
       } else {

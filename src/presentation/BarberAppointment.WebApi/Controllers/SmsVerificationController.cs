@@ -35,7 +35,7 @@ public class SmsVerificationController : ControllerBase
         var result = await _smsVerificationService.SendCodeAsync(dto.PhoneNumber, cancellationToken);
         if (!result.Success)
         {
-            return BadRequest(ApiResponse.Fail(result.Message, StatusCodes.Status400BadRequest));
+            return BadRequest(ApiResponse<SmsVerificationResultDto>.Fail(result.Message, StatusCodes.Status400BadRequest, result));
         }
 
         return Ok(ApiResponse<SmsVerificationResultDto>.Ok(result, result.Message));

@@ -71,16 +71,36 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     }
   }, [user]);
 
+  // Step 4'e gelindiğinde mevcut aktif SMS oturumu veya cooldown var mı kontrol et
+  useEffect(() => {
+    if (currentStep === 4 && smsPhone) {
+      const clean = smsPhone.replace(/[\s\-\(\)]/g, '');
+      if (clean.length >= 10) {
+        smsApi.getStatus(clean).then((res) => {
+          if (res?.data) {
+            if (res.data.cooldownRemainingSeconds > 0) {
+              setSmsCooldown(res.data.cooldownRemainingSeconds);
+            }
+            if (res.data.hasPendingCode) {
+              setSmsStep(2);
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [currentStep, smsPhone]);
+
   const handleSendSmsCode = async () => {
-    if (!smsPhone || smsPhone.trim().length < 10) {
-      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz.');
+    const cleanPhone = (smsPhone || '').replace(/[\s\-\(\)]/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
 
     setSmsLoading(true);
     setSmsError(null);
     try {
-      const res = await smsApi.sendCode(smsPhone.trim());
+      const res = await smsApi.sendCode(cleanPhone);
       if (res.success && res.data) {
         setSmsCooldown(res.data.cooldownSeconds || 60);
         if (res.data.simulationCode) {
@@ -91,7 +111,17 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
         setSmsError(res.message || 'SMS kodu gönderilemedi.');
       }
     } catch (err) {
-      setSmsError(err.message || 'SMS gönderim hatası.');
+      const msg = err.message || 'SMS gönderim hatası.';
+      setSmsError(msg);
+      // Cooldown uyarısı varsa kalan süreyi otomatik olarak sayaca aktar ve kod girme adımına geçir
+      const match = msg.match(/(\d+)\s*saniye/);
+      if (match) {
+        const remaining = parseInt(match[1], 10);
+        if (remaining > 0) {
+          setSmsCooldown(remaining);
+          setSmsStep(2);
+        }
+      }
     } finally {
       setSmsLoading(false);
     }
@@ -106,6 +136,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     setLoading(true);
     setSmsError(null);
     try {
+      const cleanPhone = (smsPhone || '').replace(/[\s\-\(\)]/g, '');
       const appointmentPayload = {
         userId: user?.id || 1,
         employeeId: selectedEmployee.id,
@@ -114,16 +145,44 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
         notes: notes || null
       };
 
-      const res = await smsApi.verifyAndBook(smsPhone.trim(), smsCode.trim(), appointmentPayload);
+      const res = await smsApi.verifyAndBook(cleanPhone, smsCode.trim(), appointmentPayload);
       if (res.success && res.data) {
         if (updateUser) {
-          updateUser({ isPhoneVerified: true, phone: smsPhone.trim() });
+          updateUser({ isPhoneVerified: true, phone: cleanPhone });
         }
         setCreatedAppointment(res.data.appointment);
         setCurrentStep(5);
         if (onNotify) onNotify('Telefonunuz başarıyla doğrulandı ve randevunuz oluşturuldu!', 'success');
       } else {
         setSmsError(res.message || 'Doğrulama veya randevu oluşturma başarısız.');
+      }
+    } catch (err) {
+      setSmsError(err.message || 'Randevu işlemi gerçekleştirilemedi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Telefonu zaten profilde doğrulanmış kullanıcılar için doğrudan randevu oluşturma
+  const handleDirectBook = async () => {
+    setLoading(true);
+    setSmsError(null);
+    try {
+      const appointmentPayload = {
+        userId: user?.id || 1,
+        employeeId: selectedEmployee.id,
+        serviceId: selectedService.id,
+        startAt: selectedSlot.startAt,
+        notes: notes || null
+      };
+
+      const res = await appointmentsApi.create(appointmentPayload);
+      if (res.success && res.data) {
+        setCreatedAppointment(res.data);
+        setCurrentStep(5);
+        if (onNotify) onNotify('Randevunuz başarıyla oluşturuldu!', 'success');
+      } else {
+        setSmsError(res.message || 'Randevu oluşturulamadı.');
       }
     } catch (err) {
       setSmsError(err.message || 'Randevu işlemi gerçekleştirilemedi.');
@@ -932,7 +991,24 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               <span>Geri (Saat Değiştir)</span>
             </button>
 
-            {smsStep === 1 && (
+            {user?.isPhoneVerified ? (
+              <button
+                type="button"
+                onClick={handleDirectBook}
+                disabled={loading}
+                className="btn btn-primary"
+                style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Randevu Oluşturuluyor...</span>
+                  </>
+                ) : (
+                  <span>✓ Randevuyu Onayla ve Tamamla</span>
+                )}
+              </button>
+            ) : smsStep === 1 ? (
               <button
                 type="button"
                 onClick={handleSendSmsCode}
@@ -949,7 +1025,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                   <span>SMS Kodu İsteyerek Devam Et</span>
                 )}
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ public class VerifyAndBookValidator : AbstractValidator<VerifyAndBookDto>
     {
         RuleFor(x => x.PhoneNumber)
             .NotEmpty().WithMessage("Telefon numarası boş bırakılamaz.")
-            .Matches(@"^(\+90|0)?5\d{9}$")
+            .Must(BeValidTurkishPhoneNumber)
             .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz.");
 
         RuleFor(x => x.Code)
@@ -31,6 +31,17 @@ public class VerifyAndBookValidator : AbstractValidator<VerifyAndBookDto>
             RuleFor(x => x.Appointment.StartAt)
                 .NotEmpty().WithMessage("Randevu başlangıç saati gereklidir.");
         });
+    }
+
+    private static bool BeValidTurkishPhoneNumber(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return false;
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("90") && digits.Length == 12)
+            digits = digits[2..];
+        if (digits.StartsWith("0") && digits.Length == 11)
+            digits = digits[1..];
+        return digits.Length == 10 && digits.StartsWith("5");
     }
 }
 

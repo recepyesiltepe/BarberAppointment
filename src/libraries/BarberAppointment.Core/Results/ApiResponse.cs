@@ -19,11 +19,13 @@ public class ApiResponse<T>
             Timestamp = DateTime.UtcNow
         };
 
-    public static ApiResponse<T> Fail(string error, int statusCode = 400) =>
+    public static ApiResponse<T> Fail(string error, int statusCode = 400, T? data = default) =>
         new()
         {
             Success = false,
             StatusCode = statusCode,
+            Message = error,
+            Data = data,
             Errors = new List<string> { error },
             Timestamp = DateTime.UtcNow
         };
@@ -33,6 +35,7 @@ public class ApiResponse<T>
         {
             Success = false,
             StatusCode = statusCode,
+            Message = errors.FirstOrDefault(),
             Errors = errors,
             Timestamp = DateTime.UtcNow
         };
@@ -49,11 +52,12 @@ public class ApiResponse : ApiResponse<object>
             Timestamp = DateTime.UtcNow
         };
 
-    public static new ApiResponse Fail(string error, int statusCode = 400) =>
+    public static ApiResponse Fail(string error, int statusCode = 400) =>
         new()
         {
             Success = false,
             StatusCode = statusCode,
+            Message = error,
             Errors = new List<string> { error },
             Timestamp = DateTime.UtcNow
         };
@@ -63,6 +67,7 @@ public class ApiResponse : ApiResponse<object>
         {
             Success = false,
             StatusCode = statusCode,
+            Message = errors.FirstOrDefault(),
             Errors = errors,
             Timestamp = DateTime.UtcNow
         };
