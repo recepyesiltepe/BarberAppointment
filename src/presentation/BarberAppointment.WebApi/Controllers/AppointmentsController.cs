@@ -14,16 +14,21 @@ namespace BarberAppointment.WebApi.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly IAppointmentService _appointmentService;
+    private readonly IEmployeeService _employeeService;
     private readonly ILogger<AppointmentsController> _logger;
 
-    public AppointmentsController(IAppointmentService appointmentService, ILogger<AppointmentsController> logger)
+    public AppointmentsController(
+        IAppointmentService appointmentService,
+        IEmployeeService employeeService,
+        ILogger<AppointmentsController> logger)
     {
         _appointmentService = appointmentService;
+        _employeeService = employeeService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Tüm randevuları sayfalanmış, filtrelenmiş ve aranabilir olarak listeler (Admin ve Personel erişebilir).
+    /// Randevuları sayfalanmış, filtrelenmiş ve aranabilir olarak listeler (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
     /// </summary>
     [HttpGet]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Employee}")]
@@ -31,12 +36,26 @@ public class AppointmentsController : ControllerBase
         [FromQuery] AppointmentFilterDto filter,
         CancellationToken cancellationToken)
     {
+        if (IsEmployee())
+        {
+            var empId = await GetOrResolveEmployeeIdAsync(cancellationToken);
+            if (empId.HasValue)
+            {
+                filter.EmployeeId = empId.Value;
+            }
+        }
+        else if (IsCustomer())
+        {
+            var currentUserId = GetCurrentUserId();
+            filter.UserId = currentUserId;
+        }
+
         var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);
         return Ok(PagedApiResponse<AppointmentDto>.Ok(pagedResult, $"{pagedResult.TotalCount} randevu listelendi (Sayfa {pagedResult.PageNumber}/{pagedResult.TotalPages})."));
     }
 
     /// <summary>
-    /// Randevuları çok kriterli filtreler, arar ve sayfalar (Giriş yapmış kullanıcılar).
+    /// Randevuları çok kriterli filtreler, arar ve sayfalar (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
     /// </summary>
     [HttpGet("filter")]
     [Authorize]
@@ -44,11 +63,18 @@ public class AppointmentsController : ControllerBase
         [FromQuery] AppointmentFilterDto filter,
         CancellationToken cancellationToken)
     {
-        // Müşteri ise yalnızca kendi randevularını filtreleyebilir
         if (IsCustomer())
         {
             var currentUserId = GetCurrentUserId();
             filter.UserId = currentUserId;
+        }
+        else if (IsEmployee())
+        {
+            var empId = await GetOrResolveEmployeeIdAsync(cancellationToken);
+            if (empId.HasValue)
+            {
+                filter.EmployeeId = empId.Value;
+            }
         }
 
         var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);
@@ -90,6 +116,16 @@ public class AppointmentsController : ControllerBase
                 _logger.LogWarning("Kullanıcı {UserId} başkasına ait randevu ({AppointmentId}) detayını görüntülemeye çalıştı.", currentUserId, id);
                 return StatusCode(StatusCodes.Status403Forbidden,
                     ApiResponse.Fail("Yalnızca kendi randevu detayınızı görüntüleyebilirsiniz.", StatusCodes.Status403Forbidden));
+            }
+        }
+        else if (IsEmployee())
+        {
+            var empId = await GetOrResolveEmployeeIdAsync(cancellationToken);
+            if (empId.HasValue && appointment.EmployeeId != empId.Value)
+            {
+                _logger.LogWarning("Personel {EmployeeId} başkasına ait randevu ({AppointmentId}) detayını görüntülemeye çalıştı.", empId, id);
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.Fail("Yalnızca kendinize ait randevuları görüntüleyebilirsiniz.", StatusCodes.Status403Forbidden));
             }
         }
 
@@ -220,6 +256,16 @@ public class AppointmentsController : ControllerBase
                     ApiResponse.Fail("Yalnızca kendi randevunuzu iptal edebilirsiniz.", StatusCodes.Status403Forbidden));
             }
         }
+        else if (IsEmployee())
+        {
+            var empId = await GetOrResolveEmployeeIdAsync(cancellationToken);
+            var existing = await _appointmentService.GetByIdAsync(id, cancellationToken);
+            if (existing != null && empId.HasValue && existing.EmployeeId != empId.Value)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.Fail("Yalnızca kendinize ait randevuları iptal edebilirsiniz.", StatusCodes.Status403Forbidden));
+            }
+        }
 
         await _appointmentService.CancelAsync(id, currentUserId, !IsCustomer(), cancellationToken);
         return Ok(ApiResponse.Ok("Randevu başarıyla iptal edildi."));
@@ -233,6 +279,17 @@ public class AppointmentsController : ControllerBase
     public async Task<ActionResult<ApiResponse>> Complete(int id, CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
+        if (IsEmployee())
+        {
+            var empId = await GetOrResolveEmployeeIdAsync(cancellationToken);
+            var existing = await _appointmentService.GetByIdAsync(id, cancellationToken);
+            if (existing != null && empId.HasValue && existing.EmployeeId != empId.Value)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.Fail("Yalnızca kendinize ait randevuları tamamlayabilirsiniz.", StatusCodes.Status403Forbidden));
+            }
+        }
+
         await _appointmentService.CompleteAsync(id, currentUserId, !IsCustomer(), cancellationToken);
         return Ok(ApiResponse.Ok("Randevu tamamlandı olarak işaretlendi."));
     }
@@ -298,4 +355,23 @@ public class AppointmentsController : ControllerBase
     }
 
     private bool IsCustomer() => User.IsInRole(Roles.Customer);
+
+    private bool IsEmployee() => User.IsInRole(Roles.Employee);
+
+    private async Task<int?> GetOrResolveEmployeeIdAsync(CancellationToken cancellationToken = default)
+    {
+        var claim = User.FindFirst("employee_id")?.Value;
+        if (int.TryParse(claim, out var id))
+            return id;
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId.HasValue)
+        {
+            var employees = await _employeeService.GetAllAsync(false, cancellationToken);
+            var emp = employees.FirstOrDefault(e => e.UserId == currentUserId.Value);
+            return emp?.Id;
+        }
+
+        return null;
+    }
 }

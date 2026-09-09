@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X } from 'lucide-react';
+import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
+import { useAuth } from '../../context/AuthContext';
 
 export const AppointmentsView = ({ onNotify }) => {
+  const { user, roleName } = useAuth();
+  const isAdmin = roleName === 'Admin' || user?.role === 2;
+  const isEmployee = roleName === 'Employee' || user?.role === 1;
+
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Mevcut giriş yapmış personeli bul
+  const currentEmployee = employees.find(e => e.userId === user?.id || (user?.email && e.fullName === user?.fullName));
 
   // Filter States
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
@@ -77,7 +85,8 @@ export const AppointmentsView = ({ onNotify }) => {
 
   const handleOpenCreate = () => {
     setNewUserId(users.length > 0 ? users[0].id : 1);
-    setNewEmployeeId(employees.length > 0 ? employees[0].id : 1);
+    const targetEmp = (isEmployee && currentEmployee) ? currentEmployee : employees[0];
+    setNewEmployeeId(targetEmp ? targetEmp.id : 1);
     setNewServiceId(services.length > 0 ? services[0].id : 1);
     
     // Varsayılan olarak yarın saat 11:00
@@ -160,7 +169,9 @@ export const AppointmentsView = ({ onNotify }) => {
             <span>Randevu Yönetimi</span>
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-            Tüm salon randevularını, saat çakışmalarını ve durumlarını denetleyin.
+            {isEmployee
+              ? 'Size atanan randevuları, randevu durumlarını ve müşteri taleplerini denetleyin.'
+              : 'Tüm salon randevularını, saat çakışmalarını ve durumlarını denetleyin.'}
           </p>
         </div>
 
@@ -196,19 +207,37 @@ export const AppointmentsView = ({ onNotify }) => {
           )}
         </div>
 
-        <div style={{ minWidth: '180px', flex: '1 1 180px' }}>
-          <select
-            className="form-select"
-            value={filterEmployeeId}
-            onChange={(e) => setFilterEmployeeId(e.target.value)}
-            style={{ padding: '0.55rem 1rem', fontSize: '0.875rem' }}
-          >
-            <option value="">Tüm Personeller</option>
-            {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-            ))}
-          </select>
-        </div>
+        {isAdmin ? (
+          <div style={{ minWidth: '180px', flex: '1 1 180px' }}>
+            <select
+              className="form-select"
+              value={filterEmployeeId}
+              onChange={(e) => setFilterEmployeeId(e.target.value)}
+              style={{ padding: '0.55rem 1rem', fontSize: '0.875rem' }}
+            >
+              <option value="">Tüm Personeller</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.45rem 0.85rem',
+            background: 'rgba(56, 189, 248, 0.1)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            color: '#38bdf8',
+            fontSize: '0.85rem',
+            fontWeight: 500
+          }}>
+            <ShieldCheck size={16} />
+            <span>Personel: <strong>{currentEmployee?.fullName || user?.fullName || 'Siz'}</strong></span>
+          </div>
+        )}
 
         <div style={{ minWidth: '160px', flex: '1 1 160px' }}>
           <select
@@ -381,16 +410,26 @@ export const AppointmentsView = ({ onNotify }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div className="form-group">
                     <label className="form-label">Personel</label>
-                    <select
-                      className="form-select"
-                      value={newEmployeeId}
-                      onChange={(e) => setNewEmployeeId(e.target.value)}
-                      required
-                    >
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.fullName}</option>
-                      ))}
-                    </select>
+                    {isEmployee ? (
+                      <input
+                        type="text"
+                        className="form-input no-icon"
+                        value={currentEmployee?.fullName || user?.fullName || 'Siz'}
+                        disabled
+                        style={{ opacity: 0.85, cursor: 'not-allowed' }}
+                      />
+                    ) : (
+                      <select
+                        className="form-select"
+                        value={newEmployeeId}
+                        onChange={(e) => setNewEmployeeId(e.target.value)}
+                        required
+                      >
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   <div className="form-group">
