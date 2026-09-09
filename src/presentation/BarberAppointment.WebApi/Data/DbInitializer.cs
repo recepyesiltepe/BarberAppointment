@@ -15,13 +15,39 @@ public static class DbInitializer
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
 
+        // Veritabanı yoksa otomatik oluştur ve bekleyen migration'ları uygula (Docker ilk başlangıcı için)
+        var maxRetries = 10;
+        var retryDelay = TimeSpan.FromSeconds(2);
+        var isReady = false;
+
+        for (int i = 1; i <= maxRetries; i++)
+        {
+            try
+            {
+                logger.LogInformation("Veritabanı migration kontrolü (Deneme {Attempt}/{MaxRetries})...", i, maxRetries);
+                await context.Database.MigrateAsync();
+                isReady = true;
+                logger.LogInformation("Veritabanı oluşturuldu ve tüm migration'lar başarıyla uygulandı.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("Veritabanına bağlanılamadı veya migration uygulanamadı ({Attempt}/{MaxRetries}): {Message}", i, maxRetries, ex.Message);
+                if (i < maxRetries)
+                {
+                    await Task.Delay(retryDelay);
+                }
+            }
+        }
+
+        if (!isReady)
+        {
+            logger.LogError("Veritabanına bağlanılamadı. Seed işlemi atlandı.");
+            return;
+        }
+
         try
         {
-            if (!await context.Database.CanConnectAsync())
-            {
-                logger.LogWarning("Veritabanına bağlanılamadı. Seed işlemi atlandı.");
-                return;
-            }
 
             // Şema doğrulaması (Appointments.IsActive ve Users.IsPhoneVerified kontrolü)
             try

@@ -2,6 +2,7 @@ using BarberAppointment.Data.Context;
 using BarberAppointment.Data.Repositories.Implementations;
 using BarberAppointment.Data.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +15,10 @@ public static class DataServiceRegistration
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(connectionString));
+        {
+            options.UseSqlServer(connectionString);
+            options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+        });
 
         // Generic and specialized repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
