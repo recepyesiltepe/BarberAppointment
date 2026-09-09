@@ -1069,10 +1069,6 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             textAlign: 'left'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Randevu No:</span>
-              <span style={{ fontWeight: 800, color: 'var(--primary-400)' }}>#{createdAppointment?.id}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Hizmet:</span>
               <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{createdAppointment?.serviceName} ({createdAppointment?.durationMinutes} dk)</span>
             </div>

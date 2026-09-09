@@ -269,7 +269,6 @@ export const ServicesView = ({ onNotify }) => {
           <table>
             <thead>
               <tr style={{ background: 'var(--btn-secondary-bg)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet Adı</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Süre</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fiyat</th>
@@ -280,7 +279,6 @@ export const ServicesView = ({ onNotify }) => {
             <tbody>
               {filteredServices.map((srv) => (
                 <tr key={srv.id} style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }}>
-                  <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{srv.id}</td>
                   <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{srv.name}</td>
                   <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>

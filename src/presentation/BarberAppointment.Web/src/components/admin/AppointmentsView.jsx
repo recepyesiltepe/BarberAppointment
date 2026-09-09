@@ -39,7 +39,7 @@ export const AppointmentsView = ({ onNotify }) => {
         appointmentsApi.getAll(),
         servicesApi.getAll(true),
         employeesApi.getAll(true),
-        usersApi.getAll().catch(() => ({ success: false, data: [] }))
+        isAdmin ? usersApi.getAll().catch(() => ({ success: false, data: [] })) : Promise.resolve({ success: true, data: [] })
       ]);
 
       if (apptRes.success) setAppointments(apptRes.data || []);
@@ -175,12 +175,14 @@ export const AppointmentsView = ({ onNotify }) => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={handleOpenCreate} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Plus size={16} />
-            <span>Yeni Randevu Oluştur</span>
-          </button>
-        </div>
+        {isAdmin && (
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={handleOpenCreate} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Plus size={16} />
+              <span>Yeni Randevu Oluştur</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filters Bar */}
@@ -294,7 +296,6 @@ export const AppointmentsView = ({ onNotify }) => {
           <table>
             <thead>
               <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Müşteri</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet & Fiyat</th>
@@ -312,7 +313,6 @@ export const AppointmentsView = ({ onNotify }) => {
 
                 return (
                   <tr key={a.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>#{a.id}</td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.customerName}</div>
                       {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.customerPhone}</div>}
@@ -403,7 +403,7 @@ export const AppointmentsView = ({ onNotify }) => {
                     {users.map(u => (
                       <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
                     ))}
-                    {users.length === 0 && <option value="1">Varsayılan Müşteri (ID: 1)</option>}
+                    {users.length === 0 && <option value="1">Varsayılan Müşteri</option>}
                   </select>
                 </div>
 

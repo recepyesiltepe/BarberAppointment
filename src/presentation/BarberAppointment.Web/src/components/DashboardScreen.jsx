@@ -352,8 +352,10 @@ export const DashboardScreen = ({ activeTab: propActiveTab, setActiveTab: propSe
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
             <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Müşteri Numarası</div>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>#{user?.id}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Üyelik Durumu</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>
+                {user?.memberSince ? new Date(user.memberSince).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Aktif Üye'}
+              </div>
             </div>
             <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ad Soyad</div>

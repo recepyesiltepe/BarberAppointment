@@ -218,7 +218,6 @@ export const EmployeesView = ({ onNotify }) => {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.fullName}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: #{emp.id}</div>
                         </div>
                       </div>
                     </td>

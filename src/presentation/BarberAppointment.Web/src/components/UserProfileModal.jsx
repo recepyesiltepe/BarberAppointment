@@ -609,10 +609,6 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 border: '1px solid var(--border-subtle)',
                 padding: '0.5rem 1rem'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Müşteri Numarası:</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>#{user?.id}</span>
-                </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>E-Posta Doğrulama:</span>
