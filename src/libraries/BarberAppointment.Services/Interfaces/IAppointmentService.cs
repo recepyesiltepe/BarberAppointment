@@ -1,3 +1,4 @@
+using BarberAppointment.Core.Results;
 using BarberAppointment.Services.DTOs;
 
 namespace BarberAppointment.Services.Interfaces;
@@ -7,8 +8,11 @@ public interface IAppointmentService
     /// <summary>Tüm randevuları getirir (filtresiz).</summary>
     Task<IReadOnlyList<AppointmentDto>> GetAllAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Çok kriterli randevu filtreleme.</summary>
+    /// <summary>Çok kriterli randevu filtreleme (sayfalama olmaksızın).</summary>
     Task<IReadOnlyList<AppointmentDto>> GetFilteredAsync(AppointmentFilterDto filter, CancellationToken cancellationToken = default);
+
+    /// <summary>Sayfalama, arama ve çok kriterli filtreleme ile randevu listeleme.</summary>
+    Task<PagedResult<AppointmentDto>> GetPagedAsync(AppointmentFilterDto filter, CancellationToken cancellationToken = default);
 
     /// <summary>ID'ye göre randevu detayı.</summary>
     Task<AppointmentDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);

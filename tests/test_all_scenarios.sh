@@ -760,6 +760,68 @@ if [ -n "$APPT_ID" ]; then
   fi
 fi
 
+# ==============================================================================
+# BÖLÜM 15: Kriter 8 - Pagination / Search / Filter Testleri
+# ==============================================================================
+echo ""
+echo "--- Bölüm 15: Pagination / Search / Filter Testleri ---"
+
+# 15.1 Randevu listesinde page/pageSize ile TotalCount ve TotalPages kontrolü (200 OK)
+PAGED_RES=$(curl -s -X GET "$BASE_URL/api/appointments?pageNumber=1&pageSize=2" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+HAS_TOTAL_COUNT=$(echo "$PAGED_RES" | grep -o '"totalCount":[0-9]*' || true)
+HAS_TOTAL_PAGES=$(echo "$PAGED_RES" | grep -o '"totalPages":[0-9]*' || true)
+
+if [ -n "$HAS_TOTAL_COUNT" ] && [ -n "$HAS_TOTAL_PAGES" ]; then
+  run_test "GET /api/appointments (Pagination: Page/PageSize & TotalCount/TotalPages -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments (Pagination Metadata)" 200 500
+fi
+
+# 15.2 Tarih aralığı filtresi (200 OK)
+DATE_FILTER_RES=$(curl -s -X GET "$BASE_URL/api/appointments?startDate=2026-01-01&endDate=2026-12-31&pageNumber=1&pageSize=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+DATE_FILTER_SUCCESS=$(echo "$DATE_FILTER_RES" | grep -o '"success":true' || true)
+
+if [ -n "$DATE_FILTER_SUCCESS" ]; then
+  run_test "GET /api/appointments (Tarih Aralığı Filtresi -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments (Tarih Aralığı Filtresi)" 200 500
+fi
+
+# 15.3 Personel ve randevu durumu filtresi (200 OK)
+EMP_STATUS_RES=$(curl -s -X GET "$BASE_URL/api/appointments?employeeId=1&status=2&pageNumber=1&pageSize=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+EMP_STATUS_SUCCESS=$(echo "$EMP_STATUS_RES" | grep -o '"success":true' || true)
+
+if [ -n "$EMP_STATUS_SUCCESS" ]; then
+  run_test "GET /api/appointments (Personel ve Randevu Durumu Filtresi -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments (Personel ve Randevu Durumu Filtresi)" 200 500
+fi
+
+# 15.4 Müşteri / Ad / Serbest arama filtresi (200 OK)
+SEARCH_RES=$(curl -s -X GET "$BASE_URL/api/appointments?search=Ali&pageNumber=1&pageSize=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+SEARCH_SUCCESS=$(echo "$SEARCH_RES" | grep -o '"success":true' || true)
+
+if [ -n "$SEARCH_SUCCESS" ]; then
+  run_test "GET /api/appointments (Müşteri/Personel Arama Filtresi -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments (Müşteri/Personel Arama Filtresi)" 200 500
+fi
+
+# 15.5 Birleşik Filtre + Arama + Sayfalama (200 OK)
+COMBINED_RES=$(curl -s -X GET "$BASE_URL/api/appointments/filter?employeeId=1&search=Ali&pageNumber=1&pageSize=5" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+COMBINED_SUCCESS=$(echo "$COMBINED_RES" | grep -o '"success":true' || true)
+
+if [ -n "$COMBINED_SUCCESS" ]; then
+  run_test "GET /api/appointments/filter (Birleşik Filtre + Arama + Sayfalama -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments/filter (Birleşik Filtre + Arama + Sayfalama)" 200 500
+fi
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"

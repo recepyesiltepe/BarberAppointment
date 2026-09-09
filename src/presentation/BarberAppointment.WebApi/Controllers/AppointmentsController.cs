@@ -21,47 +21,36 @@ public class AppointmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Tüm randevuları listeler (Admin ve Personel erişebilir).
+    /// Tüm randevuları sayfalanmış, filtrelenmiş ve aranabilir olarak listeler (Admin ve Personel erişebilir).
     /// </summary>
     [HttpGet]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Employee}")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<AppointmentDto>>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<PagedApiResponse<AppointmentDto>>> GetAll(
+        [FromQuery] AppointmentFilterDto filter,
+        CancellationToken cancellationToken)
     {
-        var appointments = await _appointmentService.GetAllAsync(cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<AppointmentDto>>.Ok(appointments, "Randevular başarıyla getirildi."));
+        var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);
+        return Ok(PagedApiResponse<AppointmentDto>.Ok(pagedResult, $"{pagedResult.TotalCount} randevu listelendi (Sayfa {pagedResult.PageNumber}/{pagedResult.TotalPages})."));
     }
 
     /// <summary>
-    /// Randevuları çok kriterli filtreler (Giriş yapmış kullanıcılar).
+    /// Randevuları çok kriterli filtreler, arar ve sayfalar (Giriş yapmış kullanıcılar).
     /// </summary>
     [HttpGet("filter")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<AppointmentDto>>>> GetFiltered(
-        [FromQuery] int? employeeId,
-        [FromQuery] int? userId,
-        [FromQuery] AppointmentStatus? status,
-        [FromQuery] DateTime? startDate,
-        [FromQuery] DateTime? endDate,
+    public async Task<ActionResult<PagedApiResponse<AppointmentDto>>> GetFiltered(
+        [FromQuery] AppointmentFilterDto filter,
         CancellationToken cancellationToken)
     {
         // Müşteri ise yalnızca kendi randevularını filtreleyebilir
         if (IsCustomer())
         {
             var currentUserId = GetCurrentUserId();
-            userId = currentUserId;
+            filter.UserId = currentUserId;
         }
 
-        var filter = new AppointmentFilterDto
-        {
-            EmployeeId = employeeId,
-            UserId = userId,
-            Status = status,
-            StartDate = startDate,
-            EndDate = endDate
-        };
-
-        var appointments = await _appointmentService.GetFilteredAsync(filter, cancellationToken);
-        return Ok(ApiResponse<IReadOnlyList<AppointmentDto>>.Ok(appointments, $"{appointments.Count} randevu bulundu."));
+        var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);
+        return Ok(PagedApiResponse<AppointmentDto>.Ok(pagedResult, $"{pagedResult.TotalCount} randevu bulundu (Sayfa {pagedResult.PageNumber}/{pagedResult.TotalPages})."));
     }
 
     /// <summary>

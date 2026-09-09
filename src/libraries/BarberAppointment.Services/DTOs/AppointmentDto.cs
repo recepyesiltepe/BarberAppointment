@@ -70,7 +70,7 @@ public class AvailableSlotDto
 }
 
 /// <summary>
-/// Randevu listeleme filtresi.
+/// Randevu listeleme, arama ve sayfalama filtresi.
 /// </summary>
 public class AppointmentFilterDto
 {
@@ -79,4 +79,13 @@ public class AppointmentFilterDto
     public AppointmentStatus? Status { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
+
+    /// <summary>Müşteri adı, telefon, personel adı veya notlarda serbest metin arama.</summary>
+    public string? Search { get; set; }
+
+    /// <summary>Sayfa numarası (varsayılan: 1).</summary>
+    public int PageNumber { get; set; } = 1;
+
+    /// <summary>Sayfa başına kayıt adedi (varsayılan: 10, maks: 100).</summary>
+    public int PageSize { get; set; } = 10;
 }

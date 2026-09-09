@@ -58,6 +58,65 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<(IReadOnlyList<Appointment> Items, int TotalCount)> GetPagedAsync(
+        int? employeeId,
+        int? userId,
+        AppointmentStatus? status,
+        DateTime? start,
+        DateTime? end,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = DbSet
+            .AsNoTracking()
+            .Include(a => a.User)
+            .Include(a => a.Employee)
+            .Include(a => a.Service)
+            .AsQueryable();
+
+        if (employeeId.HasValue)
+            query = query.Where(a => a.EmployeeId == employeeId.Value);
+
+        if (userId.HasValue)
+            query = query.Where(a => a.UserId == userId.Value);
+
+        if (status.HasValue)
+            query = query.Where(a => a.Status == status.Value);
+
+        if (start.HasValue)
+            query = query.Where(a => a.StartAt >= start.Value);
+
+        if (end.HasValue)
+            query = query.Where(a => a.StartAt <= end.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var trimmed = search.Trim().ToLower();
+            query = query.Where(a =>
+                a.User.FullName.ToLower().Contains(trimmed) ||
+                (a.User.Phone != null && a.User.Phone.Contains(trimmed)) ||
+                a.Employee.FullName.ToLower().Contains(trimmed) ||
+                a.Service.Name.ToLower().Contains(trimmed) ||
+                (a.Notes != null && a.Notes.ToLower().Contains(trimmed)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100;
+
+        var items = await query
+            .OrderByDescending(a => a.StartAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public async Task<Appointment?> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken = default)
     {
         return await DbSet

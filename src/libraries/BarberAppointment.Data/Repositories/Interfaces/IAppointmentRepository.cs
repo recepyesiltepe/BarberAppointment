@@ -12,4 +12,14 @@ public interface IAppointmentRepository : IRepository<Appointment>
     Task<IReadOnlyList<Appointment>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
     Task<bool> HasConflictAsync(int employeeId, DateTime startAt, DateTime endAt, int? excludeAppointmentId = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Appointment>> GetPendingRemindersAsync(DateTime windowStart, DateTime windowEnd, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<Appointment> Items, int TotalCount)> GetPagedAsync(
+        int? employeeId,
+        int? userId,
+        AppointmentStatus? status,
+        DateTime? start,
+        DateTime? end,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }

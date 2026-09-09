@@ -1,5 +1,6 @@
 using BarberAppointment.Core.Enums;
 using BarberAppointment.Core.Exceptions;
+using BarberAppointment.Core.Results;
 using BarberAppointment.Core.Time;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
@@ -47,6 +48,23 @@ public class AppointmentService : IAppointmentService
             cancellationToken);
 
         return appointments.Select(MapToDto).ToList();
+    }
+
+    public async Task<PagedResult<AppointmentDto>> GetPagedAsync(AppointmentFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _unitOfWork.Appointments.GetPagedAsync(
+            filter.EmployeeId,
+            filter.UserId,
+            filter.Status,
+            filter.StartDate,
+            filter.EndDate,
+            filter.Search,
+            filter.PageNumber,
+            filter.PageSize,
+            cancellationToken);
+
+        var dtos = items.Select(MapToDto).ToList();
+        return new PagedResult<AppointmentDto>(dtos, totalCount, filter.PageNumber, filter.PageSize);
     }
 
     public async Task<AppointmentDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
