@@ -14,10 +14,12 @@ namespace BarberAppointment.WebApi.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly IAppointmentService _appointmentService;
+    private readonly ILogger<AppointmentsController> _logger;
 
-    public AppointmentsController(IAppointmentService appointmentService)
+    public AppointmentsController(IAppointmentService appointmentService, ILogger<AppointmentsController> logger)
     {
         _appointmentService = appointmentService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -85,6 +87,7 @@ public class AppointmentsController : ControllerBase
             var currentUserId = GetCurrentUserId();
             if (appointment.UserId != currentUserId)
             {
+                _logger.LogWarning("Kullanıcı {UserId} başkasına ait randevu ({AppointmentId}) detayını görüntülemeye çalıştı.", currentUserId, id);
                 return StatusCode(StatusCodes.Status403Forbidden,
                     ApiResponse.Fail("Yalnızca kendi randevu detayınızı görüntüleyebilirsiniz.", StatusCodes.Status403Forbidden));
             }
@@ -120,6 +123,7 @@ public class AppointmentsController : ControllerBase
         var currentUserId = GetCurrentUserId();
         if (IsCustomer() && currentUserId != userId)
         {
+            _logger.LogWarning("Kullanıcı {UserId} başkasına ait randevuları ({TargetUserId}) görüntülemeye çalıştı.", currentUserId, userId);
             return StatusCode(StatusCodes.Status403Forbidden,
                 ApiResponse.Fail("Yalnızca kendi randevularınızı görüntüleyebilirsiniz.", StatusCodes.Status403Forbidden));
         }

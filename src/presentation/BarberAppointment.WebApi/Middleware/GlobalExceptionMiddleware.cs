@@ -80,6 +80,14 @@ public class GlobalExceptionMiddleware
                 _logger.LogWarning("Conflict detected: {Message}", conflictEx.Message);
                 break;
 
+            // 403 Forbidden
+            case ForbiddenException forbiddenEx:
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                apiResponse = ApiResponse.Fail(forbiddenEx.Message, (int)HttpStatusCode.Forbidden);
+                apiResponse.Message = "Yetkisiz işlem.";
+                _logger.LogWarning("Forbidden operation: {Message}", forbiddenEx.Message);
+                break;
+
             // 400 Diğer İş Kuralı Hataları
             case BusinessException businessEx:
                 response.StatusCode = businessEx.StatusCode;

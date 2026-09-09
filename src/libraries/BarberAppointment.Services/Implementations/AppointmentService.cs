@@ -8,6 +8,9 @@ using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
 using BarberAppointment.Services.Policies;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace BarberAppointment.Services.Implementations;
 
 public class AppointmentService : IAppointmentService
@@ -16,17 +19,20 @@ public class AppointmentService : IAppointmentService
     private readonly IWorkHoursPolicy _workHoursPolicy;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IEmailService _emailService;
+    private readonly ILogger<AppointmentService> _logger;
 
     public AppointmentService(
         IUnitOfWork unitOfWork,
         IWorkHoursPolicy workHoursPolicy,
         IDateTimeProvider dateTimeProvider,
-        IEmailService emailService)
+        IEmailService emailService,
+        ILogger<AppointmentService>? logger = null)
     {
         _unitOfWork = unitOfWork;
         _workHoursPolicy = workHoursPolicy;
         _dateTimeProvider = dateTimeProvider;
         _emailService = emailService;
+        _logger = logger ?? NullLogger<AppointmentService>.Instance;
     }
 
     // ─── Sorgular ────────────────────────────────────────────────────────────
@@ -103,18 +109,27 @@ public class AppointmentService : IAppointmentService
     {
         // Yetki / Randevu sahipliği kontrolü: Müşteri başkası adına randevu alamaz
         if (requestingUserId.HasValue && !isAdmin && dto.UserId != requestingUserId.Value)
+        {
+            _logger.LogWarning("Randevu oluşturma engellendi: Yetkisiz kullanıcı işlemi. RequestingUserId={RequestingUserId}, TargetUserId={TargetUserId}", requestingUserId, dto.UserId);
             throw new ForbiddenException("Başkası adına randevu oluşturma yetkiniz bulunmamaktadır.");
+        }
 
         // 1. İş Kuralı (FR-R04): Geçmiş zamana randevu alınamaz (5 dk tolerans)
         if (dto.StartAt < _dateTimeProvider.UtcNow.AddMinutes(-5))
+        {
+            _logger.LogWarning("Geçmiş zamana randevu oluşturma denemesi reddedildi: UserId={UserId}, StartAt={StartAt}", dto.UserId, dto.StartAt);
             throw new BusinessException("Geçmiş bir zamana randevu oluşturulamaz.");
+        }
 
         // 2. İş Kuralı (FR-K03): Müşteri aktiflik kontrolü
         var user = await _unitOfWork.Users.GetByIdAsync(dto.UserId, cancellationToken)
             ?? throw new NotFoundException($"ID: {dto.UserId} olan kullanıcı bulunamadı.");
 
         if (!user.IsActive)
+        {
+            _logger.LogWarning("Pasif kullanıcı için randevu oluşturma denemesi reddedildi: UserId={UserId}", dto.UserId);
             throw new BusinessException("Hesabı pasif olan müşteri için randevu oluşturulamaz.");
+        }
 
         // 3. İş Kuralı (FR-H03): Hizmet aktiflik kontrolü
         var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken)
@@ -155,7 +170,10 @@ public class AppointmentService : IAppointmentService
         // 8. İş Kuralı (FR-R03): Çakışma kontrolü
         var hasConflict = await _unitOfWork.Appointments.HasConflictAsync(dto.EmployeeId, dto.StartAt, endAt, cancellationToken: cancellationToken);
         if (hasConflict)
+        {
+            _logger.LogWarning("Randevu çakışması tespit edildi: EmployeeId={EmployeeId}, StartAt={StartAt}, EndAt={EndAt}", dto.EmployeeId, dto.StartAt, endAt);
             throw new ConflictException($"'{employee.FullName}' personelinin {dto.StartAt:HH:mm}–{endAt:HH:mm} saatleri arasında başka bir randevusu bulunmaktadır.");
+        }
 
         var appointment = new Appointment
         {
@@ -197,6 +215,10 @@ public class AppointmentService : IAppointmentService
 
         var resultDto = MapToDto(appointment);
 
+        _logger.LogInformation(
+            "Randevu başarıyla oluşturuldu: AppointmentId={AppointmentId}, UserId={UserId}, EmployeeId={EmployeeId}, ServiceId={ServiceId}, StartAt={StartAt}, EndAt={EndAt}",
+            appointment.Id, appointment.UserId, appointment.EmployeeId, appointment.ServiceId, appointment.StartAt, appointment.EndAt);
+
         // Ek Geliştirme 1: Müşteriye randevu onay e-postası gönder
         if (!string.IsNullOrWhiteSpace(user.Email))
         {
@@ -221,18 +243,30 @@ public class AppointmentService : IAppointmentService
 
         // Yetki / Randevu sahipliği kontrolü
         if (requestingUserId.HasValue && !isAdmin && appointment.UserId != requestingUserId.Value)
+        {
+            _logger.LogWarning("Randevu yeniden zamanlama engellendi: Yetkisiz kullanıcı işlemi. AppointmentId={AppointmentId}, RequestingUserId={RequestingUserId}", id, requestingUserId);
             throw new ForbiddenException("Yalnızca kendi randevunuzu yeniden zamanlayabilirsiniz.");
+        }
 
         // İptal veya tamamlanmış randevu yeniden zamanlanamaz
         if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            _logger.LogWarning("İptal edilmiş randevu yeniden zamanlanamaz: AppointmentId={AppointmentId}", id);
             throw new BusinessException("İptal edilmiş randevu yeniden zamanlanamaz.");
+        }
 
         if (appointment.Status == AppointmentStatus.Completed)
+        {
+            _logger.LogWarning("Tamamlanmış randevu yeniden zamanlanamaz: AppointmentId={AppointmentId}", id);
             throw new BusinessException("Tamamlanmış randevu yeniden zamanlanamaz.");
+        }
 
         // Geçmiş zamana taşınamaz
         if (dto.StartAt < _dateTimeProvider.UtcNow.AddMinutes(-5))
+        {
+            _logger.LogWarning("Geçmiş zamana randevu güncelleme denemesi reddedildi: AppointmentId={AppointmentId}, StartAt={StartAt}", id, dto.StartAt);
             throw new BusinessException("Randevu geçmiş bir zamana alınamaz.");
+        }
 
         // Personelin aktifliğini tekrar doğrula
         if (!appointment.Employee!.IsActive)
@@ -258,7 +292,10 @@ public class AppointmentService : IAppointmentService
         // Çakışma kontrolü (mevcut randevu hariç)
         var hasConflict = await _unitOfWork.Appointments.HasConflictAsync(appointment.EmployeeId, dto.StartAt, newEndAt, excludeAppointmentId: id, cancellationToken: cancellationToken);
         if (hasConflict)
+        {
+            _logger.LogWarning("Randevu yeniden zamanlama çakışması: AppointmentId={AppointmentId}, EmployeeId={EmployeeId}, NewStartAt={NewStartAt}", id, appointment.EmployeeId, dto.StartAt);
             throw new ConflictException($"Seçilen saat aralığı ({dto.StartAt:HH:mm}–{newEndAt:HH:mm}) için personelin başka bir randevusu bulunmaktadır.");
+        }
 
         var oldStartAt = appointment.StartAt;
         var oldStatus = appointment.Status.ToString();
@@ -290,6 +327,10 @@ public class AppointmentService : IAppointmentService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        _logger.LogInformation(
+            "Randevu başarıyla yeniden zamanlandı: AppointmentId={AppointmentId}, EskiTarih={OldStartAt}, YeniTarih={NewStartAt}",
+            id, oldStartAt, dto.StartAt);
+
         var updatedDto = MapToDto(appointment);
 
         // Ek Geliştirme 1: Müşteriye randevu güncelleme e-postası gönder
@@ -315,14 +356,23 @@ public class AppointmentService : IAppointmentService
 
         // Yetki / Randevu sahipliği kontrolü
         if (requestingUserId.HasValue && !isAdmin && appointment.UserId != requestingUserId.Value)
+        {
+            _logger.LogWarning("Randevu iptali engellendi: Yetkisiz kullanıcı işlemi. AppointmentId={AppointmentId}, RequestingUserId={RequestingUserId}", id, requestingUserId);
             throw new ForbiddenException("Yalnızca kendi randevunuzu iptal edebilirsiniz.");
+        }
 
         // FR-R07: Tamamlanmış randevu iptal edilemez
         if (appointment.Status == AppointmentStatus.Completed)
+        {
+            _logger.LogWarning("Tamamlanmış randevu iptal edilemez: AppointmentId={AppointmentId}", id);
             throw new BusinessException("Tamamlanmış bir randevu iptal edilemez.");
+        }
 
         if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            _logger.LogWarning("Zaten iptal edilmiş randevu tekrar iptal edilemez: AppointmentId={AppointmentId}", id);
             throw new BusinessException("Bu randevu zaten iptal edilmiştir.");
+        }
 
         var oldStatus = appointment.Status.ToString();
 
@@ -350,6 +400,8 @@ public class AppointmentService : IAppointmentService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        _logger.LogInformation("Randevu başarıyla iptal edildi: AppointmentId={AppointmentId}, İptalEdenUserId={UserId}", id, requestingUserId);
+
         // Ek Geliştirme 1: Müşteriye randevu iptal e-postası gönder
         if (!string.IsNullOrWhiteSpace(appointment.User?.Email))
         {
@@ -370,10 +422,16 @@ public class AppointmentService : IAppointmentService
             ?? throw new NotFoundException($"ID: {id} olan randevu bulunamadı.");
 
         if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            _logger.LogWarning("İptal edilmiş randevu tamamlanamaz: AppointmentId={AppointmentId}", id);
             throw new BusinessException("İptal edilmiş bir randevu tamamlanamaz.");
+        }
 
         if (appointment.Status == AppointmentStatus.Completed)
+        {
+            _logger.LogWarning("Zaten tamamlanmış randevu tekrar tamamlanamaz: AppointmentId={AppointmentId}", id);
             throw new BusinessException("Bu randevu zaten tamamlanmış.");
+        }
 
         var oldStatus = appointment.Status.ToString();
         appointment.Status = AppointmentStatus.Completed;
@@ -398,6 +456,8 @@ public class AppointmentService : IAppointmentService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Randevu başarıyla tamamlandı: AppointmentId={AppointmentId}", id);
     }
 
     public async Task<IReadOnlyList<AvailableSlotDto>> GetAvailableSlotsAsync(AvailableSlotsQueryDto query, CancellationToken cancellationToken = default)

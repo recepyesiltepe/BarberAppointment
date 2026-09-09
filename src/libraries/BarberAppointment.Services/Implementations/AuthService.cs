@@ -38,6 +38,7 @@ public class AuthService : IAuthService
         var existingUser = await _unitOfWork.Users.GetByEmailAsync(dto.Email.Trim().ToLowerInvariant(), cancellationToken);
         if (existingUser != null)
         {
+            _logger.LogWarning("Mevcut e-posta ile kayıt denemesi: Email={Email}", dto.Email);
             throw new ConflictException($"'{dto.Email}' e-posta adresi ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
         }
 
@@ -62,6 +63,8 @@ public class AuthService : IAuthService
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Yeni kullanıcı kaydı oluşturuldu: UserId={UserId}, Email={Email}, Role={Role}", user.Id, user.Email, user.Role);
 
         // Kayıt sonrası Hoş Geldin ve E-Posta Doğrulama e-postası tetikle
         try
@@ -97,12 +100,14 @@ public class AuthService : IAuthService
         var user = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
         if (user == null)
         {
+            _logger.LogWarning("Başarısız giriş denemesi: Kayıtlı olmayan e-posta. Email={Email}", normalizedEmail);
             throw new BusinessException("E-posta adresi veya şifre hatalı.");
         }
 
         // 2. Aktiflik kontrolü
         if (!user.IsActive)
         {
+            _logger.LogWarning("Başarısız giriş denemesi: Pasif hesap. Email={Email}, UserId={UserId}", normalizedEmail, user.Id);
             throw new BusinessException("Kullanıcı hesabı pasif durumdadır.");
         }
 
@@ -110,12 +115,14 @@ public class AuthService : IAuthService
         var isPasswordValid = _passwordHasher.VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt);
         if (!isPasswordValid)
         {
+            _logger.LogWarning("Başarısız giriş denemesi: Hatalı şifre. Email={Email}, UserId={UserId}", normalizedEmail, user.Id);
             throw new BusinessException("E-posta adresi veya şifre hatalı.");
         }
 
         // 4. E-Posta doğrulama kontrolü (Kullanıcı e-posta adresini onaylamadan sisteme giriş yapamaz)
         if (!user.IsEmailVerified)
         {
+            _logger.LogWarning("Başarısız giriş denemesi: Doğrulanmamış e-posta. Email={Email}, UserId={UserId}", normalizedEmail, user.Id);
             throw new BusinessException("Giriş yapabilmek için lütfen önce e-posta adresinizi doğrulayınız. E-postanıza gönderilen 6 haneli doğrulama kodunu kullanınız.");
         }
 
@@ -141,6 +148,8 @@ public class AuthService : IAuthService
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Kullanıcı başarıyla giriş yaptı: UserId={UserId}, Email={Email}, Role={Role}", user.Id, user.Email, user.Role);
 
         return new AuthResponseDto
         {
@@ -199,12 +208,14 @@ public class AuthService : IAuthService
         var isOldPasswordValid = _passwordHasher.VerifyPasswordHash(dto.CurrentPassword, user.PasswordHash, user.PasswordSalt);
         if (!isOldPasswordValid)
         {
+            _logger.LogWarning("Şifre değişikliği engellendi: Mevcut şifre hatalı. UserId={UserId}", userId);
             throw new BusinessException("Mevcut şifreniz hatalı.");
         }
 
         // 2. Yeni şifre mevcut şifreyle aynı olamaz
         if (dto.NewPassword == dto.CurrentPassword)
         {
+            _logger.LogWarning("Şifre değişikliği engellendi: Yeni şifre mevcut şifreyle aynı. UserId={UserId}", userId);
             throw new BusinessException("Yeni şifre mevcut şifrenizle aynı olamaz.");
         }
 
@@ -220,6 +231,8 @@ public class AuthService : IAuthService
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Kullanıcı şifre değişikliği süreci başlattı: UserId={UserId}", userId);
 
         // 5. Doğrulama kodunu e-posta ile gönder
         try
@@ -250,12 +263,14 @@ public class AuthService : IAuthService
         // 1. Bekleyen token kontrolü
         if (string.IsNullOrWhiteSpace(user.PasswordChangeToken) || user.PasswordChangeToken != dto.VerificationCode.Trim())
         {
+            _logger.LogWarning("Şifre değişikliği onaylanamadı: Hatalı doğrulama kodu. UserId={UserId}", userId);
             throw new BusinessException("Geçersiz veya hatalı doğrulama kodu.");
         }
 
         // 2. Süre kontrolü (15 dakika)
         if (user.PasswordChangeTokenExpiresAt.HasValue && user.PasswordChangeTokenExpiresAt.Value < DateTime.UtcNow)
         {
+            _logger.LogWarning("Şifre değişikliği onaylanamadı: Doğrulama kodunun süresi dolmuş. UserId={UserId}", userId);
             throw new BusinessException("Doğrulama kodunun süresi dolmuş (15 dakika). Lütfen şifre değiştirme işlemini yeniden başlatınız.");
         }
 
@@ -275,6 +290,8 @@ public class AuthService : IAuthService
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Kullanıcı şifresini başarıyla güncelledi: UserId={UserId}", userId);
 
         // 5. Güvenlik bildirim e-postası gönder
         try
@@ -473,21 +490,25 @@ public class AuthService : IAuthService
         var user = await _unitOfWork.Users.GetByRefreshTokenAsync(dto.RefreshToken.Trim(), cancellationToken);
         if (user == null)
         {
+            _logger.LogWarning("Başarısız token rotasyonu: Refresh token bulunamadı.");
             throw new BusinessException("Geçersiz veya süresi dolmuş refresh token.");
         }
 
         if (!user.IsActive)
         {
+            _logger.LogWarning("Başarısız token rotasyonu: Pasif kullanıcı. UserId={UserId}", user.Id);
             throw new BusinessException("Hesabınız devre dışı bırakılmıştır.");
         }
 
         if (user.RefreshTokenRevokedAt.HasValue)
         {
+            _logger.LogWarning("Başarısız token rotasyonu: İptal edilmiş refresh token. UserId={UserId}", user.Id);
             throw new BusinessException("Bu refresh token iptal edilmiştir. Lütfen yeniden giriş yapınız.");
         }
 
         if (user.RefreshTokenExpiresAt.HasValue && user.RefreshTokenExpiresAt.Value < DateTime.UtcNow)
         {
+            _logger.LogWarning("Başarısız token rotasyonu: Süresi dolmuş refresh token. UserId={UserId}", user.Id);
             throw new BusinessException("Refresh token süresi dolmuştur. Lütfen yeniden giriş yapınız.");
         }
 
@@ -512,6 +533,8 @@ public class AuthService : IAuthService
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Token rotasyonu başarıyla gerçekleştirildi: UserId={UserId}", user.Id);
 
         return new AuthResponseDto
         {
