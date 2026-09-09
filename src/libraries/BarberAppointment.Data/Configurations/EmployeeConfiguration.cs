@@ -24,6 +24,17 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(e => e.WorkStartTime)
+            .IsRequired()
+            .HasDefaultValue(new TimeSpan(9, 0, 0));
+
+        builder.Property(e => e.WorkEndTime)
+            .IsRequired()
+            .HasDefaultValue(new TimeSpan(19, 0, 0));
+
+        builder.Property(e => e.WeeklyOffDay)
+            .IsRequired(false);
+
         builder.Property(e => e.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

@@ -18,6 +18,13 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
     }
 
+    public async Task<User?> GetByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<User>> GetActiveUsersAsync(CancellationToken cancellationToken = default)
     {
         return await DbSet

@@ -23,6 +23,12 @@ public class User : BaseEntity
     public byte[]? PendingPasswordHash { get; set; }
     public byte[]? PendingPasswordSalt { get; set; }
 
+    // Refresh Token alanları
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
+    public DateTime? RefreshTokenCreatedAt { get; set; }
+    public DateTime? RefreshTokenRevokedAt { get; set; }
+
     // Navigation properties
     public virtual Employee? Employee { get; set; }
     public virtual ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();

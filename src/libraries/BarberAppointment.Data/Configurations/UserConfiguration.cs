@@ -81,6 +81,20 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(128)
             .IsRequired(false);
 
+        // Refresh Token alanları
+        builder.Property(u => u.RefreshToken)
+            .HasMaxLength(256)
+            .IsRequired(false);
+
+        builder.Property(u => u.RefreshTokenExpiresAt)
+            .IsRequired(false);
+
+        builder.Property(u => u.RefreshTokenCreatedAt)
+            .IsRequired(false);
+
+        builder.Property(u => u.RefreshTokenRevokedAt)
+            .IsRequired(false);
+
         builder.Property(u => u.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

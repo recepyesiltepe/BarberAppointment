@@ -593,6 +593,103 @@ else
   run_test "POST /api/auth/login (Sıfırlanan Yeni Şifre)" 200 500
 fi
 
+# 11.9 Login ile Refresh Token Üretimi (200 OK & refreshToken mevcut)
+REFRESH_LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"burak@example.com","password":"Password123!"}')
+REFRESH_TOKEN_1=$(echo "$REFRESH_LOGIN_RES" | grep -o '"refreshToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$REFRESH_TOKEN_1" ]; then
+  run_test "POST /api/auth/login (Login Sonucunda Refresh Token Üretimi -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/login (Refresh Token Üretimi)" 200 500
+fi
+
+# 11.10 Geçerli Refresh Token ile Yeni Token Üretimi (Token Rotasyonu -> 200 OK)
+REFRESH_RES=$(curl -s -X POST "$BASE_URL/api/auth/refresh-token" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"'$REFRESH_TOKEN_1'"}')
+NEW_ACCESS_TOKEN=$(echo "$REFRESH_RES" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+NEW_REFRESH_TOKEN=$(echo "$REFRESH_RES" | grep -o '"refreshToken":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$NEW_ACCESS_TOKEN" ] && [ -n "$NEW_REFRESH_TOKEN" ] && [ "$NEW_REFRESH_TOKEN" != "$REFRESH_TOKEN_1" ]; then
+  run_test "POST /api/auth/refresh-token (Geçerli Refresh Token & Token Rotasyonu -> 200 OK)" 200 200
+else
+  run_test "POST /api/auth/refresh-token (Token Rotasyonu Başarısız)" 200 500
+fi
+
+# 11.11 Eski / Daha Önce Kullanılmış Refresh Token ile İstek (400 Bad Request)
+REUSED_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/refresh-token" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"'$REFRESH_TOKEN_1'"}')
+run_test "POST /api/auth/refresh-token (Eski/Kullanılmış Token Reddedilmeli -> 400 Bad Request)" 400 "$REUSED_TOKEN_STATUS"
+
+# 11.12 Geçersiz Refresh Token ile İstek (400 Bad Request)
+INVALID_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/refresh-token" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"invalid-nonexistent-token-12345"}')
+run_test "POST /api/auth/refresh-token (Geçersiz Token Reddedilmeli -> 400 Bad Request)" 400 "$INVALID_TOKEN_STATUS"
+
+# 11.13 Refresh Token İptali / Revoke (200 OK)
+REVOKE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/revoke-token" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"'$NEW_REFRESH_TOKEN'"}')
+run_test "POST /api/auth/revoke-token (Refresh Token İptali/Logout -> 200 OK)" 200 "$REVOKE_STATUS"
+
+# 11.14 İptal Edilmiş Refresh Token ile İstek (400 Bad Request)
+REVOKED_TOKEN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/refresh-token" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"'$NEW_REFRESH_TOKEN'"}')
+run_test "POST /api/auth/refresh-token (İptal Edilmiş Token Reddedilmeli -> 400 Bad Request)" 400 "$REVOKED_TOKEN_STATUS"
+
+# 12. ÇALIŞMA SAATLERİ VE UYGUN RANDEVU SLOTLARI
+echo ""
+echo "--- 12. Çalışma Saatleri ve Uygun Randevu Slotları ---"
+
+NEXT_SUNDAY=$(python3 -c "import datetime; today=datetime.date.today(); sunday=today + datetime.timedelta((6 - today.weekday()) % 7); sunday = sunday if sunday > today else sunday + datetime.timedelta(7); print(sunday.strftime('%Y-%m-%d'))")
+NEXT_WEDNESDAY=$(python3 -c "import datetime; today=datetime.date.today(); wed=today + datetime.timedelta((2 - today.weekday()) % 7); wed = wed if wed > today else wed + datetime.timedelta(7); print(wed.strftime('%Y-%m-%d'))")
+
+# 12.1 Personelin İzin Gününde Boş Slot Bulunmamalı (0 Slot -> 200 OK)
+OFF_DAY_SLOTS=$(curl -s "$BASE_URL/api/appointments/available-slots?employeeId=1&serviceId=1&date=$NEXT_SUNDAY")
+OFF_DAY_COUNT=$(echo "$OFF_DAY_SLOTS" | grep -o '"data":\[\]' || true)
+
+if [ -n "$OFF_DAY_COUNT" ]; then
+  run_test "GET /api/appointments/available-slots (İzin Gününde 0 Boş Slot -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments/available-slots (İzin Günü Kontrolü)" 200 500
+fi
+
+# 12.2 Personelin İzin Gününe Randevu Oluşturulamaz (400 Bad Request)
+OFF_DAY_BOOK_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":'$CUST_ID',"employeeId":1,"serviceId":1,"startAt":"'$NEXT_SUNDAY'T14:00:00"}')
+run_test "POST /api/appointments (İzin Gününe Randevu Alınamaz -> 400 Bad Request)" 400 "$OFF_DAY_BOOK_STATUS"
+
+# 12.3 Personelin Mesai Saatleri Dışına Randevu Oluşturulamaz (400 Bad Request)
+OUT_OF_HOURS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":'$CUST_ID',"employeeId":1,"serviceId":1,"startAt":"'$NEXT_WEDNESDAY'T07:00:00"}')
+run_test "POST /api/appointments (Mesai Saati Öncesi -> 400 Bad Request)" 400 "$OUT_OF_HOURS_STATUS"
+
+# 12.4 Çalışma Gününde ve Mesai Saatlerinde Slotların Doğru Hesaplanması (200 OK)
+WORK_DAY_SLOTS=$(curl -s "$BASE_URL/api/appointments/available-slots?employeeId=1&serviceId=1&date=$NEXT_WEDNESDAY")
+HAS_SLOTS=$(echo "$WORK_DAY_SLOTS" | grep -o '"startAt":"'$NEXT_WEDNESDAY || true)
+
+if [ -n "$HAS_SLOTS" ]; then
+  run_test "GET /api/appointments/available-slots (Mesai Saatlerinde Slot Üretimi -> 200 OK)" 200 200
+else
+  run_test "GET /api/appointments/available-slots (Slot Üretimi)" 200 500
+fi
+
+# 12.5 Geçmiş Zamana Randevu Oluşturulamaz (400 Bad Request)
+PAST_APPT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":'$CUST_ID',"employeeId":1,"serviceId":1,"startAt":"2021-01-01T12:00:00"}')
+run_test "POST /api/appointments (Geçmiş Tarihe Randevu Alınamaz -> 400 Bad Request)" 400 "$PAST_APPT_STATUS"
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"

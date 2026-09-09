@@ -23,9 +23,21 @@ public class AuthResponseDto
     public string AccessToken { get; set; } = string.Empty;
     public string TokenType { get; set; } = "Bearer";
     public int ExpiresIn { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
     public UserProfileDto User { get; set; } = null!;
     public string? SimulationToken { get; set; }
     public bool RequiresEmailVerification { get; set; }
+}
+
+public class RefreshTokenRequestDto
+{
+    public string RefreshToken { get; set; } = string.Empty;
+}
+
+public class RevokeTokenRequestDto
+{
+    public string? RefreshToken { get; set; }
 }
 
 public class ChangePasswordDto

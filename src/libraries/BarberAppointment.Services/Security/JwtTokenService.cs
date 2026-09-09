@@ -5,12 +5,16 @@ using BarberAppointment.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
+using System.Security.Cryptography;
+
 namespace BarberAppointment.Services.Security;
 
 public interface IJwtTokenService
 {
     string GenerateToken(User user, int? employeeId = null);
     int GetExpirationSeconds();
+    string GenerateRefreshToken();
+    int GetRefreshTokenExpirationDays();
 }
 
 public class JwtTokenService : IJwtTokenService
@@ -73,5 +77,18 @@ public class JwtTokenService : IJwtTokenService
     {
         var expirationMinutes = int.TryParse(_configuration["Jwt:ExpirationInMinutes"], out var exp) ? exp : 60;
         return expirationMinutes * 60;
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+
+    public int GetRefreshTokenExpirationDays()
+    {
+        return int.TryParse(_configuration["Jwt:RefreshTokenExpirationInDays"], out var days) ? days : 7;
     }
 }

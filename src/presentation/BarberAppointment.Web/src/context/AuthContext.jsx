@@ -49,10 +49,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.login({ email, password });
       if (res.success && res.data) {
-        const { accessToken, user: userData } = res.data;
+        const { accessToken, refreshToken, user: userData } = res.data;
         setToken(accessToken);
         setUser(userData);
         localStorage.setItem('barber_jwt_token', accessToken);
+        if (refreshToken) {
+          localStorage.setItem('barber_refresh_token', refreshToken);
+        }
         localStorage.setItem('barber_user', JSON.stringify(userData));
         return { success: true, user: userData };
       }
@@ -67,11 +70,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authApi.register(userData);
       if (res.success && res.data) {
-        const { accessToken, user: registeredUser, requiresEmailVerification, simulationToken } = res.data;
+        const { accessToken, refreshToken, user: registeredUser, requiresEmailVerification, simulationToken } = res.data;
         if (accessToken && !requiresEmailVerification) {
           setToken(accessToken);
           setUser(registeredUser);
           localStorage.setItem('barber_jwt_token', accessToken);
+          if (refreshToken) {
+            localStorage.setItem('barber_refresh_token', refreshToken);
+          }
           localStorage.setItem('barber_user', JSON.stringify(registeredUser));
         }
         return {
@@ -89,9 +95,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const savedRefreshToken = localStorage.getItem('barber_refresh_token');
+    if (savedRefreshToken) {
+      authApi.revokeToken(savedRefreshToken).catch(() => {});
+    }
     setToken(null);
     setUser(null);
     localStorage.removeItem('barber_jwt_token');
+    localStorage.removeItem('barber_refresh_token');
     localStorage.removeItem('barber_user');
   };
 

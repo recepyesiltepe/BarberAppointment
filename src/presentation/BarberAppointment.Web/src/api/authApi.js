@@ -49,5 +49,15 @@ export const authApi = {
   // Yeni Şifre Belirle (Token ile)
   resetPassword: async (resetData) => {
     return await client.post('/api/auth/reset-password', resetData);
+  },
+
+  // Refresh Token ile Oturum Yenile
+  refreshToken: async (refreshToken) => {
+    return await client.post('/api/auth/refresh-token', { refreshToken });
+  },
+
+  // Refresh Token İptal Et (Logout)
+  revokeToken: async (refreshToken) => {
+    return await client.post('/api/auth/revoke-token', { refreshToken });
   }
 };

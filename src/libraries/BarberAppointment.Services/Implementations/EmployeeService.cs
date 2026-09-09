@@ -47,7 +47,10 @@ public class EmployeeService : IEmployeeService
             FullName = dto.FullName.Trim(),
             Title = dto.Title?.Trim(),
             UserId = dto.UserId,
-            IsActive = true
+            IsActive = true,
+            WorkStartTime = dto.WorkStartTime != default ? dto.WorkStartTime : new TimeSpan(9, 0, 0),
+            WorkEndTime = dto.WorkEndTime != default ? dto.WorkEndTime : new TimeSpan(19, 0, 0),
+            WeeklyOffDay = dto.WeeklyOffDay
         };
 
         if (dto.ServiceIds.Any())
@@ -82,6 +85,11 @@ public class EmployeeService : IEmployeeService
         employee.Title = dto.Title?.Trim();
         employee.UserId = dto.UserId;
         employee.IsActive = dto.IsActive;
+        if (dto.WorkStartTime != default)
+            employee.WorkStartTime = dto.WorkStartTime;
+        if (dto.WorkEndTime != default)
+            employee.WorkEndTime = dto.WorkEndTime;
+        employee.WeeklyOffDay = dto.WeeklyOffDay;
 
         _unitOfWork.Employees.Update(employee);
 
@@ -136,6 +144,9 @@ public class EmployeeService : IEmployeeService
         FullName = e.FullName,
         Title = e.Title,
         IsActive = e.IsActive,
+        WorkStartTime = e.WorkStartTime,
+        WorkEndTime = e.WorkEndTime,
+        WeeklyOffDay = e.WeeklyOffDay,
         Services = e.EmployeeServices
             .Where(es => es.Service != null)
             .Select(es => new ServiceDto

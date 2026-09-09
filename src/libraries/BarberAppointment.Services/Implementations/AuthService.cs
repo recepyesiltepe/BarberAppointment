@@ -128,15 +128,27 @@ public class AuthService : IAuthService
             employeeId = emp?.Id;
         }
 
-        // 6. JWT Access Token üretimi
+        // 6. JWT Access Token ve Refresh Token üretimi
         var token = _jwtTokenService.GenerateToken(user, employeeId);
         var expiresIn = _jwtTokenService.GetExpirationSeconds();
+        var refreshToken = _jwtTokenService.GenerateRefreshToken();
+        var refreshExpiresDays = _jwtTokenService.GetRefreshTokenExpirationDays();
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenCreatedAt = DateTime.UtcNow;
+        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(refreshExpiresDays);
+        user.RefreshTokenRevokedAt = null;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new AuthResponseDto
         {
             AccessToken = token,
             TokenType = "Bearer",
             ExpiresIn = expiresIn,
+            RefreshToken = refreshToken,
+            RefreshTokenExpiresAt = user.RefreshTokenExpiresAt,
             User = MapToProfileDto(user),
             RequiresEmailVerification = false
         };
@@ -448,6 +460,92 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "[AuthService] Şifre sıfırlama bildirim e-postası iletilemedi: {Email}", user.Email);
+        }
+    }
+
+    public async Task<AuthResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(dto.RefreshToken))
+        {
+            throw new BusinessException("Refresh token boş olamaz.");
+        }
+
+        var user = await _unitOfWork.Users.GetByRefreshTokenAsync(dto.RefreshToken.Trim(), cancellationToken);
+        if (user == null)
+        {
+            throw new BusinessException("Geçersiz veya süresi dolmuş refresh token.");
+        }
+
+        if (!user.IsActive)
+        {
+            throw new BusinessException("Hesabınız devre dışı bırakılmıştır.");
+        }
+
+        if (user.RefreshTokenRevokedAt.HasValue)
+        {
+            throw new BusinessException("Bu refresh token iptal edilmiştir. Lütfen yeniden giriş yapınız.");
+        }
+
+        if (user.RefreshTokenExpiresAt.HasValue && user.RefreshTokenExpiresAt.Value < DateTime.UtcNow)
+        {
+            throw new BusinessException("Refresh token süresi dolmuştur. Lütfen yeniden giriş yapınız.");
+        }
+
+        int? employeeId = user.Employee?.Id;
+        if (!employeeId.HasValue && user.Role == Core.Enums.UserRole.Employee)
+        {
+            var employees = await _unitOfWork.Employees.GetAllAsync(cancellationToken);
+            var emp = employees.FirstOrDefault(e => e.UserId == user.Id);
+            employeeId = emp?.Id;
+        }
+
+        // Token Rotasyonu: Yeni Access Token ve yeni Refresh Token üretimi
+        var newAccessToken = _jwtTokenService.GenerateToken(user, employeeId);
+        var expiresIn = _jwtTokenService.GetExpirationSeconds();
+        var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
+        var refreshExpiresDays = _jwtTokenService.GetRefreshTokenExpirationDays();
+
+        user.RefreshToken = newRefreshToken;
+        user.RefreshTokenCreatedAt = DateTime.UtcNow;
+        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(refreshExpiresDays);
+        user.RefreshTokenRevokedAt = null;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new AuthResponseDto
+        {
+            AccessToken = newAccessToken,
+            TokenType = "Bearer",
+            ExpiresIn = expiresIn,
+            RefreshToken = newRefreshToken,
+            RefreshTokenExpiresAt = user.RefreshTokenExpiresAt,
+            User = MapToProfileDto(user),
+            RequiresEmailVerification = false
+        };
+    }
+
+    public async Task RevokeTokenAsync(RevokeTokenRequestDto dto, int? userId = null, CancellationToken cancellationToken = default)
+    {
+        User? user = null;
+
+        if (userId.HasValue)
+        {
+            user = await _unitOfWork.Users.GetByIdAsync(userId.Value, cancellationToken);
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.RefreshToken))
+        {
+            user = await _unitOfWork.Users.GetByRefreshTokenAsync(dto.RefreshToken.Trim(), cancellationToken);
+        }
+
+        if (user != null)
+        {
+            user.RefreshTokenRevokedAt = DateTime.UtcNow;
+            user.RefreshToken = null;
+            user.RefreshTokenExpiresAt = null;
+
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
 

@@ -174,4 +174,43 @@ public class AuthController : ControllerBase
         await _authService.ResetPasswordAsync(dto, cancellationToken);
         return Ok(ApiResponse.Ok("Şifreniz başarıyla sıfırlandı ve güncellendi. Yeni şifrenizle giriş yapabilirsiniz."));
     }
+
+    /// <summary>
+    /// Geçerli bir Refresh Token ile yeni bir Access Token ve yeni Refresh Token (Token Rotation) üretir.
+    /// </summary>
+    [HttpPost("refresh-token")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> RefreshToken(
+        [FromBody] RefreshTokenRequestDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await _authService.RefreshTokenAsync(dto, cancellationToken);
+        return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Oturum başarıyla yenilendi."));
+    }
+
+    /// <summary>
+    /// Mevcut kullanıcının veya belirtilen Refresh Token'ın oturumunu sonlandırır/iptal eder.
+    /// </summary>
+    [HttpPost("revoke-token")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ApiResponse<object>>> RevokeToken(
+        [FromBody] RevokeTokenRequestDto? dto,
+        CancellationToken cancellationToken)
+    {
+        int? userId = null;
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (claim != null && int.TryParse(claim.Value, out var id))
+            {
+                userId = id;
+            }
+        }
+
+        await _authService.RevokeTokenAsync(dto ?? new RevokeTokenRequestDto(), userId, cancellationToken);
+        return Ok(ApiResponse.Ok("Refresh token başarıyla iptal edildi."));
+    }
 }

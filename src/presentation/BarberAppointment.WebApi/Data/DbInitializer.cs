@@ -58,6 +58,27 @@ public static class DbInitializer
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PendingPasswordSalt') BEGIN ALTER TABLE dbo.Users ADD PendingPasswordSalt VARBINARY(128) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'RefreshToken') BEGIN ALTER TABLE dbo.Users ADD RefreshToken NVARCHAR(256) NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'RefreshTokenExpiresAt') BEGIN ALTER TABLE dbo.Users ADD RefreshTokenExpiresAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'RefreshTokenCreatedAt') BEGIN ALTER TABLE dbo.Users ADD RefreshTokenCreatedAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'RefreshTokenRevokedAt') BEGIN ALTER TABLE dbo.Users ADD RefreshTokenRevokedAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Employees', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Employees') AND name = 'WorkStartTime') BEGIN ALTER TABLE dbo.Employees ADD WorkStartTime TIME NOT NULL CONSTRAINT DF_Employees_WorkStartTime DEFAULT ('09:00:00'); END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Employees', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Employees') AND name = 'WorkEndTime') BEGIN ALTER TABLE dbo.Employees ADD WorkEndTime TIME NOT NULL CONSTRAINT DF_Employees_WorkEndTime DEFAULT ('19:00:00'); END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Employees', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Employees') AND name = 'WeeklyOffDay') BEGIN ALTER TABLE dbo.Employees ADD WeeklyOffDay INT NULL; END");
             }
             catch (Exception ex)
             {
@@ -141,6 +162,9 @@ public static class DbInitializer
                     if (aliEmp != null)
                     {
                         aliEmp.UserId = aliUser.Id;
+                        aliEmp.WorkStartTime = new TimeSpan(9, 0, 0);
+                        aliEmp.WorkEndTime = new TimeSpan(19, 0, 0);
+                        aliEmp.WeeklyOffDay = DayOfWeek.Sunday;
                     }
                     else
                     {
@@ -149,7 +173,10 @@ public static class DbInitializer
                             UserId = aliUser.Id,
                             FullName = "Ali Usta",
                             Title = "Usta Berber",
-                            IsActive = true
+                            IsActive = true,
+                            WorkStartTime = new TimeSpan(9, 0, 0),
+                            WorkEndTime = new TimeSpan(19, 0, 0),
+                            WeeklyOffDay = DayOfWeek.Sunday
                         };
                         await context.Employees.AddAsync(aliEmp);
                     }
@@ -162,7 +189,10 @@ public static class DbInitializer
                 {
                     FullName = "Mehmet Usta",
                     Title = "Saç Tasarım Uzmanı",
-                    IsActive = true
+                    IsActive = true,
+                    WorkStartTime = new TimeSpan(10, 0, 0),
+                    WorkEndTime = new TimeSpan(18, 0, 0),
+                    WeeklyOffDay = DayOfWeek.Monday
                 });
             }
 

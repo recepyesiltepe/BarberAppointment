@@ -109,7 +109,17 @@ public class AppointmentService : IAppointmentService
         // 6. İş Kuralı (FR-H04): Bitiş zamanı otomatik hesaplama
         var endAt = dto.StartAt.AddMinutes(service.DurationMinutes);
 
-        // 7. İş Kuralı: Çalışma saatleri politikası kontrolü (OCP)
+        // 6.1. Personel izin günü kontrolü
+        if (employee.WeeklyOffDay.HasValue && dto.StartAt.DayOfWeek == employee.WeeklyOffDay.Value)
+            throw new BusinessException($"'{employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir.");
+
+        // 7. İş Kuralı: Çalışma saatleri politikası kontrolü (Personel mesaisi ve Salon politikası)
+        var empWorkStart = employee.WorkStartTime != default ? employee.WorkStartTime : _workHoursPolicy.WorkDayStart;
+        var empWorkEnd = employee.WorkEndTime != default ? employee.WorkEndTime : _workHoursPolicy.WorkDayEnd;
+
+        if (dto.StartAt.TimeOfDay < empWorkStart || endAt.TimeOfDay > empWorkEnd)
+            throw new BusinessException($"Randevu saat aralığı ({dto.StartAt:HH:mm}–{endAt:HH:mm}) personelin çalışma saatleri ({empWorkStart:hh\\:mm}–{empWorkEnd:hh\\:mm}) dışındadır.");
+
         if (!_workHoursPolicy.IsWithinWorkHours(dto.StartAt, endAt))
             throw new BusinessException($"Randevu saat aralığı ({dto.StartAt:HH:mm}–{endAt:HH:mm}) salon çalışma saatleri ({_workHoursPolicy.WorkDayStart:hh\\:mm}–{_workHoursPolicy.WorkDayEnd:hh\\:mm}) dışındadır.");
 
@@ -171,7 +181,17 @@ public class AppointmentService : IAppointmentService
         var serviceDuration = appointment.Service!.DurationMinutes;
         var newEndAt = dto.StartAt.AddMinutes(serviceDuration);
 
-        // Çalışma saatleri politikası kontrolü (OCP)
+        // Personel haftalık izin günü kontrolü
+        if (appointment.Employee.WeeklyOffDay.HasValue && dto.StartAt.DayOfWeek == appointment.Employee.WeeklyOffDay.Value)
+            throw new BusinessException($"'{appointment.Employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir.");
+
+        // Çalışma saatleri politikası kontrolü (Personel mesaisi ve Salon politikası)
+        var empWorkStart = appointment.Employee.WorkStartTime != default ? appointment.Employee.WorkStartTime : _workHoursPolicy.WorkDayStart;
+        var empWorkEnd = appointment.Employee.WorkEndTime != default ? appointment.Employee.WorkEndTime : _workHoursPolicy.WorkDayEnd;
+
+        if (dto.StartAt.TimeOfDay < empWorkStart || newEndAt.TimeOfDay > empWorkEnd)
+            throw new BusinessException($"Seçilen saat aralığı ({dto.StartAt:HH:mm}–{newEndAt:HH:mm}) personelin çalışma saatleri ({empWorkStart:hh\\:mm}–{empWorkEnd:hh\\:mm}) dışındadır.");
+
         if (!_workHoursPolicy.IsWithinWorkHours(dto.StartAt, newEndAt))
             throw new BusinessException($"Seçilen saat aralığı ({dto.StartAt:HH:mm}–{newEndAt:HH:mm}) salon çalışma saatleri dışındadır.");
 
@@ -253,8 +273,19 @@ public class AppointmentService : IAppointmentService
             throw new BusinessException($"'{employee.FullName}' personeli aktif değildir.");
 
         var targetDate = query.Date.Date;
-        var dayStart = targetDate.Add(_workHoursPolicy.WorkDayStart);
-        var dayEnd = targetDate.Add(_workHoursPolicy.WorkDayEnd);
+
+        // 1. Personel haftalık izin günü kontrolü (İzinliyse slot üretilmez)
+        if (employee.WeeklyOffDay.HasValue && targetDate.DayOfWeek == employee.WeeklyOffDay.Value)
+        {
+            return Array.Empty<AvailableSlotDto>();
+        }
+
+        // 2. Personel çalışma saatlerini belirle (Varsayılan yoksa salon politikası)
+        var workStart = employee.WorkStartTime != default ? employee.WorkStartTime : _workHoursPolicy.WorkDayStart;
+        var workEnd = employee.WorkEndTime != default ? employee.WorkEndTime : _workHoursPolicy.WorkDayEnd;
+
+        var dayStart = targetDate.Add(workStart);
+        var dayEnd = targetDate.Add(workEnd);
 
         // O günkü onaylı/bekleyen randevuları al
         var existingAppointments = await _unitOfWork.Appointments
@@ -263,12 +294,20 @@ public class AppointmentService : IAppointmentService
         var slots = new List<AvailableSlotDto>();
         var slotDuration = service.DurationMinutes;
         var cursor = dayStart;
+        var nowUtc = _dateTimeProvider.UtcNow;
 
         while (cursor.AddMinutes(slotDuration) <= dayEnd)
         {
             var slotEnd = cursor.AddMinutes(slotDuration);
 
-            // Bu slot herhangi bir mevcut randevuyla çakışıyor mu?
+            // 3. Geçmiş zamana ait slotlar listelenmemeli
+            if (cursor < nowUtc)
+            {
+                cursor = cursor.AddMinutes(slotDuration);
+                continue;
+            }
+
+            // 4. Bu slot herhangi bir mevcut randevuyla çakışıyor mu? (Dolu slotlar listelenmemeli)
             var isOccupied = existingAppointments.Any(a =>
                 cursor < a.EndAt && slotEnd > a.StartAt);
 

@@ -14,4 +14,6 @@ public interface IAuthService
     Task<EmailVerificationResponseDto> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default);
     Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken cancellationToken = default);
+    Task<AuthResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default);
+    Task RevokeTokenAsync(RevokeTokenRequestDto dto, int? userId = null, CancellationToken cancellationToken = default);
 }
