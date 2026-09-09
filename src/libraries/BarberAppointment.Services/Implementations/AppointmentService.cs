@@ -74,8 +74,19 @@ public class AppointmentService : IAppointmentService
 
     // ─── Komutlar ────────────────────────────────────────────────────────────
 
-    public async Task<AppointmentDto> CreateAsync(CreateAppointmentDto dto, CancellationToken cancellationToken = default)
+    public Task<AppointmentDto> CreateAsync(CreateAppointmentDto dto, CancellationToken cancellationToken = default)
+        => CreateAsync(dto, null, false, cancellationToken);
+
+    public async Task<AppointmentDto> CreateAsync(
+        CreateAppointmentDto dto,
+        int? requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default)
     {
+        // Yetki / Randevu sahipliği kontrolü: Müşteri başkası adına randevu alamaz
+        if (requestingUserId.HasValue && !isAdmin && dto.UserId != requestingUserId.Value)
+            throw new ForbiddenException("Başkası adına randevu oluşturma yetkiniz bulunmamaktadır.");
+
         // 1. İş Kuralı (FR-R04): Geçmiş zamana randevu alınamaz (5 dk tolerans)
         if (dto.StartAt < _dateTimeProvider.UtcNow.AddMinutes(-5))
             throw new BusinessException("Geçmiş bir zamana randevu oluşturulamaz.");
@@ -158,10 +169,22 @@ public class AppointmentService : IAppointmentService
         return resultDto;
     }
 
-    public async Task<AppointmentDto> RescheduleAsync(int id, UpdateAppointmentDto dto, CancellationToken cancellationToken = default)
+    public Task<AppointmentDto> RescheduleAsync(int id, UpdateAppointmentDto dto, CancellationToken cancellationToken = default)
+        => RescheduleAsync(id, dto, null, false, cancellationToken);
+
+    public async Task<AppointmentDto> RescheduleAsync(
+        int id,
+        UpdateAppointmentDto dto,
+        int? requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default)
     {
         var appointment = await _unitOfWork.Appointments.GetByIdWithDetailsAsync(id, cancellationToken)
             ?? throw new NotFoundException($"ID: {id} olan randevu bulunamadı.");
+
+        // Yetki / Randevu sahipliği kontrolü
+        if (requestingUserId.HasValue && !isAdmin && appointment.UserId != requestingUserId.Value)
+            throw new ForbiddenException("Yalnızca kendi randevunuzu yeniden zamanlayabilirsiniz.");
 
         // İptal veya tamamlanmış randevu yeniden zamanlanamaz
         if (appointment.Status == AppointmentStatus.Cancelled)
@@ -219,10 +242,21 @@ public class AppointmentService : IAppointmentService
         return updatedDto;
     }
 
-    public async Task CancelAsync(int id, CancellationToken cancellationToken = default)
+    public Task CancelAsync(int id, CancellationToken cancellationToken = default)
+        => CancelAsync(id, null, false, cancellationToken);
+
+    public async Task CancelAsync(
+        int id,
+        int? requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default)
     {
         var appointment = await _unitOfWork.Appointments.GetByIdWithDetailsAsync(id, cancellationToken)
             ?? throw new NotFoundException($"ID: {id} olan randevu bulunamadı.");
+
+        // Yetki / Randevu sahipliği kontrolü
+        if (requestingUserId.HasValue && !isAdmin && appointment.UserId != requestingUserId.Value)
+            throw new ForbiddenException("Yalnızca kendi randevunuzu iptal edebilirsiniz.");
 
         // FR-R07: Tamamlanmış randevu iptal edilemez
         if (appointment.Status == AppointmentStatus.Completed)

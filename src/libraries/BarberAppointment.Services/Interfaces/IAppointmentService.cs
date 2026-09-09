@@ -21,12 +21,15 @@ public interface IAppointmentService
 
     /// <summary>Yeni randevu oluşturma (iş kuralları dahil).</summary>
     Task<AppointmentDto> CreateAsync(CreateAppointmentDto dto, CancellationToken cancellationToken = default);
+    Task<AppointmentDto> CreateAsync(CreateAppointmentDto dto, int? requestingUserId, bool isAdmin, CancellationToken cancellationToken = default);
 
     /// <summary>Randevu yeniden zamanlama (Reschedule). Sadece StartAt ve Notes değiştirilebilir.</summary>
     Task<AppointmentDto> RescheduleAsync(int id, UpdateAppointmentDto dto, CancellationToken cancellationToken = default);
+    Task<AppointmentDto> RescheduleAsync(int id, UpdateAppointmentDto dto, int? requestingUserId, bool isAdmin, CancellationToken cancellationToken = default);
 
     /// <summary>Randevu iptali.</summary>
     Task CancelAsync(int id, CancellationToken cancellationToken = default);
+    Task CancelAsync(int id, int? requestingUserId, bool isAdmin, CancellationToken cancellationToken = default);
 
     /// <summary>Randevuyu tamamlandı olarak işaretleme.</summary>
     Task CompleteAsync(int id, CancellationToken cancellationToken = default);

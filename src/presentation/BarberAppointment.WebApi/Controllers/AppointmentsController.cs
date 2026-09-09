@@ -178,7 +178,7 @@ public class AppointmentsController : ControllerBase
                 dto.UserId = currentUserId.Value;
         }
 
-        var created = await _appointmentService.CreateAsync(dto, cancellationToken);
+        var created = await _appointmentService.CreateAsync(dto, currentUserId, !IsCustomer(), cancellationToken);
         return CreatedAtAction(
             nameof(GetById),
             new { id = created.Id },
@@ -195,9 +195,9 @@ public class AppointmentsController : ControllerBase
         [FromBody] UpdateAppointmentDto dto,
         CancellationToken cancellationToken)
     {
+        var currentUserId = GetCurrentUserId();
         if (IsCustomer())
         {
-            var currentUserId = GetCurrentUserId();
             var existing = await _appointmentService.GetByIdAsync(id, cancellationToken);
             if (existing != null && existing.UserId != currentUserId)
             {
@@ -206,7 +206,7 @@ public class AppointmentsController : ControllerBase
             }
         }
 
-        var updated = await _appointmentService.RescheduleAsync(id, dto, cancellationToken);
+        var updated = await _appointmentService.RescheduleAsync(id, dto, currentUserId, !IsCustomer(), cancellationToken);
         return Ok(ApiResponse<AppointmentDto>.Ok(updated, "Randevu başarıyla yeniden zamanlandı."));
     }
 
@@ -217,9 +217,9 @@ public class AppointmentsController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse>> Cancel(int id, CancellationToken cancellationToken)
     {
+        var currentUserId = GetCurrentUserId();
         if (IsCustomer())
         {
-            var currentUserId = GetCurrentUserId();
             var existing = await _appointmentService.GetByIdAsync(id, cancellationToken);
             if (existing != null && existing.UserId != currentUserId)
             {
@@ -228,7 +228,7 @@ public class AppointmentsController : ControllerBase
             }
         }
 
-        await _appointmentService.CancelAsync(id, cancellationToken);
+        await _appointmentService.CancelAsync(id, currentUserId, !IsCustomer(), cancellationToken);
         return Ok(ApiResponse.Ok("Randevu başarıyla iptal edildi."));
     }
 

@@ -20,6 +20,11 @@ public class ConflictException : BusinessException
     public ConflictException(string message) : base(message, 409) { }
 }
 
+public class ForbiddenException : BusinessException
+{
+    public ForbiddenException(string message = "Bu işlem için yetkiniz bulunmamaktadır.") : base(message, 403) { }
+}
+
 public class AppValidationException : BusinessException
 {
     public IReadOnlyList<string> ValidationErrors { get; }
