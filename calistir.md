@@ -1,4 +1,10 @@
-# 1. Backend API (Terminal 1)
+# 0. Docker ile Tek Komutla Çalıştırma (MSSQL + Backend API)
+docker compose up --build -d
+# Swagger: http://localhost:5184/swagger
+# Health Check: http://localhost:5184/health
+# Durdurmak için: docker compose down
+
+# 1. Backend API - Yerel Çalıştırma (Terminal 1)
 dotnet run --project src/presentation/BarberAppointment.WebApi --launch-profile http
 # API & Swagger: http://localhost:5184/swagger
 # Health Checks: http://localhost:5184/health (Genel), http://localhost:5184/health/live (Liveness), http://localhost:5184/health/ready (Readiness)

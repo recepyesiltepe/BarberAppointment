@@ -1,0 +1,52 @@
+services:
+  # ─── 1. MSSQL Veritabanı Servisi ─────────────────────────────────────────────
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: barberappointment-mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-BarberApp_Dev1!}"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - barberappointment-mssql-data:/var/opt/mssql
+      - ./database/mssql:/scripts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/1433'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  # ─── 2. BarberAppointment REST API Servisi ──────────────────────────────────
+  webapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: barberappointment-webapi
+    restart: unless-stopped
+    depends_on:
+      mssql:
+        condition: service_healthy
+    ports:
+      - "5184:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=mssql,1433;Database=BarberAppointment;User Id=sa;Password=${MSSQL_SA_PASSWORD:-BarberApp_Dev1!};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      Jwt__Key: "${JWT_KEY:-BarberAppointment_Super_Secret_Key_For_JWT_Authentication_2026_Secure_Must_Be_Long_Enough!}"
+      Jwt__Issuer: "${JWT_ISSUER:-BarberAppointment}"
+      Jwt__Audience: "${JWT_AUDIENCE:-BarberAppointmentClient}"
+      EmailSettings__Host: "${EMAIL_HOST:-sandbox.smtp.mailtrap.io}"
+      EmailSettings__Port: "${EMAIL_PORT:-2525}"
+      EmailSettings__UserName: "${EMAIL_USERNAME:-4218a71803e9f0}"
+      EmailSettings__Password: "${EMAIL_PASSWORD:-144e705769fda4}"
+      EmailSettings__SenderEmail: "${EMAIL_SENDER:-noreply@barberappointment.com}"
+      EmailSettings__SenderName: "Kuaför Randevu Sistemi"
+
+volumes:
+  barberappointment-mssql-data:
+

@@ -277,6 +277,80 @@ BarberAppointment/
 └── tests/                                (Uçtan Uca Otomatik Test Paketi)
 ```
 
+## Docker ile Çalıştırma
+
+BarberAppointment Web API ve MSSQL veritabanı, Docker container ortamında tamamen izole ve ortamdan bağımsız olarak çalıştırılabilir.
+
+### 1. Docker Compose ile Tek Komutla Çalıştırma (Önerilen)
+
+Tüm sistemi (MSSQL Server 2022 + BarberAppointment Web API) tek komutla derleyip ayağa kaldırmak için:
+
+```bash
+docker compose up --build -d
+```
+
+Konteyner durumunu kontrol etmek için:
+
+```bash
+docker compose ps
+```
+
+Logları canlı izlemek için:
+
+```bash
+docker compose logs -f webapi
+```
+
+Konteynerleri durdurmak için:
+
+```bash
+docker compose down
+```
+
+### 2. Tekil Dockerfile ile Derleme ve Çalıştırma
+
+Yalnızca Web API container imajını oluşturmak ve çalıştırmak için:
+
+```bash
+# İmajı oluşturma
+docker build -t barberappointment-api:latest .
+
+# Container'ı çalıştırma
+docker run -d \
+  -p 5184:8080 \
+  --name barberappointment-api \
+  -e ConnectionStrings__DefaultConnection="Server=host.docker.internal,1433;Database=BarberAppointment;User Id=sa;Password=BarberApp_Dev1!;TrustServerCertificate=True;MultipleActiveResultSets=true" \
+  -e ASPNETCORE_ENVIRONMENT=Development \
+  barberappointment-api:latest
+```
+
+### 3. Ortam Değişkenleri (Environment Variables) Yapılandırması
+
+Uygulama ayarları ASP.NET Core hiyerarşik ortam değişkenleri formatında (`__` ayracıyla) container dışından esnek biçimde ezilebilir:
+
+| Değişken | Açıklama | Örnek Değer |
+|---|---|---|
+| `ConnectionStrings__DefaultConnection` | MSSQL bağlantı dizesi | `Server=mssql,1433;Database=BarberAppointment;User Id=sa;Password=...` |
+| `ASPNETCORE_ENVIRONMENT` | Çalışma ortamı | `Development` veya `Production` |
+| `ASPNETCORE_URLS` | Kestrel dinleme adresi | `http://+:8080` |
+| `Jwt__Key` | JWT gizli anahtarı | `Super_Secret_Key_For_JWT_Authentication_2026...` |
+| `Jwt__Issuer` | JWT yayıncısı | `BarberAppointment` |
+| `EmailSettings__Host` | SMTP sunucu adresi | `sandbox.smtp.mailtrap.io` |
+
+Örnek `.env` şablonu için `.env.example` dosyasını kopyalayabilirsiniz:
+```bash
+cp .env.example .env
+```
+
+### 4. Erişim Adresleri
+
+Container'lar ayağa kalktıktan sonra:
+- **Swagger UI:** `http://localhost:5184/swagger`
+- **Genel Health Check:** `http://localhost:5184/health`
+- **Liveness Probe:** `http://localhost:5184/health/live`
+- **Readiness Probe:** `http://localhost:5184/health/ready`
+
+
 
 
 
