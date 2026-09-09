@@ -153,6 +153,25 @@ public class AppointmentService : IAppointmentService
         await _unitOfWork.Appointments.AddAsync(appointment, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Audit Log: Randevu oluşturma kaydı
+        if (_unitOfWork.AuditLogs != null)
+        {
+            var auditLog = new AppointmentAuditLog
+            {
+                AppointmentId = appointment.Id,
+                Action = "Created",
+                OldStatus = null,
+                NewStatus = AppointmentStatus.Confirmed.ToString(),
+                ChangedByUserId = requestingUserId ?? dto.UserId,
+                ChangedByRole = isAdmin ? "Admin" : "Customer",
+                ChangedByName = user.FullName,
+                ChangedDate = _dateTimeProvider.UtcNow,
+                Details = $"Randevu oluşturuldu: {dto.StartAt:yyyy-MM-dd HH:mm} (Hizmet: {service.Name}, Personel: {employee.FullName})"
+            };
+            await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         // DTO dönüşümü için navigation'ları doldur
         appointment.User = user;
         appointment.Employee = employee;
@@ -223,12 +242,34 @@ public class AppointmentService : IAppointmentService
         if (hasConflict)
             throw new ConflictException($"Seçilen saat aralığı ({dto.StartAt:HH:mm}–{newEndAt:HH:mm}) için personelin başka bir randevusu bulunmaktadır.");
 
+        var oldStartAt = appointment.StartAt;
+        var oldStatus = appointment.Status.ToString();
+
         appointment.StartAt = dto.StartAt;
         appointment.EndAt = newEndAt;
         appointment.Notes = dto.Notes ?? appointment.Notes;
         appointment.Status = AppointmentStatus.Confirmed;
 
         _unitOfWork.Appointments.Update(appointment);
+
+        // Audit Log: Randevu güncelleme / yeniden zamanlama kaydı
+        if (_unitOfWork.AuditLogs != null)
+        {
+            var auditLog = new AppointmentAuditLog
+            {
+                AppointmentId = appointment.Id,
+                Action = "Rescheduled",
+                OldStatus = oldStatus,
+                NewStatus = AppointmentStatus.Confirmed.ToString(),
+                ChangedByUserId = requestingUserId,
+                ChangedByRole = isAdmin ? "Admin" : "Customer",
+                ChangedByName = (requestingUserId.HasValue && requestingUserId.Value == appointment.UserId) ? appointment.User?.FullName : (isAdmin ? "Admin" : "Personel"),
+                ChangedDate = _dateTimeProvider.UtcNow,
+                Details = $"Randevu yeniden zamanlandı. Eski saat: {oldStartAt:yyyy-MM-dd HH:mm}, Yeni saat: {dto.StartAt:yyyy-MM-dd HH:mm}"
+            };
+            await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updatedDto = MapToDto(appointment);
@@ -265,9 +306,30 @@ public class AppointmentService : IAppointmentService
         if (appointment.Status == AppointmentStatus.Cancelled)
             throw new BusinessException("Bu randevu zaten iptal edilmiştir.");
 
+        var oldStatus = appointment.Status.ToString();
+
         // FR-R06: İptal → slot serbest kalır
         appointment.Status = AppointmentStatus.Cancelled;
         _unitOfWork.Appointments.Update(appointment);
+
+        // Audit Log: Randevu iptal kaydı
+        if (_unitOfWork.AuditLogs != null)
+        {
+            var auditLog = new AppointmentAuditLog
+            {
+                AppointmentId = appointment.Id,
+                Action = "Cancelled",
+                OldStatus = oldStatus,
+                NewStatus = AppointmentStatus.Cancelled.ToString(),
+                ChangedByUserId = requestingUserId,
+                ChangedByRole = isAdmin ? "Admin" : "Customer",
+                ChangedByName = (requestingUserId.HasValue && requestingUserId.Value == appointment.UserId) ? appointment.User?.FullName : (isAdmin ? "Admin" : "Personel"),
+                ChangedDate = _dateTimeProvider.UtcNow,
+                Details = "Randevu iptal edildi."
+            };
+            await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Ek Geliştirme 1: Müşteriye randevu iptal e-postası gönder
@@ -277,7 +339,14 @@ public class AppointmentService : IAppointmentService
         }
     }
 
-    public async Task CompleteAsync(int id, CancellationToken cancellationToken = default)
+    public Task CompleteAsync(int id, CancellationToken cancellationToken = default)
+        => CompleteAsync(id, null, false, cancellationToken);
+
+    public async Task CompleteAsync(
+        int id,
+        int? requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default)
     {
         var appointment = await _unitOfWork.Appointments.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException($"ID: {id} olan randevu bulunamadı.");
@@ -288,8 +357,28 @@ public class AppointmentService : IAppointmentService
         if (appointment.Status == AppointmentStatus.Completed)
             throw new BusinessException("Bu randevu zaten tamamlanmış.");
 
+        var oldStatus = appointment.Status.ToString();
         appointment.Status = AppointmentStatus.Completed;
         _unitOfWork.Appointments.Update(appointment);
+
+        // Audit Log: Randevu tamamlama kaydı
+        if (_unitOfWork.AuditLogs != null)
+        {
+            var auditLog = new AppointmentAuditLog
+            {
+                AppointmentId = appointment.Id,
+                Action = "Completed",
+                OldStatus = oldStatus,
+                NewStatus = AppointmentStatus.Completed.ToString(),
+                ChangedByUserId = requestingUserId,
+                ChangedByRole = isAdmin ? "Admin" : "Employee",
+                ChangedByName = isAdmin ? "Admin" : "Personel",
+                ChangedDate = _dateTimeProvider.UtcNow,
+                Details = "Randevu tamamlandı olarak işaretlendi."
+            };
+            await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

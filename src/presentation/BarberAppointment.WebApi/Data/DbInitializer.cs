@@ -35,6 +35,29 @@ public static class DbInitializer
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Appointments', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Appointments') AND name = 'ReminderSentAt') BEGIN ALTER TABLE dbo.Appointments ADD ReminderSentAt DATETIME2 NULL; END");
 
+                await context.Database.ExecuteSqlRawAsync(@"
+                    IF OBJECT_ID(N'dbo.AppointmentAuditLogs', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.AppointmentAuditLogs (
+                            Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            AppointmentId INT NOT NULL,
+                            Action NVARCHAR(50) NOT NULL,
+                            OldStatus NVARCHAR(50) NULL,
+                            NewStatus NVARCHAR(50) NOT NULL,
+                            ChangedByUserId INT NULL,
+                            ChangedByRole NVARCHAR(50) NULL,
+                            ChangedByName NVARCHAR(100) NULL,
+                            ChangedDate DATETIME2 NOT NULL,
+                            Details NVARCHAR(500) NULL,
+                            IsActive BIT NOT NULL DEFAULT (1),
+                            CreatedAt DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+                            CONSTRAINT FK_AppointmentAuditLogs_Appointments FOREIGN KEY (AppointmentId) REFERENCES dbo.Appointments (Id) ON DELETE CASCADE,
+                            CONSTRAINT FK_AppointmentAuditLogs_Users FOREIGN KEY (ChangedByUserId) REFERENCES dbo.Users (Id) ON DELETE SET NULL
+                        );
+                        CREATE INDEX IX_AppointmentAuditLogs_AppointmentId ON dbo.AppointmentAuditLogs(AppointmentId);
+                        CREATE INDEX IX_AppointmentAuditLogs_ChangedDate ON dbo.AppointmentAuditLogs(ChangedDate);
+                    END");
+
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'IsPhoneVerified') BEGIN ALTER TABLE dbo.Users ADD IsPhoneVerified BIT NOT NULL CONSTRAINT DF_Users_IsPhoneVerified DEFAULT (0); END");
 

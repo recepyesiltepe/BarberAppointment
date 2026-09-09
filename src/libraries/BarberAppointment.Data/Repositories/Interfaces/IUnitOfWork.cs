@@ -6,6 +6,7 @@ public interface IUnitOfWork : IDisposable, IAsyncDisposable
     IEmployeeRepository Employees { get; }
     IServiceRepository Services { get; }
     IUserRepository Users { get; }
+    IAuditLogRepository AuditLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);

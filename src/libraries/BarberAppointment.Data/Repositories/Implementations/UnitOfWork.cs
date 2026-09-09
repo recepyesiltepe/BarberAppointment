@@ -13,6 +13,7 @@ public class UnitOfWork : IUnitOfWork
     private IEmployeeRepository? _employees;
     private IServiceRepository? _services;
     private IUserRepository? _users;
+    private IAuditLogRepository? _auditLogs;
 
     public UnitOfWork(AppDbContext context)
     {
@@ -23,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
     public IEmployeeRepository Employees => _employees ??= new EmployeeRepository(_context);
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
     public IUserRepository Users => _users ??= new UserRepository(_context);
+    public IAuditLogRepository AuditLogs => _auditLogs ??= new AuditLogRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

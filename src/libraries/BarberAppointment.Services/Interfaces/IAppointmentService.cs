@@ -33,6 +33,7 @@ public interface IAppointmentService
 
     /// <summary>Randevuyu tamamlandı olarak işaretleme.</summary>
     Task CompleteAsync(int id, CancellationToken cancellationToken = default);
+    Task CompleteAsync(int id, int? requestingUserId, bool isAdmin, CancellationToken cancellationToken = default);
 
     /// <summary>Belirtilen gün için personelin boş slot listesini döner.</summary>
     Task<IReadOnlyList<AvailableSlotDto>> GetAvailableSlotsAsync(AvailableSlotsQueryDto query, CancellationToken cancellationToken = default);

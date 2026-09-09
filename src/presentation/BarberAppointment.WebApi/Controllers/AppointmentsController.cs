@@ -239,7 +239,8 @@ public class AppointmentsController : ControllerBase
     [Authorize(Roles = $"{Roles.Admin},{Roles.Employee}")]
     public async Task<ActionResult<ApiResponse>> Complete(int id, CancellationToken cancellationToken)
     {
-        await _appointmentService.CompleteAsync(id, cancellationToken);
+        var currentUserId = GetCurrentUserId();
+        await _appointmentService.CompleteAsync(id, currentUserId, !IsCustomer(), cancellationToken);
         return Ok(ApiResponse.Ok("Randevu tamamlandı olarak işaretlendi."));
     }
 

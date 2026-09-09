@@ -721,6 +721,45 @@ else
   run_test "POST /api/appointments/trigger-reminders (Tekrar Tetikleme)" 200 500
 fi
 
+# ==============================================================================
+# BÖLÜM 14: Kriter 7 - Audit Log / İşlem Geçmişi Testleri
+# ==============================================================================
+echo ""
+echo "--- Bölüm 14: Audit Log / İşlem Geçmişi Testleri ---"
+
+# 14.1 Anonim erişim engeli (401 Unauthorized)
+ANON_AUDIT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$BASE_URL/api/audit-logs")
+run_test "GET /api/audit-logs (Anonim Erişim Engellendi -> 401 Unauthorized)" 401 "$ANON_AUDIT_STATUS"
+
+# 14.2 Müşteri rolü ile audit log erişim engeli (403 Forbidden)
+CUSTOMER_AUDIT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$BASE_URL/api/audit-logs" \
+  -H "Authorization: Bearer $CUST_TOKEN")
+run_test "GET /api/audit-logs (Müşteri Erişemez/Değiştiremez -> 403 Forbidden)" 403 "$CUSTOMER_AUDIT_STATUS"
+
+# 14.3 Admin rolü ile audit log listeleme (200 OK)
+ADMIN_AUDIT_RES=$(curl -s -X GET "$BASE_URL/api/audit-logs" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+ADMIN_AUDIT_SUCCESS=$(echo "$ADMIN_AUDIT_RES" | grep -o '"success":true' || true)
+
+if [ -n "$ADMIN_AUDIT_SUCCESS" ]; then
+  run_test "GET /api/audit-logs (Admin İşlem Geçmişi Listeleme -> 200 OK)" 200 200
+else
+  run_test "GET /api/audit-logs (Admin İşlem Geçmişi Listeleme)" 200 500
+fi
+
+# 14.4 Belirli bir randevunun audit log geçmişini sorgulama (200 OK)
+if [ -n "$APPT_ID" ]; then
+  APPT_AUDIT_RES=$(curl -s -X GET "$BASE_URL/api/audit-logs/appointment/$APPT_ID" \
+    -H "Authorization: Bearer $ADMIN_TOKEN")
+  APPT_AUDIT_SUCCESS=$(echo "$APPT_AUDIT_RES" | grep -o '"success":true' || true)
+
+  if [ -n "$APPT_AUDIT_SUCCESS" ]; then
+    run_test "GET /api/audit-logs/appointment/{id} (Randevu Bazlı Denetim İzi -> 200 OK)" 200 200
+  else
+    run_test "GET /api/audit-logs/appointment/{id}" 200 500
+  fi
+fi
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"
