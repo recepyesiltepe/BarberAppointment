@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Scissors, LogOut, Shield, User, Sparkles, CircleDot, Smartphone, Sun, Moon, Monitor } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -10,6 +10,20 @@ export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
   const { themePreference, setThemePreference } = useTheme();
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // Oturum kapandığında tüm açık modalları güvenle kapat
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setShowSmsModal(false);
+      setShowProfileModal(false);
+    }
+  }, [isAuthenticated]);
+
+  const handleLogout = () => {
+    setShowSmsModal(false);
+    setShowProfileModal(false);
+    logout();
+  };
 
   const handleLogoClick = () => {
     if (onNavigateHome) {
@@ -233,7 +247,7 @@ export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
               )}
 
               <button 
-                onClick={logout} 
+                onClick={handleLogout} 
                 className="btn btn-secondary btn-sm"
                 title="Çıkış Yap"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.75rem' }}
@@ -271,8 +285,9 @@ export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
 
       {/* SMS Verification Modal */}
       <SmsVerificationModal
-        isOpen={showSmsModal && !user?.isPhoneVerified}
+        isOpen={showSmsModal}
         onClose={() => setShowSmsModal(false)}
+        onSuccess={() => setShowSmsModal(false)}
       />
 
       {/* User Profile Modal */}

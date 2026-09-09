@@ -15,9 +15,16 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const [error, setError] = useState(null);
   const [cooldown, setCooldown] = useState(0);
   const [simulationCode, setSimulationCode] = useState(null);
-  const [maskedPhone, setMaskedPhone] = useState('');
+  const isModalVisible = Boolean(isOpen);
 
-  const isModalVisible = Boolean(isOpen && !user?.isPhoneVerified);
+  // Modal kapandığında iç durumu sıfırla
+  useEffect(() => {
+    if (!isOpen) {
+      setStep(1);
+      setCode('');
+      setError(null);
+    }
+  }, [isOpen]);
 
   // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
   useBodyScrollLock(isModalVisible);
