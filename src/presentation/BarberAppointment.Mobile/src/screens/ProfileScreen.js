@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,16 +9,18 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getApiUrl, setApiUrl } from '../api/client';
 import { smsApi, authApi } from '../api/barberApi';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
+import { isStrongPassword } from '../utils/passwordUtils';
+import { PasswordStrengthIndicator } from '../components/PasswordStrengthIndicator';
 
 export const ProfileScreen = () => {
   const { user, roleName, logout, updateUser } = useAuth();
-  const { colors: currentThemeColors, themePreference, setThemePreference } = useTheme();
-  const activeColors = currentThemeColors || colors;
+  const { colors, themePreference, setThemePreference } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrlState] = useState(getApiUrl());
 
@@ -59,14 +61,14 @@ export const ProfileScreen = () => {
   }, [smsCooldown]);
 
   const handleSendSmsCode = async () => {
-    if (!phoneInput || phoneInput.trim().length < 10) {
-      Alert.alert('Uyarı', 'Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 05551234567).');
+    if (!phoneInput || !isValidTurkishPhone(phoneInput)) {
+      Alert.alert('Uyarı', 'Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
 
     setSmsLoading(true);
     try {
-      const res = await smsApi.sendCode(phoneInput.trim());
+      const res = await smsApi.sendCode(normalizeTurkishPhone(phoneInput));
       if (res.success && res.data) {
         setSmsCooldown(res.data.cooldownSeconds || 60);
         if (res.data.simulationCode) {
@@ -92,15 +94,16 @@ export const ProfileScreen = () => {
 
     setSmsLoading(true);
     try {
-      const res = await smsApi.verifyMyPhone(phoneInput.trim(), smsCode.trim()).catch(() =>
-        smsApi.verifyCode(phoneInput.trim(), smsCode.trim())
+      const normPhone = normalizeTurkishPhone(phoneInput);
+      const res = await smsApi.verifyMyPhone(normPhone, smsCode.trim()).catch(() =>
+        smsApi.verifyCode(normPhone, smsCode.trim())
       );
 
       if (res.success) {
         setIsPhoneVerified(true);
         setSmsStep(3);
         if (updateUser) {
-          updateUser({ isPhoneVerified: true, phone: phoneInput.trim() });
+          updateUser({ isPhoneVerified: true, phone: normPhone });
         }
         Alert.alert('Tebrikler 🎉', 'Telefon numaranız başarıyla doğrulandı ve profilinize kaydedildi.');
       } else {
@@ -119,11 +122,16 @@ export const ProfileScreen = () => {
       return;
     }
 
+    if (editPhone && editPhone.trim() && !isValidTurkishPhone(editPhone)) {
+      Alert.alert('Uyarı', 'Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+
     setProfileSaving(true);
     try {
       const res = await authApi.updateProfile({
         fullName: editFullName.trim(),
-        phone: editPhone ? editPhone.trim() : null
+        phone: editPhone && editPhone.trim() ? normalizeTurkishPhone(editPhone) : null
       });
 
       if (res.success && res.data) {
@@ -146,8 +154,8 @@ export const ProfileScreen = () => {
       Alert.alert('Uyarı', 'Lütfen mevcut şifrenizi giriniz.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert('Uyarı', 'Yeni şifre en az 6 karakter olmalıdır.');
+    if (!isStrongPassword(newPassword)) {
+      Alert.alert('Uyarı', 'Yeni şifreniz güvenlik kriterlerini karşılamıyor. En az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter gereklidir.');
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -286,10 +294,11 @@ export const ProfileScreen = () => {
             <TextInput
               style={styles.input}
               value={editPhone}
-              onChangeText={setEditPhone}
-              placeholder="05551234567"
+              onChangeText={(val) => setEditPhone(formatTurkishPhone(val))}
+              placeholder="0555 123 45 67"
               placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
+              maxLength={14}
             />
 
             <TouchableOpacity
@@ -310,11 +319,6 @@ export const ProfileScreen = () => {
         ) : (
           <View style={{ marginTop: 4 }}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Kullanıcı Numarası (ID):</Text>
-              <Text style={styles.infoVal}>#{user?.id}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>E-Posta:</Text>
               <Text style={styles.infoVal}>{user?.email}</Text>
             </View>
@@ -322,10 +326,10 @@ export const ProfileScreen = () => {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Telefon:</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.infoVal}>{user?.phone || 'Belirtilmedi'}</Text>
+                <Text style={styles.infoVal}>{user?.phone ? formatTurkishPhone(user.phone) : 'Belirtilmedi'}</Text>
                 {isPhoneVerified && (
-                  <View style={{ backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                    <Text style={{ color: colors.success, fontSize: 10, fontWeight: '700' }}>✓ Doğrulandı</Text>
+                  <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.4)', borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '700' }}>✓ Doğrulandı</Text>
                   </View>
                 )}
               </View>
@@ -373,11 +377,12 @@ export const ProfileScreen = () => {
             <TextInput
               style={styles.input}
               value={phoneInput}
-              onChangeText={setPhoneInput}
-              placeholder="05551234567"
+              onChangeText={(val) => setPhoneInput(formatTurkishPhone(val))}
+              placeholder="0555 123 45 67"
               placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
               editable={smsStep !== 3}
+              maxLength={14}
             />
 
             {smsStep === 1 && (
@@ -493,7 +498,7 @@ export const ProfileScreen = () => {
               secureTextEntry
             />
 
-            <Text style={styles.infoLabel}>Yeni Şifreniz (En az 6 karakter)</Text>
+            <Text style={styles.infoLabel}>Yeni Şifreniz (En az 8 karakter)</Text>
             <TextInput
               style={styles.input}
               value={newPassword}
@@ -513,8 +518,14 @@ export const ProfileScreen = () => {
               secureTextEntry
             />
 
+            <PasswordStrengthIndicator
+              password={newPassword}
+              confirmPassword={confirmNewPassword}
+              showConfirmMatch={true}
+            />
+
             <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.25)', borderRadius: 8, padding: 10, marginBottom: 10 }}>
-              <Text style={{ color: '#c4b5fd', fontSize: 12 }}>
+              <Text style={{ color: '#8b5cf6', fontSize: 12 }}>
                 🔐 Devam ettiğinizde kayıtlı e-posta adresinize ({user?.email}) 6 haneli onay kodu gönderilecektir.
               </Text>
             </View>
@@ -540,9 +551,9 @@ export const ProfileScreen = () => {
           <View style={{ marginTop: 12 }}>
             <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.3)', borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 12 }}>
               <Text style={{ fontSize: 24, marginBottom: 4 }}>📬</Text>
-              <Text style={{ color: '#c4b5fd', fontWeight: '700', fontSize: 14, marginBottom: 2 }}>Doğrulama Kodu Gönderildi</Text>
+              <Text style={{ color: '#8b5cf6', fontWeight: '700', fontSize: 14, marginBottom: 2 }}>Doğrulama Kodu Gönderildi</Text>
               <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>{user?.email}</Text> adresinize iletilen 6 haneli kodu giriniz. Kod 15 dakika geçerlidir.
+                <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{user?.email}</Text> adresinize iletilen 6 haneli kodu giriniz. Kod 15 dakika geçerlidir.
               </Text>
             </View>
 
@@ -599,15 +610,15 @@ export const ProfileScreen = () => {
       </View>
 
       {/* Theme Preference Card (Ek Geliştirme 7) */}
-      <View style={[styles.card, { backgroundColor: activeColors.bgCard, borderColor: activeColors.border }]}>
+      <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardTitle, { color: activeColors.textPrimary }]}>🎨 Tema & Görünüm Tercihi</Text>
-          <Text style={{ fontSize: 11, color: activeColors.textMuted }}>
+          <Text style={styles.cardTitle}>🎨 Tema & Görünüm Tercihi</Text>
+          <Text style={{ fontSize: 11, color: colors.textMuted }}>
             {themePreference === 'system' ? '📱 Sistem (Oto)' : themePreference === 'light' ? '☀️ Açık' : '🌙 Koyu'}
           </Text>
         </View>
 
-        <Text style={[styles.cardSub, { color: activeColors.textSecondary }]}>
+        <Text style={styles.cardSub}>
           Uygulama renk modu varsayılan olarak cihazınızın açık/koyu temasını takip eder.
         </Text>
 
@@ -616,14 +627,14 @@ export const ProfileScreen = () => {
             style={[
               styles.themeOptionBtn,
               {
-                borderColor: themePreference === 'system' ? activeColors.primary : activeColors.border,
-                backgroundColor: themePreference === 'system' ? 'rgba(245, 158, 11, 0.15)' : activeColors.bgInput
+                borderColor: themePreference === 'system' ? colors.primary : colors.border,
+                backgroundColor: themePreference === 'system' ? 'rgba(245, 158, 11, 0.15)' : colors.bgInput
               }
             ]}
             onPress={() => setThemePreference('system')}
           >
             <Text style={{ fontSize: 16 }}>📱</Text>
-            <Text style={[styles.themeOptionText, { color: themePreference === 'system' ? activeColors.primaryLight : activeColors.textSecondary }]}>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'system' ? colors.primaryLight : colors.textSecondary }]}>
               Sistem
             </Text>
           </TouchableOpacity>
@@ -632,14 +643,14 @@ export const ProfileScreen = () => {
             style={[
               styles.themeOptionBtn,
               {
-                borderColor: themePreference === 'light' ? '#d97706' : activeColors.border,
-                backgroundColor: themePreference === 'light' ? 'rgba(217, 119, 6, 0.15)' : activeColors.bgInput
+                borderColor: themePreference === 'light' ? '#d97706' : colors.border,
+                backgroundColor: themePreference === 'light' ? 'rgba(217, 119, 6, 0.15)' : colors.bgInput
               }
             ]}
             onPress={() => setThemePreference('light')}
           >
             <Text style={{ fontSize: 16 }}>☀️</Text>
-            <Text style={[styles.themeOptionText, { color: themePreference === 'light' ? '#d97706' : activeColors.textSecondary }]}>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'light' ? '#d97706' : colors.textSecondary }]}>
               Açık
             </Text>
           </TouchableOpacity>
@@ -648,14 +659,14 @@ export const ProfileScreen = () => {
             style={[
               styles.themeOptionBtn,
               {
-                borderColor: themePreference === 'dark' ? '#fbbf24' : activeColors.border,
-                backgroundColor: themePreference === 'dark' ? 'rgba(251, 191, 36, 0.15)' : activeColors.bgInput
+                borderColor: themePreference === 'dark' ? '#fbbf24' : colors.border,
+                backgroundColor: themePreference === 'dark' ? 'rgba(251, 191, 36, 0.15)' : colors.bgInput
               }
             ]}
             onPress={() => setThemePreference('dark')}
           >
             <Text style={{ fontSize: 16 }}>🌙</Text>
-            <Text style={[styles.themeOptionText, { color: themePreference === 'dark' ? '#fbbf24' : activeColors.textSecondary }]}>
+            <Text style={[styles.themeOptionText, { color: themePreference === 'dark' ? '#fbbf24' : colors.textSecondary }]}>
               Koyu
             </Text>
           </TouchableOpacity>
@@ -698,7 +709,7 @@ export const ProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgMain,
@@ -732,7 +743,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   fullName: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
   },
@@ -769,7 +780,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardTitle: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -788,14 +799,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderSubtle || colors.border,
   },
   infoLabel: {
     color: colors.textSecondary,
     fontSize: 13,
   },
   infoVal: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -806,20 +817,20 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 13,
     marginBottom: 8,
   },
   saveButton: {
-    backgroundColor: colors.primaryDark,
-    paddingVertical: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
+    color: '#000',
+    fontWeight: '700',
+    fontSize: 13,
   },
   logoutButton: {
     backgroundColor: 'rgba(239, 68, 68, 0.12)',

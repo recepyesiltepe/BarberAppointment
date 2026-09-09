@@ -3,6 +3,9 @@ import { Mail, Lock, User, Phone, Eye, EyeOff, Sparkles, Shield, Scissors, UserC
 import { useAuth } from '../context/AuthContext';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 import { VerifyEmailModal } from './VerifyEmailModal';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
+import { isStrongPassword } from '../utils/passwordUtils';
+import { PasswordStrengthIndicator } from './common/PasswordStrengthIndicator';
 
 export const LoginScreen = ({ onSuccess }) => {
   const { login, register } = useAuth();
@@ -71,8 +74,18 @@ export const LoginScreen = ({ onSuccess }) => {
     setSuccessMsg(null);
     setIsUnverifiedError(false);
 
-    if (!regFullName || !regEmail || !regPassword || !regConfirmPassword) {
+    if (!regFullName || !regEmail || !regPhone || !regPassword || !regConfirmPassword) {
       setError('Lütfen tüm zorunlu alanları doldurunuz.');
+      return;
+    }
+
+    if (!isValidTurkishPhone(regPhone)) {
+      setError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+
+    if (!isStrongPassword(regPassword)) {
+      setError('Şifreniz güvenlik kriterlerini karşılamıyor. Lütfen en az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter giriniz.');
       return;
     }
 
@@ -84,9 +97,9 @@ export const LoginScreen = ({ onSuccess }) => {
     setLoading(true);
     try {
       const res = await register({
-        fullName: regFullName,
-        email: regEmail,
-        phone: regPhone || null,
+        fullName: regFullName.trim(),
+        email: regEmail.trim(),
+        phone: normalizeTurkishPhone(regPhone),
         password: regPassword,
         confirmPassword: regConfirmPassword,
         role: 1
@@ -407,17 +420,23 @@ export const LoginScreen = ({ onSuccess }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Telefon Numarası (İsteğe Bağlı)</label>
+              <label className="form-label">
+                Telefon Numarası <span style={{ color: '#ef4444' }}>*</span>
+              </label>
               <div className="form-input-wrapper">
                 <Phone size={18} className="form-input-icon" />
                 <input
                   type="tel"
                   className="form-input"
-                  placeholder="5551234567"
+                  placeholder="0555 123 45 67"
                   value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
+                  onChange={(e) => setRegPhone(formatTurkishPhone(e.target.value))}
+                  required
                 />
               </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                Örn: 0555 123 45 67
+              </span>
             </div>
 
             <div className="form-group">
@@ -428,7 +447,7 @@ export const LoginScreen = ({ onSuccess }) => {
                   type={showRegPassword ? 'text' : 'password'}
                   className="form-input"
                   style={{ paddingRight: '2.85rem' }}
-                  placeholder="En az 6 karakter"
+                  placeholder="En az 8 karakter (Örn: Sifre123!)"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
                   required
@@ -465,6 +484,12 @@ export const LoginScreen = ({ onSuccess }) => {
                 />
               </div>
             </div>
+
+            <PasswordStrengthIndicator
+              password={regPassword}
+              confirmPassword={regConfirmPassword}
+              showConfirmMatch={true}
+            />
 
             <button
               type="submit"

@@ -6,6 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { VerifyEmailModal } from './VerifyEmailModal';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
+import { isStrongPassword } from '../utils/passwordUtils';
+import { PasswordStrengthIndicator } from './common/PasswordStrengthIndicator';
 
 export const UserProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser, refreshProfile } = useAuth();
@@ -75,6 +78,11 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    if (phone && phone.trim() && !isValidTurkishPhone(phone)) {
+      setError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
@@ -82,7 +90,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
     try {
       const res = await authApi.updateProfile({
         fullName: fullName.trim(),
-        phone: phone ? phone.trim() : null
+        phone: phone && phone.trim() ? normalizeTurkishPhone(phone) : null
       });
 
       if (res.success && res.data) {
@@ -109,8 +117,8 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       setError('Mevcut şifrenizi giriniz.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      setError('Yeni şifreniz en az 6 karakter olmalıdır.');
+    if (!isStrongPassword(newPassword)) {
+      setError('Yeni şifreniz güvenlik kriterlerini karşılamıyor. Lütfen en az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter giriniz.');
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -337,8 +345,8 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="05551234567"
+                  onChange={(e) => setPhone(formatTurkishPhone(e.target.value))}
+                  placeholder="0555 123 45 67"
                   className="input-field"
                   style={{
                     width: '100%',
@@ -402,13 +410,13 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                  Yeni Şifre (En az 6 karakter)
+                  Yeni Şifre (En az 8 karakter)
                 </label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="En az 8 karakter (Örn: Sifre123!)"
                   className="input-field"
                   style={{
                     width: '100%',
@@ -430,7 +438,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   type="password"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Yeni şifrenizi tekrar giriniz"
                   className="input-field"
                   style={{
                     width: '100%',
@@ -443,6 +451,12 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   required
                 />
               </div>
+
+              <PasswordStrengthIndicator
+                password={newPassword}
+                confirmPassword={confirmNewPassword}
+                showConfirmMatch={true}
+              />
 
               <div style={{
                 background: 'rgba(139, 92, 246, 0.08)',
@@ -635,7 +649,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Telefon Numarası:</span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{user?.phone || 'Belirtilmedi'}</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{formatTurkishPhone(user?.phone) || 'Belirtilmedi'}</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.85rem' }}>

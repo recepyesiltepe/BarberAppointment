@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { servicesApi, employeesApi, appointmentsApi, smsApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../../utils/phoneUtils';
 
 export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
   const { user, updateUser } = useAuth();
@@ -67,14 +68,14 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
   useEffect(() => {
     if (user?.phone) {
-      setSmsPhone(user.phone);
+      setSmsPhone(formatTurkishPhone(user.phone));
     }
   }, [user]);
 
   // Step 4'e gelindiğinde mevcut aktif SMS oturumu veya cooldown var mı kontrol et
   useEffect(() => {
     if (currentStep === 4 && smsPhone) {
-      const clean = smsPhone.replace(/[\s\-\(\)]/g, '');
+      const clean = normalizeTurkishPhone(smsPhone);
       if (clean.length >= 10) {
         smsApi.getStatus(clean).then((res) => {
           if (res?.data) {
@@ -91,11 +92,12 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
   }, [currentStep, smsPhone]);
 
   const handleSendSmsCode = async () => {
-    const cleanPhone = (smsPhone || '').replace(/[\s\-\(\)]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+    if (!isValidTurkishPhone(smsPhone)) {
+      setSmsError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
+
+    const cleanPhone = normalizeTurkishPhone(smsPhone);
 
     setSmsLoading(true);
     setSmsError(null);
@@ -136,7 +138,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     setLoading(true);
     setSmsError(null);
     try {
-      const cleanPhone = (smsPhone || '').replace(/[\s\-\(\)]/g, '');
+      const cleanPhone = normalizeTurkishPhone(smsPhone);
       const appointmentPayload = {
         userId: user?.id || 1,
         employeeId: selectedEmployee.id,
@@ -863,7 +865,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 <ShieldCheck size={18} color="#10b981" />
                 <div>
                   <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>Kayıtlı Telefon Numaranız: </span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{user?.phone}</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{formatTurkishPhone(user?.phone)}</span>
                 </div>
               </div>
               <span className="badge badge-confirmed" style={{ fontSize: '0.75rem' }}>Profilde Onaylı</span>
@@ -900,9 +902,9 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                 <input
                   type="tel"
                   className="form-input no-icon"
-                  placeholder="05XXXXXXXXX"
+                  placeholder="0555 123 45 67"
                   value={smsPhone}
-                  onChange={(e) => setSmsPhone(e.target.value)}
+                  onChange={(e) => setSmsPhone(formatTurkishPhone(e.target.value))}
                   disabled={smsStep === 2 && smsCooldown > 0}
                 />
               </div>

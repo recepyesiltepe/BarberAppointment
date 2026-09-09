@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
+import { formatTurkishPhone } from '../../utils/phoneUtils';
 
 export const AppointmentsView = ({ onNotify }) => {
   const { user, roleName } = useAuth();
@@ -315,7 +316,7 @@ export const AppointmentsView = ({ onNotify }) => {
                   <tr key={a.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{a.customerName}</div>
-                      {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.customerPhone}</div>}
+                      {a.customerPhone && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatTurkishPhone(a.customerPhone)}</div>}
                     </td>
                     <td style={{ padding: '1rem', color: '#0284c7', fontWeight: 500 }}>
                       {a.employeeName}

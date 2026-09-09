@@ -3,6 +3,7 @@ using BarberAppointment.Core.Enums;
 using BarberAppointment.Core.Exceptions;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
+using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
 using BarberAppointment.Services.Security;
@@ -51,7 +52,7 @@ public class AuthService : IAuthService
         {
             FullName = dto.FullName.Trim(),
             Email = dto.Email.Trim().ToLowerInvariant(),
-            Phone = dto.Phone?.Trim(),
+            Phone = TurkishPhoneNumberHelper.Normalize(dto.Phone),
             Role = UserRole.Customer, // Kayıt olan tüm kullanıcılar daima Customer rolündedir
             PasswordHash = passwordHash,
             PasswordSalt = passwordSalt,
@@ -183,11 +184,14 @@ public class AuthService : IAuthService
         }
 
         user.FullName = dto.FullName.Trim();
-        var newPhone = dto.Phone?.Trim();
-        if (!string.IsNullOrEmpty(newPhone) && user.Phone != newPhone)
+        if (!string.IsNullOrEmpty(dto.Phone))
         {
-            user.Phone = newPhone;
-            user.IsPhoneVerified = false;
+            var normalizedPhone = TurkishPhoneNumberHelper.Normalize(dto.Phone);
+            if (user.Phone != normalizedPhone)
+            {
+                user.Phone = normalizedPhone;
+                user.IsPhoneVerified = false;
+            }
         }
 
         _unitOfWork.Users.Update(user);

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { KeyRound, Mail, Lock, CheckCircle2, AlertCircle, X, Sparkles, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { isStrongPassword } from '../utils/passwordUtils';
+import { PasswordStrengthIndicator } from './common/PasswordStrengthIndicator';
 
 export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
   const [step, setStep] = useState(1); // 1 = Request, 2 = Reset, 3 = Success
@@ -81,8 +83,8 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
       setError('Lütfen e-posta adresinize gelen sıfırlama kodunu giriniz.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      setError('Yeni şifre en az 6 karakter olmalıdır.');
+    if (!isStrongPassword(newPassword)) {
+      setError('Yeni şifreniz güvenlik kriterlerini karşılamıyor. Lütfen en az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter giriniz.');
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -348,7 +350,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
-                  placeholder="En az 6 karakter"
+                  placeholder="En az 8 karakter (Örn: Sifre123!)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
@@ -363,7 +365,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
               </div>
             </div>
 
-            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label className="form-label" style={{ fontSize: '0.85rem' }}>Yeni Şifre Tekrarı</label>
               <div className="form-input-wrapper">
                 <Lock size={16} className="form-input-icon" />
@@ -376,6 +378,14 @@ export const ForgotPasswordModal = ({ isOpen, onClose, initialEmail = '' }) => {
                   required
                 />
               </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <PasswordStrengthIndicator
+                password={newPassword}
+                confirmPassword={confirmNewPassword}
+                showConfirmMatch={true}
+              />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

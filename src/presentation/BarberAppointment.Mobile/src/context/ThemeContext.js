@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Appearance, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeStorage } from '../utils/storage';
 import { darkColors, lightColors, getThemeColors } from '../theme/colors';
 
 const ThemeContext = createContext();
@@ -21,13 +21,7 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const loadStoredPreference = async () => {
       try {
-        let saved = null;
-        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-          saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-        }
-        if (!saved) {
-          saved = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-        }
+        const saved = await safeStorage.getItem(THEME_STORAGE_KEY);
 
         if (saved === 'light' || saved === 'dark' || saved === 'system') {
           setThemePreferenceState(saved);
@@ -37,8 +31,8 @@ export const ThemeProvider = ({ children }) => {
             setResolvedTheme(saved);
           }
         }
-      } catch (err) {
-        console.warn('Tema tercihi yüklenirken hata:', err);
+      } catch {
+        // Fallback gracefully
       } finally {
         setIsLoaded(true);
       }
@@ -76,12 +70,9 @@ export const ThemeProvider = ({ children }) => {
     setThemePreferenceState(pref);
 
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(THEME_STORAGE_KEY, pref);
-      }
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, pref);
-    } catch (err) {
-      console.warn('Tema tercihi kaydedilirken hata:', err);
+      await safeStorage.setItem(THEME_STORAGE_KEY, pref);
+    } catch {
+      // Fallback gracefully
     }
   };
 

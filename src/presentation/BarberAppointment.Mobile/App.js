@@ -1,18 +1,33 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { BookingScreen } from './src/screens/BookingScreen';
 import { MyAppointmentsScreen } from './src/screens/MyAppointmentsScreen';
+import { AdminManagementScreen } from './src/screens/AdminManagementScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 
 const MainApp = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitializing, roleName } = useAuth();
   const { colors, isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'appointments' | 'profile'
+  const isAdmin = roleName === 'Admin';
+  const isStaff = roleName === 'Employee' || roleName === 'Admin';
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'admin' | 'appointments' | 'profile'
+
+  if (isInitializing) {
+    return (
+      <View style={[styles.centerLoading, { backgroundColor: colors.bgMain }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 12, color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
+          Oturum yükleniyor...
+        </Text>
+      </View>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginScreen />;
@@ -23,13 +38,19 @@ const MainApp = () => {
       {/* Active Screen View */}
       <View style={styles.screenContainer}>
         {activeTab === 'home' && (
-          <HomeScreen onNavigateBooking={() => setActiveTab('book')} />
+          <HomeScreen
+            onNavigateBooking={() => setActiveTab('book')}
+            onNavigateAdmin={() => setActiveTab('admin')}
+          />
         )}
         {activeTab === 'book' && (
           <BookingScreen
             onBookingComplete={() => setActiveTab('appointments')}
             onCancelFlow={() => setActiveTab('home')}
           />
+        )}
+        {activeTab === 'admin' && isAdmin && (
+          <AdminManagementScreen />
         )}
         {activeTab === 'appointments' && (
           <MyAppointmentsScreen
@@ -41,7 +62,7 @@ const MainApp = () => {
         )}
       </View>
 
-      {/* 4-Tab Bottom Navigation Bar */}
+      {/* Role-Aware Bottom Navigation Bar */}
       <View style={[
         styles.bottomNav,
         {
@@ -56,21 +77,39 @@ const MainApp = () => {
         >
           <Text style={styles.navIcon}>🏠</Text>
           <Text style={[styles.navLabel, { color: activeTab === 'home' ? colors.primary : colors.textSecondary }]}>
-            Keşfet
+            {isStaff ? 'Genel Bakış' : 'Keşfet'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive, { backgroundColor: colors.primary }]}
-          onPress={() => setActiveTab('book')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.bookIcon}>✂️</Text>
-          <Text style={styles.bookLabel}>
-            Randevu Al
-          </Text>
-        </TouchableOpacity>
+        {/* Customer Booking Wizard */}
+        {!isStaff && (
+          <TouchableOpacity
+            style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive, { backgroundColor: colors.primary }]}
+            onPress={() => setActiveTab('book')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.bookIcon}>✂️</Text>
+            <Text style={styles.bookLabel}>
+              Randevu Al
+            </Text>
+          </TouchableOpacity>
+        )}
 
+        {/* Admin Management (Hizmetler & Personeller CRUD) */}
+        {isAdmin && (
+          <TouchableOpacity
+            style={[styles.navItem, activeTab === 'admin' && styles.navItemActive]}
+            onPress={() => setActiveTab('admin')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.navIcon}>⚙️</Text>
+            <Text style={[styles.navLabel, { color: activeTab === 'admin' ? colors.primary : colors.textSecondary }]}>
+              Yönetim
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Appointments Tab */}
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'appointments' && styles.navItemActive]}
           onPress={() => setActiveTab('appointments')}
@@ -78,10 +117,11 @@ const MainApp = () => {
         >
           <Text style={styles.navIcon}>📅</Text>
           <Text style={[styles.navLabel, { color: activeTab === 'appointments' ? colors.primary : colors.textSecondary }]}>
-            Randevularım
+            {isStaff ? 'Randevular' : 'Randevularım'}
           </Text>
         </TouchableOpacity>
 
+        {/* Profile Tab */}
         <TouchableOpacity
           style={[styles.navItem, activeTab === 'profile' && styles.navItemActive]}
           onPress={() => setActiveTab('profile')}
@@ -110,17 +150,24 @@ const ThemedContainer = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <ThemedContainer />
-      </ThemeProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <ThemedContainer />
+        </ThemeProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appContainer: {
     flex: 1,

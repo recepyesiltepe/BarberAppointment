@@ -4,6 +4,7 @@ import { Smartphone, CheckCircle2, AlertCircle, X, Clock, RefreshCw, KeyRound, S
 import { smsApi } from '../api/barberApi';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
 
 export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const { user, isAuthenticated, updateUser } = useAuth();
@@ -15,6 +16,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const [error, setError] = useState(null);
   const [cooldown, setCooldown] = useState(0);
   const [simulationCode, setSimulationCode] = useState(null);
+  const [maskedPhone, setMaskedPhone] = useState('');
   const isModalVisible = Boolean(isOpen);
 
   // Modal kapandığında iç durumu sıfırla
@@ -59,14 +61,14 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   // Reset when modal opens & query active session status
   useEffect(() => {
     if (isOpen) {
-      setPhoneNumber(user?.phone || '');
+      setPhoneNumber(user?.phone ? formatTurkishPhone(user.phone) : '');
       setCode('');
       setStep(1);
       setError(null);
       setSimulationCode(null);
 
       if (user?.phone) {
-        const clean = user.phone.replace(/[\s\-\(\)]/g, '');
+        const clean = normalizeTurkishPhone(user.phone);
         if (clean.length >= 10) {
           smsApi.getStatus(clean).then((res) => {
             if (res?.data) {
@@ -88,11 +90,12 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleSendCode = async (e) => {
     if (e) e.preventDefault();
-    const cleanPhone = (phoneNumber || '').replace(/[\s\-\(\)]/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setError('Lütfen geçerli bir cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+    if (!isValidTurkishPhone(phoneNumber)) {
+      setError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
+
+    const cleanPhone = normalizeTurkishPhone(phoneNumber);
 
     setLoading(true);
     setError(null);
@@ -137,7 +140,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
     setError(null);
 
     try {
-      const cleanPhone = (phoneNumber || '').replace(/[\s\-\(\)]/g, '');
+      const cleanPhone = normalizeTurkishPhone(phoneNumber);
       let res;
       if (isAuthenticated) {
         // Oturum açmış kullanıcı için profil telefonunu da güncelle
@@ -288,7 +291,7 @@ export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
                   className="form-input"
                   placeholder="0555 123 45 67"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => setPhoneNumber(formatTurkishPhone(e.target.value))}
                   autoFocus
                 />
               </div>

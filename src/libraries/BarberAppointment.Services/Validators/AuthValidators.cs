@@ -1,3 +1,4 @@
+using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using FluentValidation;
 
@@ -15,16 +16,15 @@ public class RegisterValidator : AbstractValidator<RegisterDto>
             .NotEmpty().WithMessage("E-posta adresi zorunludur.")
             .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
 
-        When(x => !string.IsNullOrEmpty(x.Phone), () =>
-        {
-            RuleFor(x => x.Phone!)
-                .Matches(@"^[0-9\+\-\s\(\)]{7,20}$")
-                .WithMessage("Geçerli bir telefon numarası formatı giriniz.");
-        });
+        RuleFor(x => x.Phone)
+            .NotEmpty().WithMessage("Telefon numarası zorunludur.")
+            .Must(TurkishPhoneNumberHelper.IsValid)
+            .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
 
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Şifre zorunludur.")
-            .MinimumLength(6).WithMessage("Şifre en az 6 karakter olmalıdır.");
+            .Must(PasswordPolicyHelper.IsValid)
+            .WithMessage(PasswordPolicyHelper.ValidationMessage);
 
         RuleFor(x => x.ConfirmPassword)
             .NotEmpty().WithMessage("Şifre tekrarı zorunludur.")
@@ -57,7 +57,8 @@ public class ChangePasswordValidator : AbstractValidator<ChangePasswordDto>
 
         RuleFor(x => x.NewPassword)
             .NotEmpty().WithMessage("Yeni şifre zorunludur.")
-            .MinimumLength(6).WithMessage("Yeni şifre en az 6 karakter olmalıdır.")
+            .Must(PasswordPolicyHelper.IsValid)
+            .WithMessage(PasswordPolicyHelper.ValidationMessage)
             .NotEqual(x => x.CurrentPassword).WithMessage("Yeni şifre mevcut şifrenizden farklı olmalıdır.");
 
         RuleFor(x => x.ConfirmNewPassword)
@@ -89,7 +90,8 @@ public class ResetPasswordValidator : AbstractValidator<ResetPasswordDto>
 
         RuleFor(x => x.NewPassword)
             .NotEmpty().WithMessage("Yeni şifre zorunludur.")
-            .MinimumLength(6).WithMessage("Yeni şifre en az 6 karakter olmalıdır.");
+            .Must(PasswordPolicyHelper.IsValid)
+            .WithMessage(PasswordPolicyHelper.ValidationMessage);
 
         RuleFor(x => x.ConfirmNewPassword)
             .NotEmpty().WithMessage("Yeni şifre tekrarı zorunludur.")

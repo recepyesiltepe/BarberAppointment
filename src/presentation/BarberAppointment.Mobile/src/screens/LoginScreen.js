@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,17 @@ import {
   Platform,
   Alert
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/barberApi';
 import { getApiUrl, setApiUrl } from '../api/client';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
+import { isStrongPassword } from '../utils/passwordUtils';
+import { PasswordStrengthIndicator } from '../components/PasswordStrengthIndicator';
 
 export const LoginScreen = () => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { login, register, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
   
@@ -33,6 +38,18 @@ export const LoginScreen = () => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Forgot Password State
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState(1); // 1 = request token, 2 = reset password
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotToken, setForgotToken] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [forgotSimToken, setForgotSimToken] = useState(null);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState(null);
 
   // Email Verification State
   const [showVerifyView, setShowVerifyView] = useState(false);
@@ -79,12 +96,20 @@ export const LoginScreen = () => {
   };
 
   const handleRegisterSubmit = async () => {
-    if (!fullName || !regEmail || !regPassword || !confirmPassword) {
+    if (!fullName || !regEmail || !phone || !regPassword || !confirmPassword) {
       setError('Lütfen tüm zorunlu alanları doldurunuz.');
       return;
     }
+    if (!isValidTurkishPhone(phone)) {
+      setError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+    if (!isStrongPassword(regPassword)) {
+      setError('Şifreniz güvenlik kriterlerini karşılamıyor. Lütfen en az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter giriniz.');
+      return;
+    }
     if (regPassword !== confirmPassword) {
-      setError('Şifreler birbiriyle eşleşmiyor.');
+      setError('Girdiğiniz şifreler birbiriyle eşleşmiyor.');
       return;
     }
     setError(null);
@@ -93,7 +118,7 @@ export const LoginScreen = () => {
       const res = await register({
         fullName: fullName.trim(),
         email: regEmail.trim(),
-        phone: phone ? phone.trim() : null,
+        phone: normalizeTurkishPhone(phone),
         password: regPassword,
         confirmPassword: confirmPassword,
         role: 1
@@ -110,6 +135,67 @@ export const LoginScreen = () => {
       }
     } catch (err) {
       setError(err.message || 'Kayıt işlemi başarısız.');
+    }
+  };
+
+  const handleRequestForgotToken = async () => {
+    if (!forgotEmail || !forgotEmail.includes('@')) {
+      setForgotError('Lütfen geçerli bir e-posta adresi giriniz.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await authApi.forgotPassword(forgotEmail.trim());
+      const sim = res.data?.simulationToken || res.data?.data?.simulationToken;
+      if (sim) {
+        setForgotSimToken(sim);
+        setForgotToken(sim);
+      }
+      setForgotStep(2);
+      Alert.alert('Bilgi', 'Şifre sıfırlama kodu e-posta adresinize gönderildi.');
+    } catch (err) {
+      setForgotError(err.message || 'Sıfırlama kodu gönderilemedi.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async () => {
+    if (!forgotToken || forgotToken.trim().length === 0) {
+      setForgotError('Lütfen sıfırlama kodunu giriniz.');
+      return;
+    }
+    if (!isStrongPassword(forgotNewPassword)) {
+      setForgotError('Yeni şifreniz güvenlik kriterlerini karşılamıyor. En az 8 karakter, büyük harf, küçük harf, rakam ve özel karakter gereklidir.');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError('Yeni şifreler birbiriyle eşleşmiyor.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await authApi.resetPassword({
+        email: forgotEmail.trim(),
+        token: forgotToken.trim(),
+        newPassword: forgotNewPassword,
+        confirmNewPassword: forgotConfirmPassword
+      });
+      if (res.success || res.data?.success) {
+        setShowForgotPassword(false);
+        setActiveTab('login');
+        setEmail(forgotEmail.trim());
+        setPassword('');
+        Alert.alert('Tebrikler 🎉', 'Şifreniz başarıyla sıfırlandı! Yeni şifrenizle giriş yapabilirsiniz.');
+      } else {
+        throw new Error(res.message || res.data?.message || 'Şifre sıfırlanamadı.');
+      }
+    } catch (err) {
+      setForgotError(err.message || 'Şifre sıfırlama işlemi başarısız.');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -238,22 +324,158 @@ export const LoginScreen = () => {
             </View>
           )}
 
-          {showVerifyView ? (
-            /* EMAIL VERIFICATION FORM */
+          {showForgotPassword ? (
+            /* FORGOT PASSWORD VIEW */
             <View>
               <View style={styles.verifyHeader}>
-                <Text style={styles.verifyTitle}>✉️ E-Posta Doğrulama</Text>
+                <Text style={styles.verifyTitle}>🔑 Şifre Sıfırlama</Text>
                 <Text style={styles.verifySubtitle}>
-                  {verifyEmail} adresine gönderilen 6 haneli kodu giriniz.
+                  {forgotStep === 1
+                    ? 'Kayıtlı e-posta adresinizi girin, sıfırlama kodunu iletelim.'
+                    : 'E-postanıza gönderilen kod ile yeni şifrenizi belirleyin.'}
+                </Text>
+              </View>
+
+              {forgotError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>⚠️ {forgotError}</Text>
+                </View>
+              )}
+
+              {forgotStep === 1 ? (
+                <View>
+                  <Text style={styles.label}>E-Posta Adresi</Text>
+                  <TextInput
+                    style={[styles.input, focusedField === 'forgotEmail' && styles.inputFocused]}
+                    placeholder="ornek@example.com"
+                    placeholderTextColor={colors.textMuted}
+                    value={forgotEmail}
+                    onChangeText={setForgotEmail}
+                    onFocus={() => setFocusedField('forgotEmail')}
+                    onBlur={() => setFocusedField(null)}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+
+                  <TouchableOpacity
+                    style={styles.submitButton}
+                    onPress={handleRequestForgotToken}
+                    disabled={forgotLoading}
+                    activeOpacity={0.8}
+                  >
+                    {forgotLoading ? (
+                      <ActivityIndicator color="#000" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Sıfırlama Kodu Gönder</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View>
+                  {forgotSimToken && (
+                    <TouchableOpacity
+                      style={styles.simBadge}
+                      onPress={() => setForgotToken(forgotSimToken)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.simBadgeText}>✨ Test Kodu: {forgotSimToken} (Doldurmak için tıkla)</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <Text style={styles.label}>6 Haneli Sıfırlama Kodu</Text>
+                  <TextInput
+                    style={[styles.input, styles.codeInput, focusedField === 'forgotToken' && styles.inputFocused]}
+                    placeholder="123456"
+                    placeholderTextColor={colors.textMuted}
+                    value={forgotToken}
+                    onChangeText={setForgotToken}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    onFocus={() => setFocusedField('forgotToken')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+
+                  <Text style={styles.label}>Yeni Şifre</Text>
+                  <View style={[styles.passwordWrapper, focusedField === 'forgotNew' && styles.inputFocused]}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder="En az 8 karakter"
+                      placeholderTextColor={colors.textMuted}
+                      value={forgotNewPassword}
+                      onChangeText={setForgotNewPassword}
+                      onFocus={() => setFocusedField('forgotNew')}
+                      onBlur={() => setFocusedField(null)}
+                      secureTextEntry={!showForgotNewPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.eyeIcon}>{showForgotNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.label}>Yeni Şifre Tekrar</Text>
+                  <View style={[styles.passwordWrapper, focusedField === 'forgotConfirm' && styles.inputFocused]}>
+                    <TextInput
+                      style={styles.passwordInput}
+                      placeholder="Şifreyi tekrar giriniz"
+                      placeholderTextColor={colors.textMuted}
+                      value={forgotConfirmPassword}
+                      onChangeText={setForgotConfirmPassword}
+                      onFocus={() => setFocusedField('forgotConfirm')}
+                      onBlur={() => setFocusedField(null)}
+                      secureTextEntry={!showForgotNewPassword}
+                    />
+                  </View>
+
+                  <PasswordStrengthIndicator
+                    password={forgotNewPassword}
+                    confirmPassword={forgotConfirmPassword}
+                    showConfirmMatch={true}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.submitButton}
+                    onPress={handleResetPasswordSubmit}
+                    disabled={forgotLoading}
+                    activeOpacity={0.8}
+                  >
+                    {forgotLoading ? (
+                      <ActivityIndicator color="#000" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Şifreyi Güncelle & Giriş Yap</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowForgotPassword(false);
+                  setForgotError(null);
+                }}
+                style={{ padding: 12, alignItems: 'center', marginTop: 8 }}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+                  ← Giriş Ekranına Dön
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : showVerifyView ? (
+            /* EMAIL VERIFY VIEW */
+            <View>
+              <View style={styles.verifyHeader}>
+                <Text style={styles.verifyTitle}>📧 E-Posta Doğrulama</Text>
+                <Text style={styles.verifySubtitle}>
+                  {verifyEmail} adresine gönderilen 6 haneli güvenlik kodunu giriniz.
                 </Text>
               </View>
 
               {verifyError && (
                 <View style={styles.errorBox}>
                   <Text style={styles.errorText}>⚠️ {verifyError}</Text>
-                  <TouchableOpacity onPress={() => setVerifyError(null)}>
-                    <Text style={{ color: '#fca5a5', fontWeight: '700', fontSize: 16 }}>✕</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -351,6 +573,20 @@ export const LoginScreen = () => {
                 </TouchableOpacity>
               </View>
 
+              <View style={{ alignItems: 'flex-end', marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowForgotPassword(true);
+                    setForgotEmail(email);
+                    setForgotStep(1);
+                    setForgotError(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Şifremi Unuttum?</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleLoginSubmit}
@@ -421,23 +657,24 @@ export const LoginScreen = () => {
                 keyboardType="email-address"
               />
 
-              <Text style={styles.label}>Telefon (Opsiyonel)</Text>
+              <Text style={styles.label}>Telefon Numarası (Zorunlu)</Text>
               <TextInput
                 style={[styles.input, focusedField === 'regPhone' && styles.inputFocused]}
-                placeholder="5551234567"
+                placeholder="0555 123 45 67"
                 placeholderTextColor={colors.textMuted}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(text) => setPhone(formatTurkishPhone(text))}
                 onFocus={() => setFocusedField('regPhone')}
                 onBlur={() => setFocusedField(null)}
                 keyboardType="phone-pad"
+                maxLength={14}
               />
 
               <Text style={styles.label}>Şifre</Text>
               <View style={[styles.passwordWrapper, focusedField === 'regPassword' && styles.inputFocused]}>
                 <TextInput
                   style={styles.passwordInput}
-                  placeholder="En az 6 karakter"
+                  placeholder="En az 8 karakter"
                   placeholderTextColor={colors.textMuted}
                   value={regPassword}
                   onChangeText={setRegPassword}
@@ -474,6 +711,12 @@ export const LoginScreen = () => {
                   <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
                 </TouchableOpacity>
               </View>
+
+              <PasswordStrengthIndicator
+                password={regPassword}
+                confirmPassword={confirmPassword}
+                showConfirmMatch={true}
+              />
 
               <TouchableOpacity
                 style={styles.submitButton}
@@ -520,7 +763,7 @@ export const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgMain,
@@ -694,7 +937,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backgroundColor: colors.bgInput,
   },
   passwordWrapper: {
     flexDirection: 'row',
@@ -759,7 +1002,7 @@ const styles = StyleSheet.create({
   },
   demoButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.bgInput,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
@@ -794,14 +1037,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   saveUrlButton: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 8,
     alignItems: 'center',
   },
   saveUrlButtonText: {
-    color: '#ffffff',
+    color: '#000000',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   }
 });

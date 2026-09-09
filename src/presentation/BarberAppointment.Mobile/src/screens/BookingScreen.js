@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,14 @@ import {
   TextInput,
   Alert
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { barberApi, smsApi } from '../api/barberApi';
+import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
 
 export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { user, updateUser } = useAuth();
 
   // Wizard Step: 1 = Service, 2 = Employee, 3 = Date & Slot, 4 = Review / Success
@@ -38,7 +41,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   const [createdAppointment, setCreatedAppointment] = useState(null);
 
   // SMS Verification Flow States (Ek Geliştirme 4)
-  const [smsPhone, setSmsPhone] = useState(user?.phone || '05553334455');
+  const [smsPhone, setSmsPhone] = useState(user?.phone ? formatTurkishPhone(user.phone) : '0555 333 44 55');
   const [smsCode, setSmsCode] = useState('');
   const [smsStep, setSmsStep] = useState(1); // 1 = Phone Input, 2 = Code Input
   const [smsLoading, setSmsLoading] = useState(false);
@@ -59,20 +62,21 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
 
   useEffect(() => {
     if (user?.phone) {
-      setSmsPhone(user.phone);
+      setSmsPhone(formatTurkishPhone(user.phone));
     }
   }, [user]);
 
   const handleSendSmsCode = async () => {
-    if (!smsPhone || smsPhone.trim().length < 10) {
-      setSmsError('Lütfen geçerli bir cep telefonu numarası giriniz.');
+    if (!smsPhone || !isValidTurkishPhone(smsPhone)) {
+      setSmsError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
       return;
     }
 
     setSmsLoading(true);
     setSmsError(null);
     try {
-      const res = await smsApi.sendCode(smsPhone.trim());
+      const normPhone = normalizeTurkishPhone(smsPhone);
+      const res = await smsApi.sendCode(normPhone);
       if (res.success && res.data) {
         setSmsCooldown(res.data.cooldownSeconds || 60);
         if (res.data.simulationCode) {
@@ -107,10 +111,11 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         notes: notes || null
       };
 
-      const res = await smsApi.verifyAndBook(smsPhone.trim(), smsCode.trim(), appointmentPayload);
+      const normPhone = normalizeTurkishPhone(smsPhone);
+      const res = await smsApi.verifyAndBook(normPhone, smsCode.trim(), appointmentPayload);
       if (res.success && res.data) {
         if (updateUser) {
-          updateUser({ isPhoneVerified: true, phone: smsPhone.trim() });
+          updateUser({ isPhoneVerified: true, phone: normPhone });
         }
         setCreatedAppointment(res.data.appointment);
         setCurrentStep(5);
@@ -278,19 +283,19 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         <View style={styles.stepHeader}>
           <View style={styles.stepRow}>
             <View style={[styles.stepDot, currentStep >= 1 && styles.stepDotActive]}>
-              <Text style={styles.stepDotNum}>1</Text>
+              <Text style={[styles.stepDotNum, currentStep >= 1 && styles.stepDotNumActive]}>1</Text>
             </View>
             <View style={[styles.stepLine, currentStep >= 2 && styles.stepLineActive]} />
             <View style={[styles.stepDot, currentStep >= 2 && styles.stepDotActive]}>
-              <Text style={styles.stepDotNum}>2</Text>
+              <Text style={[styles.stepDotNum, currentStep >= 2 && styles.stepDotNumActive]}>2</Text>
             </View>
             <View style={[styles.stepLine, currentStep >= 3 && styles.stepLineActive]} />
             <View style={[styles.stepDot, currentStep >= 3 && styles.stepDotActive]}>
-              <Text style={styles.stepDotNum}>3</Text>
+              <Text style={[styles.stepDotNum, currentStep >= 3 && styles.stepDotNumActive]}>3</Text>
             </View>
             <View style={[styles.stepLine, currentStep >= 4 && styles.stepLineActive]} />
             <View style={[styles.stepDot, currentStep >= 4 && styles.stepDotActive]}>
-              <Text style={styles.stepDotNum}>4</Text>
+              <Text style={[styles.stepDotNum, currentStep >= 4 && styles.stepDotNumActive]}>4</Text>
             </View>
           </View>
           <Text style={styles.stepTitle}>
@@ -345,7 +350,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         <View>
           <View style={styles.selectedBanner}>
             <Text style={styles.selectedBannerText}>
-              ✂️ Seçilen Hizmet: <Text style={{ fontWeight: '700', color: '#fff' }}>{selectedService?.name}</Text> ({selectedService?.price} ₺)
+              ✂️ Seçilen Hizmet: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{selectedService?.name}</Text> ({selectedService?.price} ₺)
             </Text>
           </View>
 
@@ -506,7 +511,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             </View>
             <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.summaryLabel}>Toplam Tutar:</Text>
-              <Text style={[styles.summaryVal, { color: '#fbbf24', fontSize: 18, fontWeight: '800' }]}>
+              <Text style={[styles.summaryVal, { color: colors.primary, fontSize: 18, fontWeight: '800' }]}>
                 {selectedService?.price} ₺
               </Text>
             </View>
@@ -562,7 +567,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <Text style={{ fontSize: 18 }}>📱</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
                 SMS Telefon Doğrulaması (Gerekli)
               </Text>
             </View>
@@ -579,11 +584,12 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
               <TextInput
                 style={[styles.input, { flex: 1, height: 44, marginVertical: 0 }]}
-                placeholder="05XXXXXXXXX"
+                placeholder="0555 123 45 67"
                 placeholderTextColor={colors.textMuted}
                 value={smsPhone}
-                onChangeText={setSmsPhone}
+                onChangeText={(val) => setSmsPhone(formatTurkishPhone(val))}
                 keyboardType="phone-pad"
+                maxLength={14}
                 editable={!(smsStep === 2 && smsCooldown > 0)}
               />
 
@@ -700,20 +706,16 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
 
           <View style={styles.ticketBox}>
             <Text style={styles.ticketRow}>
-              <Text style={{ color: colors.textMuted }}>Randevu No: </Text>
-              <Text style={{ color: colors.primary, fontWeight: '700' }}>#{createdAppointment?.id}</Text>
-            </Text>
-            <Text style={styles.ticketRow}>
               <Text style={{ color: colors.textMuted }}>Hizmet: </Text>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>{createdAppointment?.serviceName}</Text>
+              <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{createdAppointment?.serviceName}</Text>
             </Text>
             <Text style={styles.ticketRow}>
               <Text style={{ color: colors.textMuted }}>Personel: </Text>
-              <Text style={{ color: '#38bdf8', fontWeight: '600' }}>{createdAppointment?.employeeName}</Text>
+              <Text style={{ color: colors.info, fontWeight: '600' }}>{createdAppointment?.employeeName}</Text>
             </Text>
             <Text style={styles.ticketRow}>
               <Text style={{ color: colors.textMuted }}>Zaman: </Text>
-              <Text style={{ color: '#fbbf24', fontWeight: '700' }}>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>
                 {new Date(createdAppointment?.startAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} {formatTime(createdAppointment?.startAt)}
               </Text>
             </Text>
@@ -746,7 +748,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgMain,
@@ -780,7 +782,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   stepDotNum: {
-    color: '#fff',
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  stepDotNumActive: {
+    color: '#000',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -819,7 +826,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.08)',
   },
   cardTitle: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -845,7 +852,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
     backgroundColor: '#0284c7',
     alignItems: 'center',
     justifyContent: 'center',
@@ -891,7 +897,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dateChipNum: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
     marginVertical: 2,
@@ -924,7 +930,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   slotText: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -946,7 +952,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   summaryHeading: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -963,7 +969,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   summaryVal: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -979,7 +985,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 14,
   },
   confirmButton: {
@@ -1040,7 +1046,7 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   successSub: {

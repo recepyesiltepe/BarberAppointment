@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { servicesApi, employeesApi, appointmentsApi } from '../api/barberApi';
+import { formatTurkishPhone } from '../utils/phoneUtils';
 import { CustomerBookingWizard } from './customer/CustomerBookingWizard';
 import { CustomerAppointmentsView } from './customer/CustomerAppointmentsView';
 
@@ -367,7 +368,9 @@ export const DashboardScreen = ({ activeTab: propActiveTab, setActiveTab: propSe
             </div>
             <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Telefon</div>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>{user?.phoneNumber || user?.phone || 'Belirtilmemiş'}</div>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.1rem', marginTop: '2px' }}>
+                {(user?.phoneNumber || user?.phone) ? formatTurkishPhone(user?.phoneNumber || user?.phone) : 'Belirtilmemiş'}
+              </div>
             </div>
             <div style={{ padding: '1rem', background: 'var(--card-nested-bg)', border: '1px solid var(--card-nested-border)', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Hesap Türü</div>

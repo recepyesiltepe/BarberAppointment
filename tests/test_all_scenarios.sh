@@ -49,6 +49,48 @@ else
     run_test "Public Registration forces Customer Role" 1 "$REG_USER_ROLE"
 fi
 
+# 1.c Registration Phone Validation Tests
+NO_PHONE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"No Phone","email":"nophone.'$RANDOM'@example.com","phone":"","password":"Password123!","confirmPassword":"Password123!","role":1}')
+run_test "POST /api/auth/register (Boş Telefon Engellendi -> 400 Bad Request)" 400 "$NO_PHONE_STATUS"
+
+INVALID_PHONE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Invalid Phone","email":"badphone.'$RANDOM'@example.com","phone":"12345","password":"Password123!","confirmPassword":"Password123!","role":1}')
+run_test "POST /api/auth/register (Geçersiz Telefon Engellendi -> 400 Bad Request)" 400 "$INVALID_PHONE_STATUS"
+
+LANDLINE_PHONE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Landline Phone","email":"landline.'$RANDOM'@example.com","phone":"02123456789","password":"Password123!","confirmPassword":"Password123!","role":1}')
+run_test "POST /api/auth/register (Sabit Hat Engellendi, Sadece TR Mobil -> 400 Bad Request)" 400 "$LANDLINE_PHONE_STATUS"
+
+# 1.d Registration Strong Password Validation Tests
+SHORT_PW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"Short PW","email":"shortpw.'$RANDOM'@example.com","phone":"05551112233","password":"Pass1!","confirmPassword":"Pass1!","role":1}')
+run_test "POST /api/auth/register (Kısa Şifre <8 Karakter Engellendi -> 400 Bad Request)" 400 "$SHORT_PW_STATUS"
+
+NO_UPPER_PW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"No Upper","email":"noupper.'$RANDOM'@example.com","phone":"05551112233","password":"password123!","confirmPassword":"password123!","role":1}')
+run_test "POST /api/auth/register (Büyük Harfsiz Şifre Engellendi -> 400 Bad Request)" 400 "$NO_UPPER_PW_STATUS"
+
+NO_LOWER_PW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"No Lower","email":"nolower.'$RANDOM'@example.com","phone":"05551112233","password":"PASSWORD123!","confirmPassword":"PASSWORD123!","role":1}')
+run_test "POST /api/auth/register (Küçük Harfsiz Şifre Engellendi -> 400 Bad Request)" 400 "$NO_LOWER_PW_STATUS"
+
+NO_DIGIT_PW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"No Digit","email":"nodigit.'$RANDOM'@example.com","phone":"05551112233","password":"Password!@#","confirmPassword":"Password!@#","role":1}')
+run_test "POST /api/auth/register (Rakamsız Şifre Engellendi -> 400 Bad Request)" 400 "$NO_DIGIT_PW_STATUS"
+
+NO_SPECIAL_PW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"fullName":"No Special","email":"nospecial.'$RANDOM'@example.com","phone":"05551112233","password":"Password123","confirmPassword":"Password123","role":1}')
+run_test "POST /api/auth/register (Özel Karaktersiz Şifre Engellendi -> 400 Bad Request)" 400 "$NO_SPECIAL_PW_STATUS"
+
 # Login
 LOGIN_RES=$(curl -s -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
@@ -196,7 +238,7 @@ run_test "GET /api/services/99999 (Bulunamadı -> 404 Not Found)" 404 "$STATUS"
 # 409 Duplicate Email
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/auth/register" \
   -H "Content-Type: application/json" \
-  -d '{"fullName":"Mükerrer","email":"superadmin@example.com","password":"Password123!","confirmPassword":"Password123!","role":1}')
+  -d '{"fullName":"Mükerrer","email":"superadmin@example.com","phone":"05551112233","password":"Password123!","confirmPassword":"Password123!","role":1}')
 run_test "POST /api/auth/register (Mükerrer E-posta -> 409 Conflict)" 409 "$STATUS"
 
 # 6. EK GELİŞTİRME 1: E-POSTA GÖNDERİM ALTYAPISI

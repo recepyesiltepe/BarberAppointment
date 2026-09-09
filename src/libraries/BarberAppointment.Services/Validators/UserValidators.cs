@@ -1,3 +1,4 @@
+using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using FluentValidation;
 
@@ -18,8 +19,8 @@ public class CreateUserValidator : AbstractValidator<CreateUserDto>
         When(x => !string.IsNullOrEmpty(x.Phone), () =>
         {
             RuleFor(x => x.Phone!)
-                .Matches(@"^[0-9\+\-\s\(\)]{7,20}$")
-                .WithMessage("Geçerli bir telefon numarası formatı giriniz.");
+                .Must(TurkishPhoneNumberHelper.IsValid)
+                .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
         });
 
         RuleFor(x => x.Role)
@@ -42,8 +43,8 @@ public class UpdateUserValidator : AbstractValidator<UpdateUserDto>
         When(x => !string.IsNullOrEmpty(x.Phone), () =>
         {
             RuleFor(x => x.Phone!)
-                .Matches(@"^[0-9\+\-\s\(\)]{7,20}$")
-                .WithMessage("Geçerli bir telefon numarası formatı giriniz.");
+                .Must(TurkishPhoneNumberHelper.IsValid)
+                .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
         });
     }
 }
@@ -59,8 +60,8 @@ public class UpdateProfileValidator : AbstractValidator<UpdateProfileDto>
         When(x => !string.IsNullOrEmpty(x.Phone), () =>
         {
             RuleFor(x => x.Phone!)
-                .Matches(@"^[0-9\+\-\s\(\)]{7,20}$")
-                .WithMessage("Geçerli bir telefon numarası formatı giriniz.");
+                .Must(TurkishPhoneNumberHelper.IsValid)
+                .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
         });
     }
 }

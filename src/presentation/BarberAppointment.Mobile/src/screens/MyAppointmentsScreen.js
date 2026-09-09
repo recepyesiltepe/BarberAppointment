@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,16 @@ import {
   RefreshControl,
   Alert
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { barberApi } from '../api/barberApi';
+import { formatTurkishPhone } from '../utils/phoneUtils';
 
 export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
-  const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { user, roleName } = useAuth();
+  const isStaff = roleName === 'Employee' || roleName === 'Admin';
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -24,13 +28,15 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
   const fetchAppointments = async () => {
     setError(null);
     try {
-      if (user?.id) {
-        const res = await barberApi.getMyAppointments(user.id);
-        if (res.success) {
-          setAppointments(res.data || []);
-        } else {
-          setAppointments([]);
-        }
+      const res = isStaff
+        ? await barberApi.getAllAppointments()
+        : await barberApi.getMyAppointments();
+
+      if (res.success) {
+        const list = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+        setAppointments(list);
+      } else {
+        setAppointments([]);
       }
     } catch (err) {
       setError(err.message || 'Randevular yüklenirken hata oluştu.');
@@ -42,11 +48,37 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [user]);
+  }, [user, roleName]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchAppointments();
+  };
+
+  const handleComplete = (id, serviceName) => {
+    Alert.alert(
+      'Randevuyu Tamamla',
+      `"${serviceName}" randevusunu tamamlandı olarak işaretlemek istiyor musunuz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: '✓ Evet, Tamamlandı',
+          onPress: async () => {
+            try {
+              const res = await barberApi.completeAppointment(id);
+              if (res.success) {
+                Alert.alert('Başarılı 🎉', 'Randevu başarıyla tamamlandı olarak işaretlendi.');
+                fetchAppointments();
+              } else {
+                Alert.alert('Hata', res.message || 'İşlem gerçekleştirilemedi.');
+              }
+            } catch (err) {
+              Alert.alert('Hata', err.message || 'İşlem gerçekleştirilemedi.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleCancel = (id, serviceName, timeStr) => {
@@ -62,7 +94,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
             try {
               const res = await barberApi.cancelAppointment(id);
               if (res.success) {
-                Alert.alert('İptal Edildi', 'Randevunuz başarıyla iptal edildi.');
+                Alert.alert('İptal Edildi', 'Randevu başarıyla iptal edildi.');
                 fetchAppointments();
               }
             } catch (err) {
@@ -123,8 +155,12 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>📅 Randevularım</Text>
-        <Text style={styles.subtitle}>Geçmiş ve yaklaşan tüm randevu kayıtlarınız</Text>
+        <Text style={styles.title}>
+          {roleName === 'Admin' ? '👑 Salon Randevuları' : isStaff ? '✂️ Randevu Yönetimi' : '📅 Randevularım'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {isStaff ? 'Müşteri randevularını denetleyin ve durumlarını güncelleyin' : 'Geçmiş ve yaklaşan tüm randevu kayıtlarınız'}
+        </Text>
       </View>
 
       {/* Segmented Filter Pills */}
@@ -179,9 +215,11 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
             {filterTab === 'upcoming' ? 'Yaklaşan Randevunuz Yok' : 'Bu kategoride randevu bulunamadı'}
           </Text>
           <Text style={styles.emptySub}>
-            Dilediğiniz uzman kuaför ve uygun saati seçerek hemen randevunuzu oluşturun.
+            {isStaff
+              ? 'Şu anda bu kriterde bekleyen veya onaylanmış bir müşteri randevusu bulunmuyor.'
+              : 'Dilediğiniz uzman kuaför ve uygun saati seçerek hemen randevunuzu oluşturun.'}
           </Text>
-          {onNavigateBooking && (
+          {!isStaff && onNavigateBooking && (
             <TouchableOpacity style={styles.bookButton} onPress={onNavigateBooking} activeOpacity={0.8}>
               <Text style={styles.bookButtonText}>+ Hemen Randevu Al</Text>
             </TouchableOpacity>
@@ -202,7 +240,18 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
               <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.serviceName}>{a.serviceName}</Text>
-                  <Text style={styles.employeeName}>Kuaför: {a.employeeName}</Text>
+                  {isStaff ? (
+                    <View style={{ marginTop: 2 }}>
+                      <Text style={styles.employeeName}>👤 Müşteri: {a.customerName || a.userName || 'Kayıtlı Müşteri'}</Text>
+                      {a.customerPhone ? (
+                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                          📞 {formatTurkishPhone(a.customerPhone)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.employeeName}>Kuaför: {a.employeeName}</Text>
+                  )}
                 </View>
                 <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
                   <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
@@ -235,8 +284,26 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
                 </View>
               ) : null}
 
-              {/* İptal Butonu */}
-              {canCancel && (
+              {/* İşlem Butonları */}
+              {isStaff && (a.status === 1 || a.status === 2) ? (
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.4)' }]}
+                    onPress={() => handleComplete(a.id, a.serviceName)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '700' }}>✓ Tamamlandı</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.25)' }]}
+                    onPress={() => handleCancel(a.id, a.serviceName, `${dateStr} ${timeStr}`)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '600' }}>✗ İptal Et</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : canCancel ? (
                 <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={() => handleCancel(a.id, a.serviceName, `${dateStr} ${timeStr}`)}
@@ -244,7 +311,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
                 >
                   <Text style={styles.cancelButtonText}>Randevuyu İptal Et</Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
           );
         })
@@ -253,7 +320,7 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgMain,
@@ -319,7 +386,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.textPrimary,
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -355,7 +422,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   serviceName: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -402,12 +469,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   infoVal: {
-    color: '#fff',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
   priceVal: {
-    color: '#fbbf24',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -428,9 +495,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.25)',
   },
   cancelButtonText: {
-    color: '#f87171',
+    color: colors.danger,
     fontSize: 12,
     fontWeight: '600',
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
   },
   errorBox: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -441,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: '#fca5a5',
+    color: colors.danger,
     fontSize: 13,
     marginBottom: 8,
   },
