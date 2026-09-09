@@ -9,21 +9,23 @@ const THEME_STORAGE_KEY = 'barber_mobile_theme_preference';
 
 const getSystemScheme = () => {
   const scheme = Appearance.getColorScheme();
-  return scheme === 'light' ? 'light' : 'dark';
+  return scheme === 'dark' ? 'dark' : 'light';
 };
 
 export const ThemeProvider = ({ children }) => {
+  // Default to 'system' to automatically follow the device's system theme
   const [themePreference, setThemePreferenceState] = useState('system');
   const [resolvedTheme, setResolvedTheme] = useState(() => getSystemScheme());
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load saved theme preference on app start from persistent storage
   useEffect(() => {
+    let isMounted = true;
     const loadStoredPreference = async () => {
       try {
         const saved = await safeStorage.getItem(THEME_STORAGE_KEY);
 
-        if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        if (isMounted && (saved === 'light' || saved === 'dark' || saved === 'system')) {
           setThemePreferenceState(saved);
           if (saved === 'system') {
             setResolvedTheme(getSystemScheme());
@@ -34,19 +36,24 @@ export const ThemeProvider = ({ children }) => {
       } catch {
         // Fallback gracefully
       } finally {
-        setIsLoaded(true);
+        if (isMounted) {
+          setIsLoaded(true);
+        }
       }
     };
 
     loadStoredPreference();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Dynamic Appearance listener for live system changes
+  // Dynamic Appearance listener for live system changes (active ONLY when system mode is active)
   useEffect(() => {
+    if (themePreference !== 'system') return;
+
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
-      if (themePreference === 'system') {
-        setResolvedTheme(colorScheme === 'light' ? 'light' : 'dark');
-      }
+      setResolvedTheme(colorScheme === 'dark' ? 'dark' : 'light');
     });
 
     return () => {
@@ -68,6 +75,11 @@ export const ThemeProvider = ({ children }) => {
   const setThemePreference = async (pref) => {
     if (pref !== 'system' && pref !== 'light' && pref !== 'dark') return;
     setThemePreferenceState(pref);
+    if (pref === 'system') {
+      setResolvedTheme(getSystemScheme());
+    } else {
+      setResolvedTheme(pref);
+    }
 
     try {
       await safeStorage.setItem(THEME_STORAGE_KEY, pref);

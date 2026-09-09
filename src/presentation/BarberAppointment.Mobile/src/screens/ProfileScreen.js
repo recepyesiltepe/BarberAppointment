@@ -608,7 +608,7 @@ export const ProfileScreen = () => {
         </View>
 
         <Text style={styles.cardSub}>
-          Uygulama renk modu varsayılan olarak cihazınızın açık/koyu temasını takip eder.
+          Uygulama renk modu varsayılan olarak cihazınızın sistem temasını (açık/koyu) takip eder.
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>

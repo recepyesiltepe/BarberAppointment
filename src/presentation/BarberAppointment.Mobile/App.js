@@ -13,17 +13,17 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 
 const MainApp = () => {
   const { isAuthenticated, isInitializing, roleName } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, isLoaded } = useTheme();
   const isAdmin = roleName === 'Admin';
   const isStaff = roleName === 'Employee' || roleName === 'Admin';
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'admin' | 'appointments' | 'profile'
 
-  if (isInitializing) {
+  if (isInitializing || !isLoaded) {
     return (
       <View style={[styles.centerLoading, { backgroundColor: colors.bgMain }]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ marginTop: 12, color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
-          Oturum yükleniyor...
+          Yükleniyor...
         </Text>
       </View>
     );

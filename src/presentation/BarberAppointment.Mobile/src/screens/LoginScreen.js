@@ -9,7 +9,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -248,14 +249,16 @@ export const LoginScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Brand Header */}
         <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoIcon}>✂️</Text>
-          </View>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.brandTitle}>
-            MAKAS <Text style={{ color: colors.primary }}>&</Text> USTA
+            Barber<Text style={{ color: colors.primary }}>Appointment</Text>
           </Text>
           <Text style={styles.brandSubtitle}>
-            Mobil Kuaför Randevu Uygulaması
+            Mobil Kuaför & Berber Randevu Sistemi
           </Text>
         </View>
 
@@ -739,22 +742,16 @@ const createStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 25,
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
+  logoImage: {
+    width: 80,
+    height: 80,
     borderRadius: 20,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: colors.primary,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
-  },
-  logoIcon: {
-    fontSize: 28,
   },
   brandTitle: {
     fontSize: 24,
