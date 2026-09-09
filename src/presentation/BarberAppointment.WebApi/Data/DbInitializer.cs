@@ -30,6 +30,12 @@ public static class DbInitializer
                     "IF OBJECT_ID(N'dbo.Appointments', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Appointments') AND name = 'IsActive') BEGIN ALTER TABLE dbo.Appointments ADD IsActive BIT NOT NULL CONSTRAINT DF_Appointments_IsActive DEFAULT (1); END");
 
                 await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Appointments', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Appointments') AND name = 'IsReminderSent') BEGIN ALTER TABLE dbo.Appointments ADD IsReminderSent BIT NOT NULL CONSTRAINT DF_Appointments_IsReminderSent DEFAULT (0); END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Appointments', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Appointments') AND name = 'ReminderSentAt') BEGIN ALTER TABLE dbo.Appointments ADD ReminderSentAt DATETIME2 NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'IsPhoneVerified') BEGIN ALTER TABLE dbo.Users ADD IsPhoneVerified BIT NOT NULL CONSTRAINT DF_Users_IsPhoneVerified DEFAULT (0); END");
 
                 await context.Database.ExecuteSqlRawAsync(

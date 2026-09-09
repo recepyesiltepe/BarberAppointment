@@ -280,6 +280,21 @@ public class AppointmentsController : ControllerBase
                 : "E-posta gönderimi sırasında bir uyarı/hata oluştu. Sunucu loglarını kontrol ediniz."));
     }
 
+    /// <summary>
+    /// Yaklaşan randevu hatırlatmalarını manuel veya test amaçlı tetikler.
+    /// </summary>
+    [HttpPost("trigger-reminders")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<ApiResponse<object>>> TriggerReminders(
+        [FromServices] IAppointmentReminderProcessor reminderProcessor,
+        CancellationToken cancellationToken)
+    {
+        var processedCount = await reminderProcessor.ProcessPendingRemindersAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(
+            new { processedCount },
+            $"{processedCount} adet randevu hatırlatması başarıyla işlendi."));
+    }
+
     // ─── Yardımcı Yetki Metotları ─────────────────────────────────────────────
 
     private int? GetCurrentUserId()

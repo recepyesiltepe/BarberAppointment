@@ -1,6 +1,7 @@
 using BarberAppointment.Core.Results;
 using BarberAppointment.Data.Extensions;
 using BarberAppointment.Services.Extensions;
+using BarberAppointment.WebApi.BackgroundServices;
 using BarberAppointment.WebApi.Data;
 using BarberAppointment.WebApi.Filters;
 using BarberAppointment.WebApi.Middleware;
@@ -55,6 +56,9 @@ builder.Services.AddDataServices(builder.Configuration);
 
 // 4. Business Logic, Security, Policies, Email (SMTP) & FluentValidation Katmanı Kaydı
 builder.Services.AddBusinessServices(builder.Configuration);
+
+// 4.1. Arka Plan Servisleri (BackgroundService)
+builder.Services.AddHostedService<AppointmentReminderBackgroundService>();
 
 // 5. JWT Authentication & Authorization
 var jwtKey = builder.Configuration["Jwt:Key"]

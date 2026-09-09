@@ -17,4 +17,8 @@ public class Appointment : BaseEntity
     public DateTime EndAt { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Pending;
     public string? Notes { get; set; }
+
+    // Hatırlatma bildirim alanları (BackgroundService)
+    public bool IsReminderSent { get; set; } = false;
+    public DateTime? ReminderSentAt { get; set; }
 }

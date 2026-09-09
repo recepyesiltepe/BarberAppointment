@@ -11,4 +11,5 @@ public interface IAppointmentRepository : IRepository<Appointment>
     Task<IReadOnlyList<Appointment>> GetByEmployeeAndDateRangeAsync(int employeeId, DateTime start, DateTime end, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Appointment>> GetByUserIdAsync(int userId, CancellationToken cancellationToken = default);
     Task<bool> HasConflictAsync(int employeeId, DateTime startAt, DateTime endAt, int? excludeAppointmentId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Appointment>> GetPendingRemindersAsync(DateTime windowStart, DateTime windowEnd, CancellationToken cancellationToken = default);
 }

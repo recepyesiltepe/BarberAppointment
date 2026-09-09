@@ -128,6 +128,17 @@ public class EmailService : IEmailService
         return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
     }
 
+    public async Task<bool> SendAppointmentReminderAsync(
+        AppointmentDto appointment,
+        string toEmail,
+        CancellationToken cancellationToken = default)
+    {
+        var subject = $"Randevu Hatırlatması — Kuaför Randevu Sistemi (#{appointment.Id})";
+        var body = GenerateAppointmentReminderHtml(appointment);
+
+        return await SendEmailAsync(toEmail, subject, body, isHtml: true, cancellationToken);
+    }
+
     public async Task<bool> SendPasswordChangedNotificationAsync(
         string toEmail,
         string userName,
@@ -421,6 +432,79 @@ public class EmailService : IEmailService
 
                     <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
                         Randevunuzla ilgili tüm detayları sistemimizden takip edebilirsiniz.
+                    </div>
+                </div>
+        """);
+
+        sb.Append(GetEmailFooter());
+        sb.Append("""
+            </div>
+        </body>
+        </html>
+        """);
+
+        return sb.ToString();
+    }
+
+    private static string GenerateAppointmentReminderHtml(AppointmentDto app)
+    {
+        var sb = new StringBuilder();
+        sb.Append("""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 24px; color: #1e293b;">
+            <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        """);
+
+        sb.Append(GetEmailHeader("#f59e0b", "KUAFÖR RANDEVU SİSTEMİ", "Yaklaşan Randevu Hatırlatması"));
+
+        sb.Append($"""
+                <div style="padding: 28px 24px;">
+                    <div style="display: inline-block; background-color: #fffbeb; color: #d97706; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 18px;">
+                        ⏰ Randevunuza Az Kaldı!
+                    </div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #0f172a;">
+                        Sayın {WebUtility.HtmlEncode(app.CustomerName)},
+                    </div>
+                    <div style="font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                        Yaklaşan kuaför randevunuzu hatırlatmak isteriz. Randevu detaylarınız aşağıda yer almaktadır:
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Randevu No:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">#{app.Id}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Hizmet:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">{WebUtility.HtmlEncode(app.ServiceName)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Uzman Kuaför:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">{WebUtility.HtmlEncode(app.EmployeeName)}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Randevu Tarihi:</td>
+                                <td style="padding: 8px 0; color: #d97706; font-weight: 700; text-align: right;">{app.StartAt:dd.MM.yyyy dddd}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px dashed #e2e8f0;">
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Saat Aralığı:</td>
+                                <td style="padding: 8px 0; color: #d97706; font-weight: 700; text-align: right;">{app.StartAt:HH:mm} – {app.EndAt:HH:mm}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #64748b; font-weight: 500;">Tutar:</td>
+                                <td style="padding: 8px 0; color: #0f172a; font-weight: 600; text-align: right;">{app.Price:N2} TL</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="font-size: 13px; color: #64748b; line-height: 1.5;">
+                        Randevunuza vaktinde gelmenizi rica eder, keyifli bir salon deneyimi dileriz.
                     </div>
                 </div>
         """);

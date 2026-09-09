@@ -690,6 +690,37 @@ PAST_APPT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api
   -d '{"userId":'$CUST_ID',"employeeId":1,"serviceId":1,"startAt":"2021-01-01T12:00:00"}')
 run_test "POST /api/appointments (Geçmiş Tarihe Randevu Alınamaz -> 400 Bad Request)" 400 "$PAST_APPT_STATUS"
 
+# 13. BACKGROUNDSERVICE İLE RANDEVU HATIRLATMA
+echo ""
+echo "--- 13. BackgroundService ile Randevu Hatırlatma ---"
+
+# 13.1 Müşteri rolü ile tetikleme denenirse engellenmeli (403 Forbidden)
+UNAUTH_TRIGGER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/appointments/trigger-reminders" \
+  -H "Authorization: Bearer $CUST_TOKEN")
+run_test "POST /api/appointments/trigger-reminders (Müşteri Tetikleyemez -> 403 Forbidden)" 403 "$UNAUTH_TRIGGER_STATUS"
+
+# 13.2 Admin rolü ile hatırlatma döngüsünü tetikleme (200 OK)
+REMINDER_TRIGGER_RES=$(curl -s -X POST "$BASE_URL/api/appointments/trigger-reminders" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+REMINDER_TRIGGER_STATUS=$(echo "$REMINDER_TRIGGER_RES" | grep -o '"success":true' || true)
+
+if [ -n "$REMINDER_TRIGGER_STATUS" ]; then
+  run_test "POST /api/appointments/trigger-reminders (Admin Hatırlatma Tetikleme -> 200 OK)" 200 200
+else
+  run_test "POST /api/appointments/trigger-reminders (Hatırlatma Tetikleme Başarısız)" 200 500
+fi
+
+# 13.3 Tekrar tetiklendiğinde sistemin güvenle ve hatasız çalışması (Idempotency -> 200 OK)
+REMINDER_TRIGGER_RES2=$(curl -s -X POST "$BASE_URL/api/appointments/trigger-reminders" \
+  -H "Authorization: Bearer $ADMIN_TOKEN")
+REMINDER_TRIGGER_STATUS2=$(echo "$REMINDER_TRIGGER_RES2" | grep -o '"success":true' || true)
+
+if [ -n "$REMINDER_TRIGGER_STATUS2" ]; then
+  run_test "POST /api/appointments/trigger-reminders (Tekrar Tetikleme/Idempotent -> 200 OK)" 200 200
+else
+  run_test "POST /api/appointments/trigger-reminders (Tekrar Tetikleme)" 200 500
+fi
+
 echo ""
 echo "================================================================"
 echo "   Test Sonuçları: $PASSED Başarılı / $FAILED Başarısız"

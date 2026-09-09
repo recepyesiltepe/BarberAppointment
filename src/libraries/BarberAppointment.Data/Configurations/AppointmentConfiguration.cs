@@ -32,6 +32,13 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(a => a.IsReminderSent)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(a => a.ReminderSentAt)
+            .IsRequired(false);
+
         builder.Property(a => a.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

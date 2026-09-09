@@ -119,4 +119,23 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
 
         return await query.AnyAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Appointment>> GetPendingRemindersAsync(
+        DateTime windowStart,
+        DateTime windowEnd,
+        CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Include(a => a.User)
+            .Include(a => a.Employee)
+            .Include(a => a.Service)
+            .Where(a =>
+                a.IsActive &&
+                !a.IsReminderSent &&
+                (a.Status == AppointmentStatus.Confirmed || a.Status == AppointmentStatus.Pending) &&
+                a.StartAt >= windowStart &&
+                a.StartAt <= windowEnd)
+            .OrderBy(a => a.StartAt)
+            .ToListAsync(cancellationToken);
+    }
 }
