@@ -315,11 +315,10 @@ export const ServicesView = ({ onNotify }) => {
           </div>
 
           {/* Search Box */}
-          <div className="search-box" style={{ width: '220px' }}>
+          <div className="theme-search-box" style={{ width: '230px' }}>
             <Search size={16} className="search-icon" />
             <input
               type="text"
-              className="search-input"
               placeholder="Hizmet ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -327,11 +326,11 @@ export const ServicesView = ({ onNotify }) => {
             {search && (
               <button
                 type="button"
+                className="search-clear-btn"
                 onClick={() => setSearch('')}
-                className="btn-ghost"
-                style={{ position: 'absolute', right: '8px', padding: '2px', color: 'var(--text-muted)' }}
+                title="Aramayı Temizle"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>

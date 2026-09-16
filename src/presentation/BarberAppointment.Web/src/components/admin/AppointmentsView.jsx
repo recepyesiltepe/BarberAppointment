@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck } from 'lucide-react';
+import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 import { formatTurkishPhone } from '../../utils/phoneUtils';
@@ -19,9 +19,11 @@ export const AppointmentsView = ({ onNotify }) => {
   const currentEmployee = employees.find(e => e.userId === user?.id || (user?.email && e.fullName === user?.fullName));
 
   // Filter States
+  const [timeTab, setTimeTab] = useState('all'); // 'all' | 'upcoming' | 'history'
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState('nearest'); // 'nearest' (En Yakın Randevu Başa) | 'farthest' (En İleri Randevu Başa)
 
   // Create Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -85,21 +87,36 @@ export const AppointmentsView = ({ onNotify }) => {
   };
 
   const handleOpenCreate = () => {
-    setNewUserId(users.length > 0 ? users[0].id : 1);
+    const firstUser = users.length > 0 ? users[0] : null;
+    setNewUserId(firstUser ? firstUser.id : 1);
+
     const targetEmp = (isEmployee && currentEmployee) ? currentEmployee : employees[0];
-    setNewEmployeeId(targetEmp ? targetEmp.id : 1);
-    setNewServiceId(services.length > 0 ? services[0].id : 1);
+    const empId = targetEmp ? targetEmp.id : (employees.length > 0 ? employees[0].id : 1);
+    setNewEmployeeId(empId);
+
+    const empServices = targetEmp?.services && targetEmp.services.length > 0 ? targetEmp.services : services;
+    setNewServiceId(empServices.length > 0 ? empServices[0].id : (services.length > 0 ? services[0].id : 1));
     
-    // Varsayılan olarak yarın saat 11:00
+    // Varsayılan olarak yarın saat 11:00 (Yerel saat bileşenleriyle oluşturulur, UTC sapması önlenir)
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(11, 0, 0, 0);
-    const dateStr = tomorrow.toISOString().slice(0, 16);
-    setNewStartAt(dateStr);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    setNewStartAt(`${yyyy}-${mm}-${dd}T11:00`);
     
     setNewNotes('');
     setFormError(null);
     setIsCreateModalOpen(true);
+  };
+
+  const handleEmployeeChange = (empId) => {
+    setNewEmployeeId(empId);
+    const emp = employees.find(e => e.id === Number(empId));
+    const empServices = emp?.services && emp.services.length > 0 ? emp.services : services;
+    if (empServices.length > 0 && !empServices.some(s => s.id === Number(newServiceId))) {
+      setNewServiceId(empServices[0].id);
+    }
   };
 
   const handleCreateSubmit = async (e) => {
@@ -113,12 +130,13 @@ export const AppointmentsView = ({ onNotify }) => {
 
     setSubmitting(true);
     try {
+      const formattedStartAt = newStartAt.length === 16 ? newStartAt + ':00' : newStartAt;
       const res = await appointmentsApi.create({
         userId: Number(newUserId),
         employeeId: Number(newEmployeeId),
         serviceId: Number(newServiceId),
-        startAt: newStartAt + ':00',
-        notes: newNotes
+        startAt: formattedStartAt,
+        notes: newNotes.trim() || undefined
       });
 
       if (res.success) {
@@ -147,18 +165,50 @@ export const AppointmentsView = ({ onNotify }) => {
     }
   };
 
-  const filteredAppointments = appointments.filter(a => {
-    if (filterEmployeeId && a.employeeId !== Number(filterEmployeeId)) return false;
-    if (filterStatus && a.status !== Number(filterStatus)) return false;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchCustomer = a.customerName && a.customerName.toLowerCase().includes(query);
-      const matchStaff = a.employeeName && a.employeeName.toLowerCase().includes(query);
-      const matchService = a.serviceName && a.serviceName.toLowerCase().includes(query);
-      if (!matchCustomer && !matchStaff && !matchService) return false;
-    }
-    return true;
-  });
+  const nowTime = Date.now();
+  const upcomingAppointmentsCount = appointments.filter(a => new Date(a.startAt).getTime() >= nowTime).length;
+  const pastAppointmentsCount = appointments.filter(a => new Date(a.startAt).getTime() < nowTime).length;
+
+  const filteredAppointments = appointments
+    .filter(a => {
+      const isPast = new Date(a.startAt).getTime() < nowTime;
+      if (timeTab === 'upcoming' && isPast) return false;
+      if (timeTab === 'history' && !isPast) return false;
+      if (filterEmployeeId && a.employeeId !== Number(filterEmployeeId)) return false;
+      if (filterStatus && a.status !== Number(filterStatus)) return false;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchCustomer = a.customerName && a.customerName.toLowerCase().includes(query);
+        const matchStaff = a.employeeName && a.employeeName.toLowerCase().includes(query);
+        const matchService = a.serviceName && a.serviceName.toLowerCase().includes(query);
+        if (!matchCustomer && !matchStaff && !matchService) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.startAt).getTime();
+      const timeB = new Date(b.startAt).getTime();
+      if (sortOrder === 'farthest') {
+        return timeB - timeA;
+      }
+      // 'nearest' (Varsayılan):
+      // Eğer 'all' sekmesindeyse: önce yaklaşanlar (artan sıra: tarihi ve saati en yakın olan başta),
+      // ardından geçmiş randevular (en son gerçekleşen geçmiş başta)
+      if (timeTab === 'all') {
+        const aIsFuture = timeA >= nowTime;
+        const bIsFuture = timeB >= nowTime;
+        if (aIsFuture && !bIsFuture) return -1;
+        if (!aIsFuture && bIsFuture) return 1;
+        if (aIsFuture && bIsFuture) return timeA - timeB;
+        return timeB - timeA;
+      }
+      // 'upcoming': en yakın randevu en başta (artan kronolojik sıra)
+      if (timeTab === 'upcoming') {
+        return timeA - timeB;
+      }
+      // 'history': en son geçmiş randevu en başta (azalan kronolojik sıra)
+      return timeB - timeA;
+    });
 
   return (
     <div>
@@ -186,26 +236,83 @@ export const AppointmentsView = ({ onNotify }) => {
         )}
       </div>
 
+      {/* Time Filter Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setTimeTab('all')}
+          className={`btn btn-sm ${timeTab === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <span>Tüm Randevular</span>
+          <span style={{
+            fontSize: '0.75rem',
+            padding: '0.1rem 0.45rem',
+            borderRadius: '10px',
+            background: timeTab === 'all' ? 'rgba(0,0,0,0.25)' : 'var(--card-nested-bg)',
+            color: 'var(--text-primary)'
+          }}>
+            {appointments.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimeTab('upcoming')}
+          className={`btn btn-sm ${timeTab === 'upcoming' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <Clock size={14} />
+          <span>Yaklaşan Randevular</span>
+          <span style={{
+            fontSize: '0.75rem',
+            padding: '0.1rem 0.45rem',
+            borderRadius: '10px',
+            background: timeTab === 'upcoming' ? '#fbbf24' : 'rgba(245, 158, 11, 0.15)',
+            color: timeTab === 'upcoming' ? '#000' : '#fbbf24',
+            fontWeight: 700
+          }}>
+            {upcomingAppointmentsCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTimeTab('history')}
+          className={`btn btn-sm ${timeTab === 'history' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+        >
+          <span>Geçmiş Randevular</span>
+          <span style={{
+            fontSize: '0.75rem',
+            padding: '0.1rem 0.45rem',
+            borderRadius: '10px',
+            background: timeTab === 'history' ? 'rgba(0,0,0,0.25)' : 'var(--card-nested-bg)',
+            color: 'var(--text-primary)'
+          }}>
+            {pastAppointmentsCount}
+          </span>
+        </button>
+      </div>
+
       {/* Filters Bar */}
       <div className="glass-card" style={{ padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-        <div className="form-input-wrapper" style={{ flex: '1 1 220px', position: 'relative' }}>
-          <Search size={16} className="form-input-icon" />
+        <div className="theme-search-box" style={{ flex: '1 1 240px' }}>
+          <Search size={16} className="search-icon" />
           <input
             type="text"
-            className="form-input"
             placeholder="Müşteri, personel veya hizmet ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ padding: '0.55rem 2rem 0.55rem 2.5rem', fontSize: '0.875rem' }}
           />
           {searchQuery && (
             <button
               type="button"
+              className="search-clear-btn"
               onClick={() => setSearchQuery('')}
-              style={{ position: 'absolute', right: '0.75rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
               title="Aramayı Temizle"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           )}
         </div>
@@ -257,9 +364,21 @@ export const AppointmentsView = ({ onNotify }) => {
           </select>
         </div>
 
-        {(filterEmployeeId || filterStatus || searchQuery) && (
+        <div style={{ minWidth: '190px', flex: '1 1 190px' }}>
+          <select
+            className="form-select"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            style={{ padding: '0.55rem 1rem', fontSize: '0.875rem' }}
+          >
+            <option value="nearest">⏱ En Yakın Randevu Başa</option>
+            <option value="farthest">📅 En İleri Tarih Başa</option>
+          </select>
+        </div>
+
+        {(filterEmployeeId || filterStatus || searchQuery || sortOrder !== 'nearest') && (
           <button
-            onClick={() => { setFilterEmployeeId(''); setFilterStatus(''); setSearchQuery(''); }}
+            onClick={() => { setFilterEmployeeId(''); setFilterStatus(''); setSearchQuery(''); setSortOrder('nearest'); }}
             className="btn btn-ghost btn-sm"
             style={{ fontSize: '0.85rem' }}
           >
@@ -284,9 +403,9 @@ export const AppointmentsView = ({ onNotify }) => {
             <div className="empty-state-desc">
               Seçilen kriterlere uygun randevu kaydı bulunamadı. Filtreleri temizleyebilir veya yeni randevu oluşturabilirsiniz.
             </div>
-            {(filterEmployeeId || filterStatus || searchQuery) && (
+            {(filterEmployeeId || filterStatus || searchQuery || sortOrder !== 'nearest') && (
               <button
-                onClick={() => { setFilterEmployeeId(''); setFilterStatus(''); setSearchQuery(''); }}
+                onClick={() => { setFilterEmployeeId(''); setFilterStatus(''); setSearchQuery(''); setSortOrder('nearest'); }}
                 className="btn btn-secondary btn-sm"
               >
                 Filtreleri Sıfırla
@@ -300,7 +419,32 @@ export const AppointmentsView = ({ onNotify }) => {
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Müşteri</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet & Fiyat</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Randevu Zamanı</th>
+                <th
+                  onClick={() => setSortOrder(prev => prev === 'nearest' ? 'farthest' : 'nearest')}
+                  style={{
+                    padding: '1rem',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}
+                  title="Tarihe göre sıralamayı tersine çevir"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span>Randevu Zamanı</span>
+                    {sortOrder === 'nearest' ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#fbbf24', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
+                        <ArrowUp size={13} /> En Yakın
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
+                        <ArrowDown size={13} /> En İleri
+                      </span>
+                    )}
+                  </div>
+                </th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
               </tr>
@@ -423,7 +567,7 @@ export const AppointmentsView = ({ onNotify }) => {
                       <select
                         className="form-select"
                         value={newEmployeeId}
-                        onChange={(e) => setNewEmployeeId(e.target.value)}
+                        onChange={(e) => handleEmployeeChange(e.target.value)}
                         required
                       >
                         {employees.map(emp => (
@@ -441,9 +585,13 @@ export const AppointmentsView = ({ onNotify }) => {
                       onChange={(e) => setNewServiceId(e.target.value)}
                       required
                     >
-                      {services.map(srv => (
-                        <option key={srv.id} value={srv.id}>{srv.name} ({srv.price} ₺)</option>
-                      ))}
+                      {(() => {
+                        const selEmp = employees.find(e => e.id === Number(newEmployeeId));
+                        const empSrvs = selEmp?.services && selEmp.services.length > 0 ? selEmp.services : services;
+                        return empSrvs.map(srv => (
+                          <option key={srv.id} value={srv.id}>{srv.name} ({srv.price} ₺)</option>
+                        ));
+                      })()}
                     </select>
                   </div>
                 </div>

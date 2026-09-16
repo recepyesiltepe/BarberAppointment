@@ -28,7 +28,8 @@ public class AppointmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Randevuları sayfalanmış, filtrelenmiş ve aranabilir olarak listeler (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
+    /// Randevuları listeler (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
+    /// Açıkça sayfalama parametreleri (pageNumber veya pageSize) belirtilmezse tüm randevuları döndürür.
     /// </summary>
     [HttpGet]
     [Authorize(Roles = $"{Roles.Admin},{Roles.Employee}")]
@@ -50,12 +51,25 @@ public class AppointmentsController : ControllerBase
             filter.UserId = currentUserId;
         }
 
+        bool isPaginationRequested = Request.Query.ContainsKey("pageNumber") || Request.Query.ContainsKey("pageSize");
+
+        if (!isPaginationRequested)
+        {
+            var allItems = await _appointmentService.GetFilteredAsync(filter, cancellationToken);
+            return Ok(PagedApiResponse<AppointmentDto>.Ok(
+                allItems,
+                totalCount: allItems.Count,
+                pageNumber: 1,
+                pageSize: allItems.Count > 0 ? allItems.Count : 10,
+                message: $"{allItems.Count} randevu listelendi."));
+        }
+
         var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);
         return Ok(PagedApiResponse<AppointmentDto>.Ok(pagedResult, $"{pagedResult.TotalCount} randevu listelendi (Sayfa {pagedResult.PageNumber}/{pagedResult.TotalPages})."));
     }
 
     /// <summary>
-    /// Randevuları çok kriterli filtreler, arar ve sayfalar (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
+    /// Randevuları çok kriterli filtreler, arar ve listeler (Yetkiye duyarlı: Admin tümü, Personel kendi randevuları, Müşteri kendi randevuları).
     /// </summary>
     [HttpGet("filter")]
     [Authorize]
@@ -75,6 +89,19 @@ public class AppointmentsController : ControllerBase
             {
                 filter.EmployeeId = empId.Value;
             }
+        }
+
+        bool isPaginationRequested = Request.Query.ContainsKey("pageNumber") || Request.Query.ContainsKey("pageSize");
+
+        if (!isPaginationRequested)
+        {
+            var allItems = await _appointmentService.GetFilteredAsync(filter, cancellationToken);
+            return Ok(PagedApiResponse<AppointmentDto>.Ok(
+                allItems,
+                totalCount: allItems.Count,
+                pageNumber: 1,
+                pageSize: allItems.Count > 0 ? allItems.Count : 10,
+                message: $"{allItems.Count} randevu bulundu."));
         }
 
         var pagedResult = await _appointmentService.GetPagedAsync(filter, cancellationToken);

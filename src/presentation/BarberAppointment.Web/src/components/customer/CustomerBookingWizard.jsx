@@ -518,34 +518,22 @@ export const CustomerBookingWizard = ({
               </p>
             </div>
 
-            <div className="form-input-wrapper" style={{ width: '260px' }}>
-              <Search size={16} className="form-input-icon" />
+            <div className="theme-search-box" style={{ width: '260px' }}>
+              <Search size={16} className="search-icon" />
               <input
                 type="text"
-                className="form-input"
                 placeholder="Hizmet ara..."
                 value={serviceSearch}
                 onChange={(e) => setServiceSearch(e.target.value)}
-                style={{ padding: '0.45rem 2.2rem 0.45rem 2.2rem', fontSize: '0.85rem' }}
               />
               {serviceSearch && (
                 <button
                   type="button"
+                  className="search-clear-btn"
                   onClick={() => setServiceSearch('')}
-                  style={{
-                    position: 'absolute',
-                    right: '0.6rem',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: 0
-                  }}
                   title="Temizle"
                 >
-                  <X size={14} />
+                  <X size={13} />
                 </button>
               )}
             </div>

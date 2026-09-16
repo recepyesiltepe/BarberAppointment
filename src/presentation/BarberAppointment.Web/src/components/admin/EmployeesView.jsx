@@ -152,16 +152,24 @@ export const EmployeesView = ({ onNotify }) => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div className="form-input-wrapper" style={{ width: '220px' }}>
-            <Search size={16} className="form-input-icon" />
+          <div className="theme-search-box" style={{ width: '230px' }}>
+            <Search size={16} className="search-icon" />
             <input
               type="text"
-              className="form-input"
               placeholder="Personel ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ padding: '0.55rem 1rem 0.55rem 2.5rem', fontSize: '0.875rem' }}
             />
+            {search && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={() => setSearch('')}
+                title="Aramayı Temizle"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
           {isAdmin && (

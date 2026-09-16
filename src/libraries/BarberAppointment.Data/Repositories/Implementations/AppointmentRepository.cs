@@ -21,7 +21,7 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .Include(a => a.Service)
             .Include(a => a.AppointmentServices)
                 .ThenInclude(asi => asi.Service)
-            .OrderByDescending(a => a.StartAt)
+            .OrderBy(a => a.StartAt)
             .ToListAsync(cancellationToken);
     }
 
@@ -31,6 +31,7 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
         AppointmentStatus? status,
         DateTime? start,
         DateTime? end,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         var query = DbSet
@@ -57,8 +58,19 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
         if (end.HasValue)
             query = query.Where(a => a.StartAt <= end.Value);
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var trimmed = search.Trim().ToLower();
+            query = query.Where(a =>
+                a.User.FullName.ToLower().Contains(trimmed) ||
+                (a.User.Phone != null && a.User.Phone.Contains(trimmed)) ||
+                a.Employee.FullName.ToLower().Contains(trimmed) ||
+                a.Service.Name.ToLower().Contains(trimmed) ||
+                (a.Notes != null && a.Notes.ToLower().Contains(trimmed)));
+        }
+
         return await query
-            .OrderByDescending(a => a.StartAt)
+            .OrderBy(a => a.StartAt)
             .ToListAsync(cancellationToken);
     }
 
@@ -112,10 +124,10 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
 
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1) pageSize = 10;
-        if (pageSize > 100) pageSize = 100;
+        if (pageSize > 1000) pageSize = 1000;
 
         var items = await query
-            .OrderByDescending(a => a.StartAt)
+            .OrderBy(a => a.StartAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

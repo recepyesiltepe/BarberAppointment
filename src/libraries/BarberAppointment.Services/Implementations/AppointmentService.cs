@@ -51,6 +51,7 @@ public class AppointmentService : IAppointmentService
             filter.Status,
             filter.StartDate,
             filter.EndDate,
+            filter.Search,
             cancellationToken);
 
         return appointments.Select(MapToDto).ToList();
