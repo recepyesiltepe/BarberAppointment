@@ -1,3 +1,4 @@
+using BarberAppointment.Core.Time;
 using BarberAppointment.Services.DTOs;
 using FluentValidation;
 
@@ -18,7 +19,7 @@ public class CreateAppointmentValidator : AbstractValidator<CreateAppointmentDto
 
         RuleFor(x => x.StartAt)
             .NotEmpty().WithMessage("Randevu başlangıç tarihi ve saati belirtilmelidir.")
-            .Must(startAt => startAt >= DateTime.UtcNow.AddMinutes(-5))
+            .Must(startAt => !TurkeyTimeHelper.IsInPast(startAt))
             .WithMessage("Geçmiş bir zamana randevu oluşturulamaz.");
 
         RuleFor(x => x.Notes)
@@ -32,7 +33,7 @@ public class UpdateAppointmentValidator : AbstractValidator<UpdateAppointmentDto
     {
         RuleFor(x => x.StartAt)
             .NotEmpty().WithMessage("Randevu başlangıç tarihi ve saati belirtilmelidir.")
-            .Must(startAt => startAt >= DateTime.UtcNow.AddMinutes(-5))
+            .Must(startAt => !TurkeyTimeHelper.IsInPast(startAt))
             .WithMessage("Geçmiş bir zamana randevu taşınamaz.");
 
         RuleFor(x => x.Notes)

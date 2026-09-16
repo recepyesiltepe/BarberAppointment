@@ -395,6 +395,8 @@ export const LoginScreen = ({ onSuccess }) => {
                 <User size={18} className="form-input-icon" />
                 <input
                   type="text"
+                  name="name"
+                  autoComplete="name"
                   className="form-input"
                   placeholder="Ahmet Yılmaz"
                   value={regFullName}
@@ -410,6 +412,8 @@ export const LoginScreen = ({ onSuccess }) => {
                 <Mail size={18} className="form-input-icon" />
                 <input
                   type="email"
+                  name="email"
+                  autoComplete="email"
                   className="form-input"
                   placeholder="ahmet@example.com"
                   value={regEmail}
@@ -427,6 +431,8 @@ export const LoginScreen = ({ onSuccess }) => {
                 <Phone size={18} className="form-input-icon" />
                 <input
                   type="tel"
+                  name="tel"
+                  autoComplete="tel"
                   className="form-input"
                   placeholder="0555 123 45 67"
                   value={regPhone}
@@ -445,6 +451,8 @@ export const LoginScreen = ({ onSuccess }) => {
                 <Lock size={18} className="form-input-icon" />
                 <input
                   type={showRegPassword ? 'text' : 'password'}
+                  name="new-password"
+                  autoComplete="new-password"
                   className="form-input"
                   style={{ paddingRight: '2.85rem' }}
                   placeholder="En az 8 karakter (Örn: Sifre123!)"
@@ -461,7 +469,8 @@ export const LoginScreen = ({ onSuccess }) => {
                     background: 'transparent',
                     border: 'none',
                     color: 'var(--text-muted)',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    zIndex: 2
                   }}
                 >
                   {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -475,6 +484,8 @@ export const LoginScreen = ({ onSuccess }) => {
                 <Lock size={18} className="form-input-icon" />
                 <input
                   type={showRegPassword ? 'text' : 'password'}
+                  name="confirm-password"
+                  autoComplete="new-password"
                   className="form-input"
                   style={{ paddingRight: '2.85rem' }}
                   placeholder="Şifrenizi tekrar giriniz"

@@ -9,7 +9,7 @@ import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '
 export const SmsVerificationModal = ({ isOpen, onClose, onSuccess }) => {
   const { user, isAuthenticated, updateUser } = useAuth();
 
-  const [phoneNumber, setPhoneNumber] = useState(user?.phone || '');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone ? formatTurkishPhone(user.phone) : '');
   const [code, setCode] = useState('');
   const [step, setStep] = useState(1); // 1 = Phone Input, 2 = Code Input, 3 = Success
   const [loading, setLoading] = useState(false);

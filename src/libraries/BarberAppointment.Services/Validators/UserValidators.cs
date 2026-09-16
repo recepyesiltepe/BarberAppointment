@@ -57,6 +57,11 @@ public class UpdateProfileValidator : AbstractValidator<UpdateProfileDto>
             .NotEmpty().WithMessage("Kullanıcı adı soyadı zorunludur.")
             .Length(2, 100).WithMessage("Ad Soyad 2 ile 100 karakter arasında olmalıdır.");
 
+        RuleFor(x => x.OtpCode)
+            .NotEmpty().WithMessage("Profil bilgilerinizi güncellemek için 6 haneli OTP doğrulama kodunu girmeniz zorunludur.")
+            .Length(6).WithMessage("OTP doğrulama kodu 6 haneli olmalıdır.")
+            .Matches(@"^\d{6}$").WithMessage("OTP doğrulama kodu yalnızca rakamlardan oluşmalıdır.");
+
         When(x => !string.IsNullOrEmpty(x.Phone), () =>
         {
             RuleFor(x => x.Phone!)

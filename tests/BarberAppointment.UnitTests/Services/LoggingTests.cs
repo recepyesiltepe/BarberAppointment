@@ -27,6 +27,7 @@ public class LoggingTests
     private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
+    private readonly Mock<ISmsVerificationService> _smsVerificationServiceMock;
     private readonly IWorkHoursPolicy _workHoursPolicy;
 
     private readonly Mock<ILogger<AppointmentService>> _appointmentLoggerMock;
@@ -45,6 +46,7 @@ public class LoggingTests
         _emailServiceMock = new Mock<IEmailService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
+        _smsVerificationServiceMock = new Mock<ISmsVerificationService>();
 
         _appointmentLoggerMock = new Mock<ILogger<AppointmentService>>();
         _authLoggerMock = new Mock<ILogger<AuthService>>();
@@ -218,6 +220,7 @@ public class LoggingTests
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
+            _smsVerificationServiceMock.Object,
             _authLoggerMock.Object);
 
         var dto = new LoginDto
@@ -283,6 +286,7 @@ public class LoggingTests
             _passwordHasherMock.Object,
             _jwtTokenServiceMock.Object,
             _emailServiceMock.Object,
+            _smsVerificationServiceMock.Object,
             _authLoggerMock.Object);
 
         var dto = new LoginDto

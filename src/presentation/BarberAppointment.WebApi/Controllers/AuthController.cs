@@ -65,7 +65,31 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Giriş yapmış mevcut kullanıcının profil bilgilerini (Ad Soyad, Telefon) günceller (JWT Token gerektirir).
+    /// Profil bilgilerini güncellemek için 6 haneli OTP SMS doğrulama kodu gönderir (JWT Token gerektirir).
+    /// </summary>
+    [HttpPost("send-profile-otp")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<SmsVerificationResultDto>>> SendProfileOtp(
+        [FromBody] SendProfileOtpDto dto,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
+        }
+
+        var result = await _authService.SendProfileOtpAsync(userId, dto?.FullName, dto?.Phone, cancellationToken);
+        if (!result.Success)
+        {
+            return BadRequest(ApiResponse<SmsVerificationResultDto>.Fail(result.Message, StatusCodes.Status400BadRequest, result));
+        }
+
+        return Ok(ApiResponse<SmsVerificationResultDto>.Ok(result, result.Message));
+    }
+
+    /// <summary>
+    /// Giriş yapmış mevcut kullanıcının profil bilgilerini (Ad Soyad, Telefon) OTP kodu doğrulaması ile günceller (JWT Token gerektirir).
     /// </summary>
     [HttpPut("me")]
     [Authorize]

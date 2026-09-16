@@ -5,6 +5,7 @@ docker compose up --build -d
 # Durdurmak için: docker compose down
 
 # 1. Backend API - Yerel Çalıştırma (Terminal 1)
+docker compose up -d mssql
 dotnet run --project src/presentation/BarberAppointment.WebApi --launch-profile http
 # API & Swagger: http://localhost:5184/swagger
 # Health Checks: http://localhost:5184/health (Genel), http://localhost:5184/health/live (Liveness), http://localhost:5184/health/ready (Readiness)

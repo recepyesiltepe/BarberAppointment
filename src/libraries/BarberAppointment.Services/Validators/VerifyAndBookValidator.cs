@@ -1,3 +1,4 @@
+using BarberAppointment.Core.Time;
 using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using FluentValidation;
@@ -30,7 +31,9 @@ public class VerifyAndBookValidator : AbstractValidator<VerifyAndBookDto>
                 .GreaterThan(0).WithMessage("Geçerli bir hizmet seçilmelidir.");
 
             RuleFor(x => x.Appointment.StartAt)
-                .NotEmpty().WithMessage("Randevu başlangıç saati gereklidir.");
+                .NotEmpty().WithMessage("Randevu başlangıç saati gereklidir.")
+                .Must(startAt => !TurkeyTimeHelper.IsInPast(startAt))
+                .WithMessage("Geçmiş bir zamana randevu oluşturulamaz.");
         });
     }
 }

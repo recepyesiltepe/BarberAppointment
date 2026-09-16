@@ -17,6 +17,7 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IEmailService _emailService;
+    private readonly ISmsVerificationService _smsVerificationService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -24,12 +25,14 @@ public class AuthService : IAuthService
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         IEmailService emailService,
+        ISmsVerificationService smsVerificationService,
         ILogger<AuthService> logger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _emailService = emailService;
+        _smsVerificationService = smsVerificationService;
         _logger = logger;
     }
 
@@ -175,6 +178,37 @@ public class AuthService : IAuthService
         return MapToProfileDto(user);
     }
 
+    public async Task<SmsVerificationResultDto> SendProfileOtpAsync(int userId, string? fullName, string? phone, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
+        }
+
+        var isNameChanged = !string.IsNullOrWhiteSpace(fullName) &&
+            !string.Equals(fullName.Trim(), user.FullName?.Trim(), StringComparison.Ordinal);
+
+        var targetPhone = !string.IsNullOrWhiteSpace(phone)
+            ? TurkishPhoneNumberHelper.Normalize(phone)
+            : user.Phone;
+
+        var isPhoneChanged = !string.IsNullOrWhiteSpace(targetPhone) &&
+            !string.Equals(targetPhone, user.Phone, StringComparison.Ordinal);
+
+        if (!isNameChanged && !isPhoneChanged)
+        {
+            throw new BusinessException("Profil bilgilerinizde herhangi bir değişiklik yapılmadığı için onay kodu talep edilemez.");
+        }
+
+        if (string.IsNullOrWhiteSpace(targetPhone) || !TurkishPhoneNumberHelper.IsValid(targetPhone))
+        {
+            throw new BusinessException("Doğrulama kodu gönderilecek geçerli bir telefon numarası bulunamadı. Lütfen telefon numaranızı kontrol ediniz.");
+        }
+
+        return await _smsVerificationService.SendCodeAsync(targetPhone, cancellationToken);
+    }
+
     public async Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileDto dto, CancellationToken cancellationToken = default)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
@@ -183,19 +217,48 @@ public class AuthService : IAuthService
             throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
         }
 
-        user.FullName = dto.FullName.Trim();
-        if (!string.IsNullOrEmpty(dto.Phone))
+        var isNameChanged = !string.IsNullOrWhiteSpace(dto.FullName) &&
+            !string.Equals(dto.FullName.Trim(), user.FullName?.Trim(), StringComparison.Ordinal);
+
+        var targetPhone = !string.IsNullOrWhiteSpace(dto.Phone)
+            ? TurkishPhoneNumberHelper.Normalize(dto.Phone)
+            : user.Phone;
+
+        var isPhoneChanged = !string.IsNullOrWhiteSpace(targetPhone) &&
+            !string.Equals(targetPhone, user.Phone, StringComparison.Ordinal);
+
+        if (!isNameChanged && !isPhoneChanged)
         {
-            var normalizedPhone = TurkishPhoneNumberHelper.Normalize(dto.Phone);
-            if (user.Phone != normalizedPhone)
-            {
-                user.Phone = normalizedPhone;
-                user.IsPhoneVerified = false;
-            }
+            throw new BusinessException("Profil bilgilerinizde herhangi bir değişiklik bulunmamaktadır.");
         }
+
+        if (string.IsNullOrWhiteSpace(dto.OtpCode))
+        {
+            throw new BusinessException("Profil bilgilerinizi güncellemek için 6 haneli OTP doğrulama kodunu girmeniz zorunludur.");
+        }
+
+        if (string.IsNullOrWhiteSpace(targetPhone))
+        {
+            throw new BusinessException("Profil güncelleme doğrulaması için geçerli bir telefon numarası bulunamadı.");
+        }
+
+        // OTP kodunu doğrula
+        var verificationResult = await _smsVerificationService.VerifyCodeAsync(targetPhone, dto.OtpCode.Trim(), cancellationToken);
+        if (!verificationResult.Success)
+        {
+            _logger.LogWarning("Profil güncelleme OTP doğrulaması başarısız: UserId={UserId}, Phone={Phone}, Message={Message}",
+                userId, targetPhone, verificationResult.Message);
+            throw new BusinessException(verificationResult.Message ?? "Doğrulama kodu geçersiz veya süresi dolmuş.");
+        }
+
+        user.FullName = dto.FullName.Trim();
+        user.Phone = targetPhone;
+        user.IsPhoneVerified = true;
 
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Kullanıcı profil bilgileri OTP ile başarıyla güncellendi: UserId={UserId}, Phone={Phone}", userId, targetPhone);
 
         return MapToProfileDto(user);
     }

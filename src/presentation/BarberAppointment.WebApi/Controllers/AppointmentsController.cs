@@ -191,7 +191,7 @@ public class AppointmentsController : ControllerBase
     }
 
     /// <summary>
-    /// Yeni bir randevu oluşturur (Giriş yapmış kullanıcılar).
+    /// Yeni bir randevu oluşturur (Yalnızca Yönetici ve Personel doğrudan randevu oluşturabilir; Müşteriler için her randevuda SMS OTP doğrulaması zorunludur).
     /// </summary>
     [HttpPost]
     [Authorize]
@@ -200,14 +200,22 @@ public class AppointmentsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
-        // Müşteri ise veya dto.UserId belirtilmemişse oturumdaki kullanıcının ID'sini bağla
-        if (IsCustomer() || dto.UserId <= 0)
+
+        // Müşterilerin SMS OTP doğrulaması olmadan doğrudan randevu oluşturması engellenir
+        if (IsCustomer())
         {
-            if (currentUserId.HasValue)
-                dto.UserId = currentUserId.Value;
+            _logger.LogWarning("Müşteri OTP doğrulaması olmadan doğrudan randevu oluşturmaya çalıştı: UserId={UserId}", currentUserId);
+            return BadRequest(ApiResponse.Fail(
+                "Müşteriler için her randevu alımında tek kullanımlık SMS onay kodu (OTP) zorunludur. Lütfen SMS doğrulama adımını tamamlayarak randevu alınız.",
+                StatusCodes.Status400BadRequest));
         }
 
-        var created = await _appointmentService.CreateAsync(dto, currentUserId, !IsCustomer(), cancellationToken);
+        if (dto.UserId <= 0 && currentUserId.HasValue)
+        {
+            dto.UserId = currentUserId.Value;
+        }
+
+        var created = await _appointmentService.CreateAsync(dto, currentUserId, true, cancellationToken);
         return CreatedAtAction(
             nameof(GetById),
             new { id = created.Id },

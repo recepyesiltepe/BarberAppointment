@@ -46,6 +46,13 @@ public class AppointmentServiceTests
 
         _dateTimeProviderMock.Setup(d => d.UtcNow).Returns(_baseNow);
         _dateTimeProviderMock.Setup(d => d.Today).Returns(_baseNow.Date);
+        var turkeyNow = _baseNow.AddHours(3);
+        _dateTimeProviderMock.Setup(d => d.TurkeyNow).Returns(turkeyNow);
+        _dateTimeProviderMock.Setup(d => d.TurkeyToday).Returns(turkeyNow.Date);
+        _dateTimeProviderMock.Setup(d => d.ToTurkeyTime(It.IsAny<DateTime>()))
+            .Returns<DateTime>(dt => dt.Kind == DateTimeKind.Utc ? dt.AddHours(3) : dt);
+        _dateTimeProviderMock.Setup(d => d.IsInPast(It.IsAny<DateTime>()))
+            .Returns<DateTime>(dt => (dt.Kind == DateTimeKind.Utc ? dt.AddHours(3) : dt) <= turkeyNow);
 
         _workHoursPolicy = new DefaultWorkHoursPolicy(); // 09:00 - 20:00
 
@@ -552,6 +559,35 @@ public class AppointmentServiceTests
         // Assert
         var exception = await act.Should().ThrowAsync<ConflictException>();
         exception.WithMessage("*başka bir randevusu bulunmaktadır*");
+    }
+
+    [Fact]
+    public async Task GetAvailableSlotsAsync_WhenSlotsAreInPast_FiltersThemOut()
+    {
+        // Arrange
+        var employee = CreateValidEmployee(1, 1);
+        var service = CreateValidService(1, 30);
+
+        _employeeRepoMock.Setup(e => e.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+        _serviceRepoMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(service);
+        _appointmentRepoMock.Setup(a => a.GetByEmployeeAndDateRangeAsync(1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Appointment>());
+
+        // Today is June 10, 2026. TurkeyNow is 11:00. Salon opens at 09:00.
+        // Slots at 09:00, 09:30, 10:00, 10:30, 11:00 must be filtered out!
+        var query = new AvailableSlotsQueryDto
+        {
+            EmployeeId = 1,
+            ServiceId = 1,
+            Date = _baseNow.Date
+        };
+
+        // Act
+        var result = await _sut.GetAvailableSlotsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().OnlyContain(slot => slot.StartAt > new DateTime(2026, 6, 10, 11, 0, 0));
     }
 }
 

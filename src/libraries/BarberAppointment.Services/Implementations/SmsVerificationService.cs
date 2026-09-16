@@ -245,6 +245,9 @@ public class SmsVerificationService : ISmsVerificationService
         dto.Appointment.UserId = targetUserId > 0 ? targetUserId : dto.Appointment.UserId;
         var appointment = await _appointmentService.CreateAsync(dto.Appointment, cancellationToken);
 
+        // 4. Doğrulama oturumunu temizle (Her yeni randevu için yeni bir OTP istenmesini garanti eder)
+        _sessions.TryRemove(NormalizePhone(dto.PhoneNumber), out _);
+
         return new VerifyAndBookResultDto
         {
             Success = true,

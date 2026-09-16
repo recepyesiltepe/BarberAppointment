@@ -67,15 +67,16 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   }, [user]);
 
   const handleSendSmsCode = async () => {
-    if (!smsPhone || !isValidTurkishPhone(smsPhone)) {
-      setSmsError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+    const targetPhone = user?.phone || smsPhone;
+    if (!targetPhone || !isValidTurkishPhone(targetPhone)) {
+      setSmsError('Hesabınızda kayıtlı geçerli bir Türkiye cep telefonu numarası bulunamadı.');
       return;
     }
 
     setSmsLoading(true);
     setSmsError(null);
     try {
-      const normPhone = normalizeTurkishPhone(smsPhone);
+      const normPhone = normalizeTurkishPhone(targetPhone);
       const res = await smsApi.sendCode(normPhone);
       if (res.success && res.data) {
         setSmsCooldown(res.data.cooldownSeconds || 60);
@@ -83,7 +84,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           setSimulationCode(res.data.simulationCode);
         }
         setSmsStep(2);
-        Alert.alert('SMS Gönderildi', `Doğrulama kodu ${res.data.maskedPhoneNumber || smsPhone} numarasına gönderildi.`);
+        Alert.alert('SMS Gönderildi', `Doğrulama kodu ${res.data.maskedPhoneNumber || formatTurkishPhone(targetPhone)} numarasına gönderildi.`);
       } else {
         setSmsError(res.message || 'SMS kodu gönderilemedi.');
       }
@@ -94,9 +95,20 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
     }
   };
 
+  // Yardımcı: Geçmiş saat kontrolü
+  const isSlotInPast = (startAt) => {
+    if (!startAt) return true;
+    return new Date(startAt).getTime() <= Date.now();
+  };
+
   const handleVerifyAndBook = async () => {
     if (!smsCode || smsCode.trim().length !== 6) {
       setSmsError('Lütfen 6 haneli doğrulama kodunu giriniz.');
+      return;
+    }
+
+    if (selectedSlot && isSlotInPast(selectedSlot.startAt)) {
+      setSmsError('Seçtiğiniz randevu saatinin süresi geçmiştir. Lütfen saat seçimine geri dönünüz.');
       return;
     }
 
@@ -111,7 +123,8 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         notes: notes || null
       };
 
-      const normPhone = normalizeTurkishPhone(smsPhone);
+      const targetPhone = user?.phone || smsPhone;
+      const normPhone = normalizeTurkishPhone(targetPhone);
       const res = await smsApi.verifyAndBook(normPhone, smsCode.trim(), appointmentPayload);
       if (res.success && res.data) {
         if (updateUser) {
@@ -130,13 +143,16 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
     }
   };
 
-  // Gelecek 7 günün tarih listesini üret
+  // Gelecek 7 günün tarih listesini üret (Yerel saat diliminde)
   const getNext7Days = () => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const iso = `${year}-${month}-${day}`;
       const dayName = i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short' });
       const dayNum = d.getDate();
       const monthName = d.toLocaleDateString('tr-TR', { month: 'short' });
@@ -210,7 +226,9 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
     try {
       const res = await barberApi.getAvailableSlots(employeeId, serviceId, date);
       if (res.success) {
-        setAvailableSlots(res.data || []);
+        const rawSlots = res.data || [];
+        const filtered = rawSlots.filter(s => !isSlotInPast(s.startAt));
+        setAvailableSlots(filtered);
       } else {
         setAvailableSlots([]);
       }
@@ -234,6 +252,11 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   const handleConfirmBooking = async () => {
     if (!selectedSlot || !selectedService || !selectedEmployee) {
       setError('Lütfen tüm seçimleri tamamlayınız.');
+      return;
+    }
+
+    if (isSlotInPast(selectedSlot.startAt)) {
+      setError('Seçtiğiniz randevu saatinin süresi geçmiştir. Lütfen saat seçimine geri dönünüz.');
       return;
     }
 
@@ -436,44 +459,55 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
           </ScrollView>
 
           {/* Saat Dilimleri */}
-          <Text style={[styles.instruction, { marginTop: 20 }]}>
-            Müsait Randevu Saatleri ({availableSlots.length} Boş Slot):
-          </Text>
+          {(() => {
+            const activeSlots = availableSlots.filter(s => !isSlotInPast(s.startAt));
+            return (
+              <>
+                <Text style={[styles.instruction, { marginTop: 20 }]}>
+                  Müsait Randevu Saatleri ({activeSlots.length} Boş Slot):
+                </Text>
 
-          {loadingSlots ? (
-            <View style={{ alignItems: 'center', marginVertical: 30 }}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>Müsait saatler taranıyor...</Text>
-            </View>
-          ) : availableSlots.length === 0 ? (
-            <View style={styles.emptySlotsCard}>
-              <Text style={styles.emptySlotsText}>
-                ⚠️ Seçilen tarihte personelin uygun boş saati bulunamadı. Lütfen başka bir gün veya personel seçiniz.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.slotsGrid}>
-              {availableSlots.map((slot, idx) => {
-                const isSelected = selectedSlot?.startAt === slot.startAt;
-                const timeLabel = formatTime(slot.startAt);
-                return (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.slotChip, isSelected && styles.slotChipActive]}
-                    onPress={() => {
-                      setSelectedSlot(slot);
-                      setCurrentStep(4);
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>
-                      {timeLabel}
+                {loadingSlots ? (
+                  <View style={{ alignItems: 'center', marginVertical: 30 }}>
+                    <ActivityIndicator color={colors.primary} />
+                    <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>Müsait saatler taranıyor...</Text>
+                  </View>
+                ) : activeSlots.length === 0 ? (
+                  <View style={styles.emptySlotsCard}>
+                    <Text style={styles.emptySlotsText}>
+                      ⚠️ Seçilen tarihte uygun boş saat bulunamadı veya saatlerin süresi geçmiştir. Lütfen başka bir gün veya personel seçiniz.
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
+                  </View>
+                ) : (
+                  <View style={styles.slotsGrid}>
+                    {activeSlots.map((slot, idx) => {
+                      const isSelected = selectedSlot?.startAt === slot.startAt;
+                      const timeLabel = formatTime(slot.startAt);
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[styles.slotChip, isSelected && styles.slotChipActive]}
+                          onPress={() => {
+                            if (isSlotInPast(slot.startAt)) {
+                              Alert.alert('Geçersiz Saat', 'Seçtiğiniz randevu saatinin süresi geçmiştir.');
+                              return;
+                            }
+                            setSelectedSlot(slot);
+                            setCurrentStep(4);
+                          }}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>
+                            {timeLabel}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
+            );
+          })()}
 
           <TouchableOpacity
             style={styles.backButton}
@@ -537,32 +571,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             />
           </View>
 
-          {/* Phone Verification Section: Telefon onaylanmış olsa dahi yeni randevularda onay kodu zorunludur */}
-          {user?.isPhoneVerified && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: 12,
-              backgroundColor: 'rgba(16, 185, 129, 0.12)',
-              borderWidth: 1,
-              borderColor: 'rgba(16, 185, 129, 0.3)',
-              borderRadius: 10,
-              marginBottom: 12
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 18 }}>🛡️</Text>
-                <View>
-                  <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>Kayıtlı Numara: {user?.phone || ''}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>Yeni randevunuz için SMS onay kodu gereklidir</Text>
-                </View>
-              </View>
-              <View style={{ backgroundColor: '#10b981', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                <Text style={{ color: '#000', fontSize: 11, fontWeight: '700' }}>✓ Onaylı</Text>
-              </View>
-            </View>
-          )}
-
+          {/* SMS Doğrulama & Randevu Onayı: Kayıtlı telefon numarası otomatik kullanılır, kullanıcıdan numara istenmez */}
           <View style={{
             backgroundColor: 'rgba(245, 158, 11, 0.05)',
             borderWidth: 1,
@@ -571,14 +580,20 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             padding: 14,
             marginBottom: 16
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <Text style={{ fontSize: 18 }}>📱</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
-                SMS Telefon Doğrulaması (Gerekli)
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18 }}>📱</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }}>
+                  SMS Doğrulaması (OTP Zorunlu)
+                </Text>
+              </View>
+              <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                <Text style={{ color: '#fbbf24', fontSize: 10, fontWeight: '700' }}>OTP Şart</Text>
+              </View>
             </View>
+
             <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12, lineHeight: 16 }}>
-              Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <Text style={{ fontWeight: '700', color: colors.primary }}>otomatik olarak tamamlanacaktır</Text>.
+              Randevu güvenliğiniz için sistemde kayıtlı cep telefonunuza tek kullanımlık onay kodu gönderilecektir. Kodu girdiğinizde randevunuz <Text style={{ fontWeight: '700', color: colors.primary }}>otomatik olarak tamamlanacaktır</Text>.
             </Text>
 
             {smsError && (
@@ -587,17 +602,26 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
               </View>
             )}
 
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-              <TextInput
-                style={[styles.input, { flex: 1, height: 44, marginVertical: 0 }]}
-                placeholder="0555 123 45 67"
-                placeholderTextColor={colors.textMuted}
-                value={smsPhone}
-                onChangeText={(val) => setSmsPhone(formatTurkishPhone(val))}
-                keyboardType="phone-pad"
-                maxLength={14}
-                editable={!(smsStep === 2 && smsCooldown > 0)}
-              />
+            {/* Kayıtlı Telefon Numarası Bilgisi & SMS Gönder Butonu (Numara düzenleme alanı yok, otomatik kullanılır) */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 12,
+              backgroundColor: 'rgba(56, 189, 248, 0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(56, 189, 248, 0.25)',
+              borderRadius: 8,
+              marginBottom: 10
+            }}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={{ fontSize: 11, color: '#38bdf8', fontWeight: '700', textTransform: 'uppercase' }}>
+                  Kayıtlı Telefon Numaranız
+                </Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginTop: 2 }}>
+                  {formatTurkishPhone(user?.phone || smsPhone || '05553334455')}
+                </Text>
+              </View>
 
               <TouchableOpacity
                 style={{
@@ -605,7 +629,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                   borderWidth: 1,
                   borderColor: 'rgba(255, 255, 255, 0.15)',
                   borderRadius: 8,
-                  height: 44,
+                  height: 40,
                   paddingHorizontal: 12,
                   justifyContent: 'center',
                   alignItems: 'center'
@@ -649,7 +673,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
 
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>6 Haneli Kodu Giriniz:</Text>
                 <TextInput
-                  style={[styles.input, { height: 44, fontSize: 18, fontWeight: '800', letterSpacing: 6, textAlign: 'center', marginVertical: 0, marginBottom: 12 }]}
+                  style={[styles.input, { height: 44, fontSize: 18, fontWeight: '800', letterSpacing: 6, textAlign: 'center', marginVertical: 0 }]}
                   placeholder="123456"
                   placeholderTextColor={colors.textMuted}
                   value={smsCode}
@@ -657,22 +681,6 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
                   keyboardType="number-pad"
                   maxLength={6}
                 />
-
-                <TouchableOpacity
-                  style={[styles.confirmButton, { height: 46, backgroundColor: colors.primary, marginTop: 4 }, (loading || smsCode.length !== 6) && { opacity: 0.6 }]}
-                  onPress={handleVerifyAndBook}
-                  disabled={loading || smsCode.length !== 6}
-                  activeOpacity={0.8}
-                >
-                  {loading ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <ActivityIndicator color="#000" />
-                      <Text style={[styles.confirmButtonText, { fontSize: 13 }]}>Doğrulanıyor & Randevu Alınıyor...</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.confirmButtonText, { fontSize: 13 }]}>✓ Doğrula ve Randevuyu Otomatik Tamamla</Text>
-                  )}
-                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -686,7 +694,23 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             >
               <Text style={styles.confirmButtonText}>SMS Kodu İsteyerek Devam Et</Text>
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <TouchableOpacity
+              style={[styles.confirmButton, (loading || smsCode.length !== 6) && { opacity: 0.6 }]}
+              onPress={handleVerifyAndBook}
+              disabled={loading || smsCode.length !== 6}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator color="#000" />
+                  <Text style={styles.confirmButtonText}>Doğrulanıyor & Randevu Alınıyor...</Text>
+                </View>
+              ) : (
+                <Text style={styles.confirmButtonText}>Doğrula ve Randevuyu Onayla ➔</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.backButton}

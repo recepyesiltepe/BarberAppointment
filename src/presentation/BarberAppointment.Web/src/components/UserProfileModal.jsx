@@ -20,7 +20,13 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
   // Edit Profile States
   const [fullName, setFullName] = useState(user?.fullName || '');
-  const [phone, setPhone] = useState(user?.phone || '');
+  const [phone, setPhone] = useState(user?.phone ? formatTurkishPhone(user.phone) : '');
+
+  // Profile Update OTP States
+  const [profileOtpCode, setProfileOtpCode] = useState('');
+  const [profileSimulationCode, setProfileSimulationCode] = useState(null);
+  const [profileCooldown, setProfileCooldown] = useState(0);
+  const [profileCodeActuallySent, setProfileCodeActuallySent] = useState(false);
 
   // Change Password States
   const [currentPassword, setCurrentPassword] = useState('');
@@ -37,6 +43,23 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
 
   // Arka plan kaydırmayı kilitle (güvenli referans sayaçlı)
   useBodyScrollLock(isOpen);
+
+  // Profile OTP Cooldown Timer (Sayaç bittiğinde bekleme uyarısını otomatik temizle)
+  useEffect(() => {
+    let timer;
+    if (profileCooldown > 0) {
+      timer = setInterval(() => {
+        setProfileCooldown((prev) => {
+          if (prev <= 1) {
+            setError((prevErr) => (prevErr && prevErr.includes('saniye') ? null : prevErr));
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [profileCooldown]);
 
   // Escape tuşu ile kapatma
   useEffect(() => {
@@ -57,7 +80,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen && user) {
       setFullName(user.fullName || '');
-      setPhone(user.phone || '');
+      setPhone(user.phone ? formatTurkishPhone(user.phone) : '');
       setMode('view');
       setError(null);
       setSuccessMsg(null);
@@ -66,20 +89,91 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
       setConfirmNewPassword('');
       setVerifyCode('');
       setSimulationToken(null);
+      setProfileOtpCode('');
+      setProfileSimulationCode(null);
+      setProfileCooldown(0);
+      setProfileCodeActuallySent(false);
     }
   }, [isOpen, user]);
 
   if (!isOpen) return null;
 
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
+  // Profilde değişiklik yapılıp yapılmadığını kontrol et
+  const isProfileChanged = () => {
+    if (!user) return false;
+    const currentName = (user.fullName || '').trim();
+    const newName = (fullName || '').trim();
+    const isNameDifferent = newName !== currentName;
+
+    const currentPhone = normalizeTurkishPhone(user.phone || '');
+    const newPhone = normalizeTurkishPhone(phone || '');
+    const isPhoneDifferent = newPhone !== currentPhone;
+
+    return isNameDifferent || isPhoneDifferent;
+  };
+
+  // Profil Değişikliği İçin OTP Kodu İste (Adım 1)
+  const handleRequestProfileOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!isProfileChanged()) {
+      setError('Profil bilgilerinizde herhangi bir değişiklik yapmadınız. Değişiklik yapmadan onay kodu talep edilemez.');
+      return;
+    }
+
     if (!fullName || fullName.trim().length < 2) {
       setError('Ad Soyad en az 2 karakter olmalıdır.');
       return;
     }
 
-    if (phone && phone.trim() && !isValidTurkishPhone(phone)) {
+    const targetPhone = phone && phone.trim() ? phone.trim() : user?.phone;
+    if (!targetPhone || !isValidTurkishPhone(targetPhone)) {
       setError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+
+    const cleanPhone = normalizeTurkishPhone(targetPhone);
+
+    setLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await authApi.sendProfileOtp({ fullName: fullName.trim(), phone: cleanPhone });
+      if (res.success && res.data) {
+        setProfileCooldown(res.data.cooldownSeconds || 60);
+        if (res.data.simulationCode) {
+          setProfileSimulationCode(res.data.simulationCode);
+        }
+        setProfileOtpCode('');
+        setProfileCodeActuallySent(true);
+        setError(null);
+        setMode('edit-verify');
+      } else {
+        setProfileCodeActuallySent(false);
+        setError(res.message || 'Doğrulama kodu gönderilemedi.');
+      }
+    } catch (err) {
+      setProfileCodeActuallySent(false);
+      const msg = err.response?.data?.message || err.message || 'Doğrulama kodu gönderilirken hata oluştu.';
+      setError(msg);
+      const match = msg.match(/(\d+)\s*saniye/);
+      if (match) {
+        const remaining = parseInt(match[1], 10);
+        if (remaining > 0) {
+          setProfileCooldown(remaining);
+          setMode('edit-verify');
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Profil Değişikliğini OTP Kodu İle Doğrula ve Kaydet (Adım 2)
+  const handleConfirmProfileUpdate = async (e) => {
+    if (e) e.preventDefault();
+    if (!profileOtpCode || profileOtpCode.trim().length !== 6) {
+      setError('Lütfen telefonunuza gönderilen 6 haneli doğrulama kodunu giriniz.');
       return;
     }
 
@@ -88,14 +182,20 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
     setSuccessMsg(null);
 
     try {
+      const targetPhone = phone && phone.trim() ? phone.trim() : user?.phone;
+      const cleanPhone = targetPhone ? normalizeTurkishPhone(targetPhone) : null;
+
       const res = await authApi.updateProfile({
         fullName: fullName.trim(),
-        phone: phone && phone.trim() ? normalizeTurkishPhone(phone) : null
+        phone: cleanPhone,
+        otpCode: profileOtpCode.trim()
       });
 
       if (res.success && res.data) {
         updateUser(res.data);
         setSuccessMsg('Profil bilgileriniz başarıyla güncellendi!');
+        setProfileOtpCode('');
+        setProfileSimulationCode(null);
         setMode('view');
         if (refreshProfile) await refreshProfile();
       } else {
@@ -242,19 +342,25 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              background: mode === 'password' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+              background: mode.startsWith('password') ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {mode === 'password' ? <KeyRound size={20} color="#f87171" /> : <Shield size={20} color="#fbbf24" />}
+              {mode.startsWith('password') ? <KeyRound size={20} color="#f87171" /> : <Shield size={20} color="#fbbf24" />}
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                {mode === 'password' ? 'Şifre Değiştirme & Güvenlik' : mode === 'edit' ? 'Profili Düzenle' : 'Güvenli Profilim'}
+                {mode === 'password' ? 'Şifre Değiştirme & Güvenlik' :
+                 mode === 'password-verify' ? 'Şifre Değişikliği Doğrulaması' :
+                 mode === 'edit' ? 'Profili Düzenle' :
+                 mode === 'edit-verify' ? 'Profil Güncelleme Doğrulaması' :
+                 'Güvenli Profilim'}
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' : 'Hesap ve profil bilgilerinizi yönetin'}
+                {mode === 'password' ? 'Şifre değişikliği sonrası e-posta bildirimi gönderilir' :
+                 mode === 'edit' || mode === 'edit-verify' ? 'Bilgileri güncellemek için SMS OTP doğrulaması zorunludur' :
+                 'Hesap ve profil bilgilerinizi yönetin'}
               </p>
             </div>
           </div>
@@ -315,7 +421,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
           )}
 
           {mode === 'edit' && (
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={handleRequestProfileOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                   Ad Soyad
@@ -358,7 +464,7 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                   }}
                 />
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.25rem', display: 'block' }}>
-                  Telefon no değiştirilirse SMS doğrulaması yenilenmelidir.
+                  Profil bilgilerinizi güncellemek için telefonunuza tek kullanımlık SMS onay kodu (OTP) gönderilecektir.
                 </span>
               </div>
 
@@ -374,11 +480,144 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={loading}
+                  disabled={loading || !isProfileChanged()}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    opacity: (!isProfileChanged() || loading) ? 0.6 : 1,
+                    cursor: (!isProfileChanged() || loading) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <Smartphone size={16} />
+                  <span>{loading ? 'Kod Gönderiliyor...' : 'Doğrulama Kodu İste ➔'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {mode === 'edit-verify' && (
+            <form onSubmit={handleConfirmProfileUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{
+                background: profileCodeActuallySent ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                border: profileCodeActuallySent ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: '10px',
+                padding: '1rem',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                  {profileCodeActuallySent ? '📱' : '⏳'}
+                </div>
+                <div style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  color: profileCodeActuallySent ? '#34d399' : '#fbbf24',
+                  marginBottom: '0.25rem'
+                }}>
+                  {profileCodeActuallySent
+                    ? 'SMS Doğrulama Kodu Gönderildi'
+                    : 'Bekleme Süresi Aktif (Yeni Kod Gönderilmedi)'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {profileCodeActuallySent ? (
+                    <>
+                      Profil değişikliklerinizi onaylamak için <strong>{formatTurkishPhone(phone || user?.phone)}</strong> numaralı cep telefonunuza 6 haneli kod iletildi.
+                    </>
+                  ) : (
+                    <>
+                      Yeni bir kod gönderilmedi. Lütfen daha önce <strong>{formatTurkishPhone(phone || user?.phone)}</strong> numarasına iletilen aktif kodu giriniz veya sürenin bitmesini bekleyiniz.
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {profileSimulationCode && (
+                <div
+                  onClick={() => setProfileOtpCode(profileSimulationCode)}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    border: '1px dashed rgba(56, 189, 248, 0.4)',
+                    borderRadius: '8px',
+                    padding: '0.6rem 0.85rem',
+                    fontSize: '0.78rem',
+                    color: '#38bdf8',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title="Kodu otomatik doldurmak için tıklayın"
+                >
+                  <span>🧪 Test Simülasyon Kodu: <strong>{profileSimulationCode}</strong></span>
+                  <span style={{ fontWeight: 700, textDecoration: 'underline' }}>Kodu Doldur ↵</span>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <KeyRound size={14} color="#fbbf24" />
+                    <span>6 Haneli Doğrulama Kodunu Giriniz</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRequestProfileOtp}
+                    disabled={loading || profileCooldown > 0}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: profileCooldown > 0 ? 'var(--text-muted)' : 'var(--primary-400)',
+                      cursor: profileCooldown > 0 ? 'not-allowed' : 'pointer',
+                      fontSize: '0.75rem',
+                      padding: 0
+                    }}
+                  >
+                    {profileCooldown > 0 ? `${profileCooldown}s Bekleyin` : 'Yeniden Kod İste'}
+                  </button>
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={profileOtpCode}
+                  onChange={(e) => setProfileOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="123456"
+                  className="input-field"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)',
+                    fontSize: '1.25rem',
+                    letterSpacing: '0.3em',
+                    textAlign: 'center',
+                    fontWeight: 700
+                  }}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('edit'); setError(null); }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  ← Geri (Bilgileri Düzenle)
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading || profileOtpCode.length !== 6}
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                 >
                   <Save size={16} />
-                  <span>{loading ? 'Kaydediliyor...' : 'Kaydet'}</span>
+                  <span>{loading ? 'Doğrulanıyor...' : 'Doğrula ve Kaydet'}</span>
                 </button>
               </div>
             </form>
@@ -751,7 +990,13 @@ export const UserProfileModal = ({ isOpen, onClose }) => {
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => { setMode('edit'); setError(null); setSuccessMsg(null); }}
+                  onClick={() => {
+                    setFullName(user?.fullName || '');
+                    setPhone(user?.phone ? formatTurkishPhone(user.phone) : '');
+                    setMode('edit');
+                    setError(null);
+                    setSuccessMsg(null);
+                  }}
                   className="btn btn-secondary"
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem' }}
                 >

@@ -114,10 +114,10 @@ public class AppointmentService : IAppointmentService
             throw new ForbiddenException("Başkası adına randevu oluşturma yetkiniz bulunmamaktadır.");
         }
 
-        // 1. İş Kuralı (FR-R04): Geçmiş zamana randevu alınamaz (5 dk tolerans)
-        if (dto.StartAt < _dateTimeProvider.UtcNow.AddMinutes(-5))
+        // 1. İş Kuralı (FR-R04): Geçmiş zamana randevu alınamaz
+        if (_dateTimeProvider.IsInPast(dto.StartAt))
         {
-            _logger.LogWarning("Geçmiş zamana randevu oluşturma denemesi reddedildi: UserId={UserId}, StartAt={StartAt}", dto.UserId, dto.StartAt);
+            _logger.LogWarning("Geçmiş zamana randevu oluşturma denemesi reddedildi: UserId={UserId}, StartAt={StartAt}, TurkeyNow={Now}", dto.UserId, dto.StartAt, _dateTimeProvider.TurkeyNow);
             throw new BusinessException("Geçmiş bir zamana randevu oluşturulamaz.");
         }
 
@@ -262,9 +262,9 @@ public class AppointmentService : IAppointmentService
         }
 
         // Geçmiş zamana taşınamaz
-        if (dto.StartAt < _dateTimeProvider.UtcNow.AddMinutes(-5))
+        if (_dateTimeProvider.IsInPast(dto.StartAt))
         {
-            _logger.LogWarning("Geçmiş zamana randevu güncelleme denemesi reddedildi: AppointmentId={AppointmentId}, StartAt={StartAt}", id, dto.StartAt);
+            _logger.LogWarning("Geçmiş zamana randevu güncelleme denemesi reddedildi: AppointmentId={AppointmentId}, StartAt={StartAt}, TurkeyNow={Now}", id, dto.StartAt, _dateTimeProvider.TurkeyNow);
             throw new BusinessException("Randevu geçmiş bir zamana alınamaz.");
         }
 
@@ -473,7 +473,7 @@ public class AppointmentService : IAppointmentService
         if (!employee.IsActive)
             throw new BusinessException($"'{employee.FullName}' personeli aktif değildir.");
 
-        var targetDate = query.Date.Date;
+        var targetDate = DateTime.SpecifyKind(query.Date.Date, DateTimeKind.Unspecified);
 
         // 1. Personel haftalık izin günü kontrolü (İzinliyse slot üretilmez)
         if (employee.WeeklyOffDay.HasValue && targetDate.DayOfWeek == employee.WeeklyOffDay.Value)
@@ -495,14 +495,12 @@ public class AppointmentService : IAppointmentService
         var slots = new List<AvailableSlotDto>();
         var slotDuration = service.DurationMinutes;
         var cursor = dayStart;
-        var nowUtc = _dateTimeProvider.UtcNow;
-
         while (cursor.AddMinutes(slotDuration) <= dayEnd)
         {
             var slotEnd = cursor.AddMinutes(slotDuration);
 
             // 3. Geçmiş zamana ait slotlar listelenmemeli
-            if (cursor < nowUtc)
+            if (_dateTimeProvider.IsInPast(cursor))
             {
                 cursor = cursor.AddMinutes(slotDuration);
                 continue;

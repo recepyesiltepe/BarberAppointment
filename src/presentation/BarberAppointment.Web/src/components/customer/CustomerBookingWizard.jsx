@@ -92,12 +92,13 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
   }, [currentStep, smsPhone]);
 
   const handleSendSmsCode = async () => {
-    if (!isValidTurkishPhone(smsPhone)) {
-      setSmsError('Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+    const targetPhone = user?.phone || smsPhone;
+    if (!targetPhone || !isValidTurkishPhone(targetPhone)) {
+      setSmsError('Hesabınızda kayıtlı geçerli bir Türkiye cep telefonu numarası bulunamadı. Lütfen profilinizden telefon numaranızı güncelleyiniz.');
       return;
     }
 
-    const cleanPhone = normalizeTurkishPhone(smsPhone);
+    const cleanPhone = normalizeTurkishPhone(targetPhone);
 
     setSmsLoading(true);
     setSmsError(null);
@@ -137,8 +138,14 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
 
     setLoading(true);
     setSmsError(null);
+    if (selectedSlot && isSlotInPast(selectedSlot.startAt)) {
+      setSmsError('Seçtiğiniz randevu saatinin süresi geçmiştir. Lütfen 3. adıma dönerek ileri bir saat seçiniz.');
+      return;
+    }
+
     try {
-      const cleanPhone = normalizeTurkishPhone(smsPhone);
+      const targetPhone = user?.phone || smsPhone;
+      const cleanPhone = normalizeTurkishPhone(targetPhone);
       const appointmentPayload = {
         userId: user?.id || 1,
         employeeId: selectedEmployee.id,
@@ -165,41 +172,24 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     }
   };
 
-  // Telefonu zaten profilde doğrulanmış kullanıcılar için doğrudan randevu oluşturma
-  const handleDirectBook = async () => {
-    setLoading(true);
-    setSmsError(null);
-    try {
-      const appointmentPayload = {
-        userId: user?.id || 1,
-        employeeId: selectedEmployee.id,
-        serviceId: selectedService.id,
-        startAt: selectedSlot.startAt,
-        notes: notes || null
-      };
 
-      const res = await appointmentsApi.create(appointmentPayload);
-      if (res.success && res.data) {
-        setCreatedAppointment(res.data);
-        setCurrentStep(5);
-        if (onNotify) onNotify('Randevunuz başarıyla oluşturuldu!', 'success');
-      } else {
-        setSmsError(res.message || 'Randevu oluşturulamadı.');
-      }
-    } catch (err) {
-      setSmsError(err.message || 'Randevu işlemi gerçekleştirilemedi.');
-    } finally {
-      setLoading(false);
-    }
+
+  // Geçmiş saat kontrolü (Randevu başlangıç zamanı şu andan önce mi?)
+  const isSlotInPast = (startAt) => {
+    if (!startAt) return true;
+    return new Date(startAt).getTime() <= Date.now();
   };
 
-  // Generate next 7 days
+  // Generate next 7 days (Kullanıcı yerel saat diliminde takvim günleri)
   const getNext7Days = () => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      const iso = d.toISOString().split('T')[0];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const iso = `${year}-${month}-${day}`;
       const dayName = i === 0 ? 'Bugün' : i === 1 ? 'Yarın' : d.toLocaleDateString('tr-TR', { weekday: 'short' });
       const dayNum = d.getDate();
       const monthName = d.toLocaleDateString('tr-TR', { month: 'short' });
@@ -271,7 +261,10 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     try {
       const res = await appointmentsApi.getAvailableSlots(employeeId, serviceId, date);
       if (res.success) {
-        setAvailableSlots(res.data || []);
+        const rawSlots = res.data || [];
+        // Geçmiş saatleri frontend tarafında da kesin olarak filtrele
+        const filtered = rawSlots.filter(slot => !isSlotInPast(slot.startAt));
+        setAvailableSlots(filtered);
       } else {
         setAvailableSlots([]);
       }
@@ -291,40 +284,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     }
   };
 
-  // Confirm booking
-  const handleConfirmBooking = async () => {
-    if (!selectedSlot || !selectedService || !selectedEmployee) {
-      setError('Lütfen tüm seçimleri tamamlayınız.');
-      return;
-    }
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const appointmentPayload = {
-        userId: user?.id || 1,
-        employeeId: selectedEmployee.id,
-        serviceId: selectedService.id,
-        startAt: selectedSlot.startAt,
-        notes: notes || null
-      };
-
-      const res = await appointmentsApi.create(appointmentPayload);
-      if (res.success && res.data) {
-        setCreatedAppointment(res.data);
-        setCurrentStep(5);
-        if (onNotify) onNotify('Randevunuz başarıyla oluşturuldu!', 'success');
-      } else {
-        throw new Error(res.message || 'Randevu oluşturulamadı.');
-      }
-    } catch (err) {
-      setError(err.message || 'Randevu oluşturulurken bir hata oluştu.');
-      if (onNotify) onNotify(err.message || 'Randevu oluşturulamadı.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatTime = (isoString) => {
     if (!isoString) return '';
@@ -709,47 +669,54 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           </div>
 
           {/* Time Slots Grid */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Müsait Randevu Saatleri ({availableSlots.length} Boş Saat)</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateHuman(selectedDate)}</span>
-            </div>
-
-            {loadingSlots ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                <div className="spinner-sm" style={{ width: '26px', height: '26px', margin: '0 auto 0.75rem', borderColor: '#10b981', borderTopColor: 'transparent' }} />
-                <div>Müsait saatler taranıyor...</div>
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <div className="alert-card" style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                borderColor: 'rgba(239, 68, 68, 0.3)',
-                color: '#fca5a5',
-                padding: '1.25rem',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.75rem'
-              }}>
-                <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Seçilen günde boş randevu saati kalmamıştır.</div>
-                  <div style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: '#fca5a5' }}>
-                    Lütfen yukarıdaki günlerden farklı bir tarih seçin veya geri dönerek başka bir kuaför personeli tercih edin.
-                  </div>
+          {(() => {
+            const activeSlots = availableSlots.filter(s => !isSlotInPast(s.startAt));
+            return (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Müsait Randevu Saatleri ({activeSlots.length} Boş Saat)</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateHuman(selectedDate)}</span>
                 </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.75rem' }}>
-                {availableSlots.map((slot, idx) => {
-                  const isSelected = selectedSlot?.startAt === slot.startAt;
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSlot(slot);
-                        setCurrentStep(4);
-                      }}
+
+                {loadingSlots ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    <div className="spinner-sm" style={{ width: '26px', height: '26px', margin: '0 auto 0.75rem', borderColor: '#10b981', borderTopColor: 'transparent' }} />
+                    <div>Müsait saatler taranıyor...</div>
+                  </div>
+                ) : activeSlots.length === 0 ? (
+                  <div className="alert-card" style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                    color: '#fca5a5',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.75rem'
+                  }}>
+                    <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>Seçilen günde müsait randevu saati bulunmamaktadır.</div>
+                      <div style={{ fontSize: '0.85rem', marginTop: '0.25rem', color: '#fca5a5' }}>
+                        Geçmiş saatler ve dolu randevular listelenmez. Lütfen yukarıdaki günlerden farklı bir tarih seçin veya geri dönerek başka bir kuaför personeli tercih edin.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.75rem' }}>
+                    {activeSlots.map((slot, idx) => {
+                      const isSelected = selectedSlot?.startAt === slot.startAt;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (isSlotInPast(slot.startAt)) {
+                              setError('Seçtiğiniz randevu saatinin süresi geçmiştir. Lütfen ileri bir saat seçin.');
+                              return;
+                            }
+                            setSelectedSlot(slot);
+                            setCurrentStep(4);
+                          }}
                       style={{
                         padding: '0.75rem 0.5rem',
                         borderRadius: 'var(--radius-md)',
@@ -775,6 +742,8 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               </div>
             )}
           </div>
+        );
+      })()}
 
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <button onClick={() => setCurrentStep(2)} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -849,29 +818,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             />
           </div>
 
-          {/* Phone Verification Section: Telefon doğrulanmış olsa dahi yeni randevu için onay kodu zorunludur */}
-          {user?.isPhoneVerified && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.75rem 1.25rem',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <ShieldCheck size={18} color="#10b981" />
-                <div>
-                  <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>Kayıtlı Telefon Numaranız: </span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>{formatTurkishPhone(user?.phone)}</span>
-                </div>
-              </div>
-              <span className="badge badge-confirmed" style={{ fontSize: '0.75rem' }}>Profilde Onaylı</span>
-            </div>
-          )}
-
+          {/* Phone Verification Section: Kayıtlı telefon numarası otomatik kullanılır, OTP zorunludur */}
           <div style={{
             background: 'rgba(245, 158, 11, 0.05)',
             border: '1px solid rgba(245, 158, 11, 0.3)',
@@ -879,14 +826,18 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             padding: '1.5rem',
             marginBottom: '1.5rem'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-              <Smartphone size={22} color="#fbbf24" />
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                Randevu Onay Kodu (SMS Doğrulaması Gerekli)
-              </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Smartphone size={22} color="#fbbf24" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Randevu Onay Kodu (SMS Doğrulaması)
+                </h3>
+              </div>
+              <span className="badge badge-employee" style={{ fontSize: '0.75rem' }}>OTP Doğrulama Şart</span>
             </div>
+
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-              Randevu güvenliği için cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <strong>otomatik olarak kesinleştirilecektir</strong>.
+              Randevu güvenliği için sistemde kayıtlı cep telefonunuza tek kullanımlık doğrulama kodu gönderilecektir. Kodu doğruladığınızda randevunuz <strong>otomatik olarak kesinleştirilecektir</strong>.
             </p>
 
             {smsError && (
@@ -896,17 +847,29 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '1rem', alignItems: 'flex-end' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.85rem' }}>Cep Telefonu Numaranız</label>
-                <input
-                  type="tel"
-                  className="form-input no-icon"
-                  placeholder="0555 123 45 67"
-                  value={smsPhone}
-                  onChange={(e) => setSmsPhone(formatTurkishPhone(e.target.value))}
-                  disabled={smsStep === 2 && smsCooldown > 0}
-                />
+            {/* Kayıtlı Telefon Bilgisi & SMS Gönder Butonu (Numara düzenleme alanı yok, otomatik kullanılır) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.85rem 1.25rem',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '1rem',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <ShieldCheck size={22} color="#38bdf8" />
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Kayıtlı Telefon Numaranız (Otomatik)
+                  </div>
+                  <div style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                    {formatTurkishPhone(user?.phone || smsPhone || '05553334455')}
+                  </div>
+                </div>
               </div>
 
               <button
@@ -951,7 +914,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                   </div>
                 )}
 
-                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <KeyRound size={16} color="#fbbf24" />
                     <span>6 Haneli Doğrulama Kodunu Giriniz</span>
@@ -963,26 +926,14 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                     placeholder="Örn: 123456"
                     value={smsCode}
                     onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && smsCode.trim().length === 6 && !loading) {
+                        handleVerifyAndBook();
+                      }
+                    }}
                     style={{ letterSpacing: '0.3em', fontSize: '1.25rem', fontWeight: 700, textAlign: 'center' }}
                   />
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleVerifyAndBook}
-                  disabled={loading || smsCode.length !== 6}
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '0.85rem', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                      <span>Doğrulanıyor ve Randevu Oluşturuluyor...</span>
-                    </>
-                  ) : (
-                    <span>✓ Doğrula ve Randevuyu Otomatik Tamamla</span>
-                  )}
-                </button>
               </div>
             )}
           </div>
@@ -993,24 +944,7 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               <span>Geri (Saat Değiştir)</span>
             </button>
 
-            {user?.isPhoneVerified ? (
-              <button
-                type="button"
-                onClick={handleDirectBook}
-                disabled={loading}
-                className="btn btn-primary"
-                style={{ padding: '0.85rem 2rem', fontSize: '1.05rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
-              >
-                {loading ? (
-                  <>
-                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
-                    <span>Randevu Oluşturuluyor...</span>
-                  </>
-                ) : (
-                  <span>✓ Randevuyu Onayla ve Tamamla</span>
-                )}
-              </button>
-            ) : smsStep === 1 ? (
+            {smsStep === 1 ? (
               <button
                 type="button"
                 onClick={handleSendSmsCode}
@@ -1023,11 +957,39 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
                     <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
                     <span>Kod Gönderiliyor...</span>
                   </>
+                ) : smsCooldown > 0 ? (
+                  <span>{smsCooldown}s Bekleyin</span>
                 ) : (
-                  <span>SMS Kodu İsteyerek Devam Et</span>
+                  <span>SMS Onay Kodu İsteyerek Devam Et ➔</span>
                 )}
               </button>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={handleVerifyAndBook}
+                disabled={loading || smsCode.length !== 6}
+                className="btn btn-primary"
+                style={{
+                  padding: '0.85rem 2rem',
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  opacity: (loading || smsCode.length !== 6) ? 0.6 : 1,
+                  cursor: (loading || smsCode.length !== 6) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-sm" style={{ borderColor: '#000', borderTopColor: 'transparent' }} />
+                    <span>Onaylanıyor...</span>
+                  </>
+                ) : (
+                  <span>Doğrula ve Randevuyu Onayla ➔</span>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}

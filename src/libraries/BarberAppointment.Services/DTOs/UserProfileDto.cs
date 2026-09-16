@@ -22,9 +22,20 @@ public class UserProfileDto
 /// <summary>
 /// Kullanıcının kendi profil bilgilerini güvenle güncellemesi için kullanılan DTO.
 /// Yalnızca güvenli alanların (FullName, Phone) güncellenmesine izin verir.
+/// Profil güncellemesi için 6 haneli OTP kodu girilmesi zorunludur.
 /// </summary>
 public class UpdateProfileDto
 {
     public string FullName { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string OtpCode { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Profil güncelleme OTP kodu isteme DTO'sudur.
+/// </summary>
+public class SendProfileOtpDto
+{
+    public string? FullName { get; set; }
     public string? Phone { get; set; }
 }

@@ -24,8 +24,13 @@ export const ProfileScreen = () => {
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFullName, setEditFullName] = useState(user?.fullName || '');
-  const [editPhone, setEditPhone] = useState(user?.phone || '');
+  const [editPhone, setEditPhone] = useState(user?.phone ? formatTurkishPhone(user.phone) : '');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileEditStep, setProfileEditStep] = useState(1); // 1 = form, 2 = verify
+  const [profileOtpCode, setProfileOtpCode] = useState('');
+  const [profileSimCode, setProfileSimCode] = useState(null);
+  const [profileCooldown, setProfileCooldown] = useState(0);
+  const [profileCodeActuallySent, setProfileCodeActuallySent] = useState(false);
 
   // Change Password State
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -38,13 +43,33 @@ export const ProfileScreen = () => {
   const [passwordVerifyCode, setPasswordVerifyCode] = useState('');
 
   // SMS Verification State
-  const [phoneInput, setPhoneInput] = useState(user?.phone || '');
+  const [phoneInput, setPhoneInput] = useState(user?.phone ? formatTurkishPhone(user.phone) : '');
   const [smsCode, setSmsCode] = useState('');
   const [smsStep, setSmsStep] = useState(user?.isPhoneVerified ? 3 : 1); // 1 = Phone Input, 2 = Code Input, 3 = Verified
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsCooldown, setSmsCooldown] = useState(0);
   const [simulationCode, setSimulationCode] = useState(null);
   const [isPhoneVerified, setIsPhoneVerified] = useState(!!user?.isPhoneVerified);
+
+  useEffect(() => {
+    if (user) {
+      setEditFullName(user.fullName || '');
+      setEditPhone(user.phone ? formatTurkishPhone(user.phone) : '');
+      setPhoneInput(user.phone ? formatTurkishPhone(user.phone) : '');
+      setIsPhoneVerified(!!user.isPhoneVerified);
+    }
+  }, [user]);
+
+  // Profile OTP Cooldown Countdown Timer
+  useEffect(() => {
+    let timer;
+    if (profileCooldown > 0) {
+      timer = setInterval(() => {
+        setProfileCooldown(prev => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [profileCooldown]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -113,34 +138,103 @@ export const ProfileScreen = () => {
     }
   };
 
-  const handleSaveProfile = async () => {
+  // Profilde değişiklik yapılıp yapılmadığını kontrol et
+  const isProfileChanged = () => {
+    if (!user) return false;
+    const currentName = (user.fullName || '').trim();
+    const newName = (editFullName || '').trim();
+    const isNameDifferent = newName !== currentName;
+
+    const currentPhone = normalizeTurkishPhone(user.phone || '');
+    const newPhone = normalizeTurkishPhone(editPhone || '');
+    const isPhoneDifferent = newPhone !== currentPhone;
+
+    return isNameDifferent || isPhoneDifferent;
+  };
+
+  const handleRequestProfileOtp = async () => {
+    if (!isProfileChanged()) {
+      Alert.alert('Bilgi', 'Profil bilgilerinizde herhangi bir değişiklik yapmadınız. Değişiklik yapmadan onay kodu talep edilemez.');
+      return;
+    }
+
     if (!editFullName || editFullName.trim().length < 2) {
       Alert.alert('Uyarı', 'Lütfen en az 2 karakterli ad soyad giriniz.');
       return;
     }
 
-    if (editPhone && editPhone.trim() && !isValidTurkishPhone(editPhone)) {
+    const targetPhone = editPhone && editPhone.trim() ? editPhone.trim() : user?.phone;
+    if (!targetPhone || !isValidTurkishPhone(targetPhone)) {
       Alert.alert('Uyarı', 'Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67).');
+      return;
+    }
+
+    const cleanPhone = normalizeTurkishPhone(targetPhone);
+
+    setProfileSaving(true);
+    try {
+      const res = await authApi.sendProfileOtp({ fullName: editFullName.trim(), phone: cleanPhone });
+      if (res.success && res.data) {
+        setProfileCooldown(res.data.cooldownSeconds || 60);
+        if (res.data.simulationCode) {
+          setProfileSimCode(res.data.simulationCode);
+        }
+        setProfileOtpCode('');
+        setProfileCodeActuallySent(true);
+        setProfileEditStep(2);
+        Alert.alert('SMS Gönderildi', `Doğrulama kodu ${res.data.maskedPhoneNumber || formatTurkishPhone(cleanPhone)} numarasına gönderildi.`);
+      } else {
+        setProfileCodeActuallySent(false);
+        Alert.alert('Hata', res.message || 'Doğrulama kodu gönderilemedi.');
+      }
+    } catch (err) {
+      setProfileCodeActuallySent(false);
+      const msg = err.response?.data?.message || err.message || 'Doğrulama kodu gönderilirken hata oluştu.';
+      const match = msg.match(/(\d+)\s*saniye/);
+      if (match) {
+        const remaining = parseInt(match[1], 10);
+        if (remaining > 0) {
+          setProfileCooldown(remaining);
+          setProfileEditStep(2);
+        }
+      }
+      Alert.alert('Uyarı', msg);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleConfirmProfileUpdate = async () => {
+    if (!profileOtpCode || profileOtpCode.trim().length !== 6) {
+      Alert.alert('Uyarı', 'Lütfen 6 haneli doğrulama kodunu giriniz.');
       return;
     }
 
     setProfileSaving(true);
     try {
+      const targetPhone = editPhone && editPhone.trim() ? editPhone.trim() : user?.phone;
+      const cleanPhone = targetPhone ? normalizeTurkishPhone(targetPhone) : null;
+
       const res = await authApi.updateProfile({
         fullName: editFullName.trim(),
-        phone: editPhone && editPhone.trim() ? normalizeTurkishPhone(editPhone) : null
+        phone: cleanPhone,
+        otpCode: profileOtpCode.trim()
       });
 
       if (res.success && res.data) {
         if (updateUser) updateUser(res.data);
         setIsEditingProfile(false);
+        setProfileEditStep(1);
+        setProfileOtpCode('');
+        setProfileSimCode(null);
         setPhoneInput(res.data.phone || '');
-        Alert.alert('Başarılı', 'Profil bilgileriniz başarıyla güncellendi.');
+        setIsPhoneVerified(true);
+        Alert.alert('Başarılı 🎉', 'Profil bilgileriniz başarıyla güncellendi.');
       } else {
         Alert.alert('Hata', res.message || 'Profil güncellenemedi.');
       }
     } catch (err) {
-      Alert.alert('Hata', err.message || 'Profil güncellenirken bir hata oluştu.');
+      Alert.alert('Hata', err.response?.data?.message || err.message || 'Profil güncellenirken bir hata oluştu.');
     } finally {
       setProfileSaving(false);
     }
@@ -259,7 +353,10 @@ export const ProfileScreen = () => {
             onPress={() => {
               if (!isEditingProfile) {
                 setEditFullName(user?.fullName || '');
-                setEditPhone(user?.phone || '');
+                setEditPhone(user?.phone ? formatTurkishPhone(user.phone) : '');
+                setProfileEditStep(1);
+                setProfileOtpCode('');
+                setProfileSimCode(null);
               }
               setIsEditingProfile(!isEditingProfile);
             }}
@@ -269,42 +366,140 @@ export const ProfileScreen = () => {
         </View>
 
         {isEditingProfile ? (
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.infoLabel}>Ad Soyad</Text>
-            <TextInput
-              style={styles.input}
-              value={editFullName}
-              onChangeText={setEditFullName}
-              placeholder="Adınız Soyadınız"
-              placeholderTextColor={colors.textMuted}
-            />
+          profileEditStep === 1 ? (
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.infoLabel}>Ad Soyad</Text>
+              <TextInput
+                style={styles.input}
+                value={editFullName}
+                onChangeText={setEditFullName}
+                placeholder="Adınız Soyadınız"
+                placeholderTextColor={colors.textMuted}
+              />
 
-            <Text style={styles.infoLabel}>Telefon Numarası</Text>
-            <TextInput
-              style={styles.input}
-              value={editPhone}
-              onChangeText={(val) => setEditPhone(formatTurkishPhone(val))}
-              placeholder="0555 123 45 67"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
-              maxLength={14}
-            />
+              <Text style={styles.infoLabel}>Telefon Numarası</Text>
+              <TextInput
+                style={styles.input}
+                value={editPhone}
+                onChangeText={(val) => setEditPhone(formatTurkishPhone(val))}
+                placeholder="0555 123 45 67"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+                maxLength={14}
+              />
 
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.primary, marginTop: 4 }]}
-              onPress={handleSaveProfile}
-              disabled={profileSaving}
-              activeOpacity={0.8}
-            >
-              {profileSaving ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
-                  ✓ Değişiklikleri Kaydet
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 10 }}>
+                Profil değişikliklerini kaydetmek için SMS OTP onay kodu gönderilecektir.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: colors.primary, marginTop: 4 },
+                  (profileSaving || !isProfileChanged()) && { opacity: 0.6 }
+                ]}
+                onPress={handleRequestProfileOtp}
+                disabled={profileSaving || !isProfileChanged()}
+                activeOpacity={0.8}
+              >
+                {profileSaving ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
+                    Doğrulama Kodu İste ➔
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ marginTop: 12 }}>
+              <View style={{
+                backgroundColor: profileCodeActuallySent ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                borderWidth: 1,
+                borderColor: profileCodeActuallySent ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+                borderRadius: 8,
+                padding: 10,
+                marginBottom: 10
+              }}>
+                <Text style={{ color: profileCodeActuallySent ? '#10b981' : '#fbbf24', fontWeight: '700', fontSize: 13, marginBottom: 2 }}>
+                  {profileCodeActuallySent ? '📱 SMS Kodu Gönderildi' : '⏳ Bekleme Süresi Aktif'}
                 </Text>
+                <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                  {profileCodeActuallySent
+                    ? `${formatTurkishPhone(editPhone || user?.phone)} numaralı telefona 6 haneli kod iletildi.`
+                    : `Yeni kod gönderilmedi. Lütfen daha önce ${formatTurkishPhone(editPhone || user?.phone)} numarasına iletilen kodu giriniz veya sürenin bitmesini bekleyiniz.`}
+                </Text>
+              </View>
+
+              {profileSimCode && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(56, 189, 248, 0.3)',
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 10,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setProfileOtpCode(profileSimCode)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: '#7dd3fc', fontSize: 12 }}>🧪 Test Kodu: <Text style={{ fontWeight: '800' }}>{profileSimCode}</Text></Text>
+                  <Text style={{ color: '#38bdf8', fontSize: 11, fontWeight: '700' }}>Kodu Doldur ↵</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
-          </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={styles.infoLabel}>6 Haneli Doğrulama Kodunu Giriniz</Text>
+                <TouchableOpacity
+                  onPress={handleRequestProfileOtp}
+                  disabled={profileSaving || profileCooldown > 0}
+                >
+                  <Text style={{ color: profileCooldown > 0 ? colors.textMuted : colors.primary, fontSize: 11, fontWeight: '700' }}>
+                    {profileCooldown > 0 ? `${profileCooldown}s Bekleyin` : 'Yeniden İste'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={[styles.input, { height: 44, fontSize: 18, fontWeight: '800', letterSpacing: 6, textAlign: 'center' }]}
+                placeholder="123456"
+                placeholderTextColor={colors.textMuted}
+                value={profileOtpCode}
+                onChangeText={(val) => setProfileOtpCode(val.replace(/\D/g, ''))}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                <TouchableOpacity
+                  style={[styles.backButton, { flex: 1, marginTop: 0 }]}
+                  onPress={() => setProfileEditStep(1)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.backButtonText}>‹ Geri</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.saveButton, { flex: 2, backgroundColor: colors.primary, marginTop: 0 }, (profileSaving || profileOtpCode.length !== 6) && { opacity: 0.6 }]}
+                  onPress={handleConfirmProfileUpdate}
+                  disabled={profileSaving || profileOtpCode.length !== 6}
+                  activeOpacity={0.8}
+                >
+                  {profileSaving ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={[styles.saveButtonText, { color: '#000', fontWeight: '700' }]}>
+                      ✓ Doğrula ve Kaydet
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
         ) : (
           <View style={{ marginTop: 4 }}>
             <View style={styles.infoRow}>

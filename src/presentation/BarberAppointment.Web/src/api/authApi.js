@@ -16,7 +16,20 @@ export const authApi = {
     return await client.get('/api/auth/me');
   },
 
-  // Profil Güncelle
+  // Profil Güncelleme için OTP SMS Kodu İste
+  sendProfileOtp: async (data) => {
+    const payload = typeof data === 'string' ? { phone: data } : data;
+    try {
+      return await client.post('/api/auth/send-profile-otp', payload);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        return await client.post('/api/sms/send-code', { phoneNumber: payload?.phone });
+      }
+      throw err;
+    }
+  },
+
+  // Profil Güncelle (OTP Kodu Zorunludur)
   updateProfile: async (profileData) => {
     return await client.put('/api/auth/me', profileData);
   },

@@ -16,6 +16,17 @@ export const authApi = {
   getProfile: async () => {
     return await client.get('/api/auth/me');
   },
+  sendProfileOtp: async (data) => {
+    const payload = typeof data === 'string' ? { phone: data } : data;
+    try {
+      return await client.post('/api/auth/send-profile-otp', payload);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        return await client.post('/api/sms/send-code', { phoneNumber: payload?.phone });
+      }
+      throw err;
+    }
+  },
   updateProfile: async (userData) => {
     return await client.put('/api/auth/me', userData);
   },
