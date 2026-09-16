@@ -119,3 +119,5 @@ export const smsApi = {
     return await client.post('/api/sms/verify-and-book', { phoneNumber, code, appointment });
   }
 };
+
+export { leaveApi } from './leaveApi';

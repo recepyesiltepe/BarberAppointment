@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert
+  Alert,
+  Modal,
+  TextInput
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { barberApi } from '../api/barberApi';
+import { barberApi, usersApi } from '../api/barberApi';
 import { formatTurkishPhone } from '../utils/phoneUtils';
 
 export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
@@ -19,11 +21,28 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { user, roleName } = useAuth();
   const isStaff = roleName === 'Employee' || roleName === 'Admin';
+  const isAdmin = roleName === 'Admin';
+
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterTab, setFilterTab] = useState('upcoming'); // 'upcoming' | 'history' | 'all'
   const [error, setError] = useState(null);
+
+  // Admin Yeni Randevu Modalı State'leri
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [usersList, setUsersList] = useState([]);
+  const [employeesList, setEmployeesList] = useState([]);
+  const [servicesList, setServicesList] = useState([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [newUserId, setNewUserId] = useState(null);
+  const [newEmployeeId, setNewEmployeeId] = useState(null);
+  const [newServiceId, setNewServiceId] = useState(null);
+  const [newDate, setNewDate] = useState(''); // 'YYYY-MM-DD'
+  const [newTime, setNewTime] = useState('11:00'); // 'HH:mm'
+  const [newNotes, setNewNotes] = useState('');
+  const [submittingAppt, setSubmittingAppt] = useState(false);
+  const [createError, setCreateError] = useState(null);
 
   const fetchAppointments = async () => {
     setError(null);
@@ -53,6 +72,91 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchAppointments();
+  };
+
+  const handleOpenCreateAppt = async () => {
+    setCreateError(null);
+    setUserSearch('');
+    setNewNotes('');
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    setNewDate(`${yyyy}-${mm}-${dd}`);
+    setNewTime('11:00');
+
+    try {
+      const [uRes, eRes, sRes] = await Promise.all([
+        usersApi.getAll().catch(() => ({ success: false, data: [] })),
+        barberApi.getEmployees().catch(() => ({ success: false, data: [] })),
+        barberApi.getServices().catch(() => ({ success: false, data: [] }))
+      ]);
+
+      const uList = uRes.success && uRes.data ? uRes.data : [];
+      const eList = eRes.success && eRes.data ? eRes.data : [];
+      const sList = sRes.success && sRes.data ? sRes.data : [];
+
+      setUsersList(uList);
+      setEmployeesList(eList);
+      setServicesList(sList);
+
+      if (uList.length > 0) setNewUserId(uList[0].id);
+      if (eList.length > 0) {
+        setNewEmployeeId(eList[0].id);
+        const empServices = eList[0].services && eList[0].services.length > 0 ? eList[0].services : sList;
+        if (empServices.length > 0) setNewServiceId(empServices[0].id);
+      } else if (sList.length > 0) {
+        setNewServiceId(sList[0].id);
+      }
+
+      setIsCreateModalOpen(true);
+    } catch (err) {
+      Alert.alert('Hata', 'Gerekli veriler yüklenemedi: ' + err.message);
+    }
+  };
+
+  const handleSelectEmployeeForCreate = (empId) => {
+    setNewEmployeeId(empId);
+    const emp = employeesList.find(e => e.id === empId);
+    const empServices = emp?.services && emp.services.length > 0 ? emp.services : servicesList;
+    if (empServices.length > 0 && !empServices.some(s => s.id === newServiceId)) {
+      setNewServiceId(empServices[0].id);
+    }
+  };
+
+  const handleSaveAppointment = async () => {
+    if (!newUserId || !newEmployeeId || !newServiceId || !newDate || !newTime) {
+      setCreateError('Lütfen tüm zorunlu alanları doldurunuz.');
+      return;
+    }
+
+    setSubmittingAppt(true);
+    setCreateError(null);
+    try {
+      const payload = {
+        userId: Number(newUserId),
+        employeeId: Number(newEmployeeId),
+        serviceId: Number(newServiceId),
+        serviceIds: [Number(newServiceId)],
+        startAt: `${newDate}T${newTime}:00`,
+        notes: newNotes || null
+      };
+
+      const res = await barberApi.createAppointment(payload);
+      if (res.success) {
+        Alert.alert('Başarılı 🎉', 'Randevu başarıyla oluşturuldu.');
+        setIsCreateModalOpen(false);
+        fetchAppointments();
+      } else {
+        setCreateError(res.message || 'Randevu oluşturulamadı.');
+      }
+    } catch (err) {
+      setCreateError(err.message || 'Randevu oluşturulurken bir hata oluştu.');
+    } finally {
+      setSubmittingAppt(false);
+    }
   };
 
   const handleComplete = (id, serviceName) => {
@@ -157,21 +261,35 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
     });
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-      }
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>
-          {roleName === 'Admin' ? '👑 Salon Randevuları' : isStaff ? '✂️ Randevu Yönetimi' : '📅 Randevularım'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {isStaff ? 'Müşteri randevularını denetleyin ve durumlarını güncelleyin' : 'Geçmiş ve yaklaşan tüm randevu kayıtlarınız'}
-        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.title}>
+              {roleName === 'Admin' ? '👑 Salon Randevuları' : isStaff ? '✂️ Randevu Yönetimi' : '📅 Randevularım'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isStaff ? 'Müşteri randevularını denetleyin ve durumlarını güncelleyin' : 'Geçmiş ve yaklaşan tüm randevu kayıtlarınız'}
+            </Text>
+          </View>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.addApptBtn}
+              onPress={handleOpenCreateAppt}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addApptBtnText}>+ Yeni Randevu</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Segmented Filter Pills */}
@@ -327,7 +445,172 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
           );
         })
       )}
-    </ScrollView>
+      </ScrollView>
+
+      {/* Admin Yeni Randevu Oluştur Modalı */}
+      <Modal
+        visible={isCreateModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsCreateModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✂️ Yeni Randevu Oluştur</Text>
+              <TouchableOpacity onPress={() => setIsCreateModalOpen(false)} style={{ padding: 4 }}>
+                <Text style={{ fontSize: 18, color: colors.textMuted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {createError && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠️ {createError}</Text>
+              </View>
+            )}
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Müşteri Seçimi */}
+              <Text style={styles.modalLabel}>Müşteri Seçin *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Müşteri ara (isim veya telefon)..."
+                placeholderTextColor={colors.textMuted}
+                value={userSearch}
+                onChangeText={setUserSearch}
+              />
+              <ScrollView style={{ maxHeight: 110, marginBottom: 12 }} nestedScrollEnabled>
+                {usersList
+                  .filter(u => {
+                    if (!userSearch) return true;
+                    const q = userSearch.toLowerCase();
+                    return (
+                      u.fullName?.toLowerCase().includes(q) ||
+                      (u.phoneNumber || u.phone || '').includes(q) ||
+                      u.email?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(u => {
+                    const isSelected = newUserId === u.id;
+                    return (
+                      <TouchableOpacity
+                        key={u.id}
+                        style={[styles.userSelectOption, isSelected && styles.userSelectOptionActive]}
+                        onPress={() => setNewUserId(u.id)}
+                      >
+                        <Text style={[styles.userSelectOptionText, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                          {isSelected ? '✓ ' : ''}{u.fullName} {u.phoneNumber || u.phone ? `(${u.phoneNumber || u.phone})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+
+              {/* Kuaför / Personel Seçimi */}
+              <Text style={styles.modalLabel}>Personel (Kuaför) Seçin *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {employeesList.map(emp => {
+                    const isSelected = newEmployeeId === emp.id;
+                    return (
+                      <TouchableOpacity
+                        key={emp.id}
+                        style={[styles.empChip, isSelected && styles.empChipActive]}
+                        onPress={() => handleSelectEmployeeForCreate(emp.id)}
+                      >
+                        <Text style={[styles.empChipText, isSelected && styles.empChipTextActive]}>
+                          ✂️ {emp.fullName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* Hizmet Seçimi */}
+              <Text style={styles.modalLabel}>Hizmet Seçin *</Text>
+              <ScrollView style={{ maxHeight: 120, marginBottom: 12 }} nestedScrollEnabled>
+                {(() => {
+                  const emp = employeesList.find(e => e.id === newEmployeeId);
+                  const availableServices = emp?.services && emp.services.length > 0 ? emp.services : servicesList;
+                  return availableServices.map(srv => {
+                    const isSelected = newServiceId === srv.id;
+                    return (
+                      <TouchableOpacity
+                        key={srv.id}
+                        style={[styles.userSelectOption, isSelected && styles.userSelectOptionActive]}
+                        onPress={() => setNewServiceId(srv.id)}
+                      >
+                        <Text style={[styles.userSelectOptionText, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                          {isSelected ? '✓ ' : ''}{srv.name} — {srv.price} ₺ ({srv.durationMinutes} dk)
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  });
+                })()}
+              </ScrollView>
+
+              {/* Tarih ve Saat */}
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Tarih (YYYY-AA-GG) *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Örn: 2026-09-17"
+                    placeholderTextColor={colors.textMuted}
+                    value={newDate}
+                    onChangeText={setNewDate}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Saat (SS:DD) *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Örn: 11:00"
+                    placeholderTextColor={colors.textMuted}
+                    value={newTime}
+                    onChangeText={setNewTime}
+                  />
+                </View>
+              </View>
+
+              {/* Notlar */}
+              <Text style={styles.modalLabel}>Müşteri Notu / Açıklama</Text>
+              <TextInput
+                style={[styles.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
+                placeholder="Randevu ile ilgili özel istek veya notlar..."
+                placeholderTextColor={colors.textMuted}
+                value={newNotes}
+                onChangeText={setNewNotes}
+                multiline
+              />
+
+              {/* Modal Butonları */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setIsCreateModalOpen(false)}
+                >
+                  <Text style={styles.cancelModalBtnText}>Vazgeç</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.saveModalBtn, submittingAppt && { opacity: 0.6 }]}
+                  onPress={handleSaveAppointment}
+                  disabled={submittingAppt}
+                >
+                  {submittingAppt ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.saveModalBtnText}>Randevuyu Kaydet</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
@@ -541,5 +824,122 @@ const createStyles = (colors) => StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  addApptBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  addApptBtnText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '88%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  modalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  modalInput: {
+    backgroundColor: colors.bgMain,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginBottom: 6,
+  },
+  userSelectOption: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgMain,
+    marginBottom: 6,
+  },
+  userSelectOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+  },
+  userSelectOptionText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  empChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgMain,
+  },
+  empChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  empChipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  empChipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  cancelModalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cancelModalBtnText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  saveModalBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+  },
+  saveModalBtnText: {
+    fontSize: 13,
+    color: '#000',
+    fontWeight: '800',
   }
 });

@@ -519,14 +519,26 @@ export const DashboardScreen = ({ activeTab: propActiveTab, setActiveTab: propSe
                   Çalışma Saatleri: {selectedEmployeeModal.workStartTime ? String(selectedEmployeeModal.workStartTime).slice(0, 5) : '09:00'} - {selectedEmployeeModal.workEndTime ? String(selectedEmployeeModal.workEndTime).slice(0, 5) : '19:00'}
                 </span>
               </div>
-              {selectedEmployeeModal.weeklyOffDay !== null && selectedEmployeeModal.weeklyOffDay !== undefined && (
+              {selectedEmployeeModal.workingDays ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Calendar size={15} color="#fbbf24" />
+                  <span>
+                    Çalışma Günleri: {(() => {
+                      const days = selectedEmployeeModal.workingDays.split(',').map(Number);
+                      if (days.length === 7) return 'Haftanın 7 Günü';
+                      const dayLabels = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+                      return days.sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b)).map(d => dayLabels[d]).join(', ');
+                    })()}
+                  </span>
+                </div>
+              ) : (selectedEmployeeModal.weeklyOffDay !== null && selectedEmployeeModal.weeklyOffDay !== undefined && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Calendar size={15} color="#fbbf24" />
                   <span>
                     İzin Günü: {['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][selectedEmployeeModal.weeklyOffDay] || 'Pazar'}
                   </span>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Modal Body: Services List */}

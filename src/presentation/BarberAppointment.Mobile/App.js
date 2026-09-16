@@ -9,6 +9,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { BookingScreen } from './src/screens/BookingScreen';
 import { MyAppointmentsScreen } from './src/screens/MyAppointmentsScreen';
 import { AdminManagementScreen } from './src/screens/AdminManagementScreen';
+import { LeaveRequestsScreen } from './src/screens/LeaveRequestsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 
 const MainApp = () => {
@@ -16,7 +17,8 @@ const MainApp = () => {
   const { colors, isDark, isLoaded } = useTheme();
   const isAdmin = roleName === 'Admin';
   const isStaff = roleName === 'Employee' || roleName === 'Admin';
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'admin' | 'appointments' | 'profile'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'book' | 'admin' | 'leaves' | 'appointments' | 'profile'
+  const [bookingParams, setBookingParams] = useState(null);
 
   if (isInitializing || !isLoaded) {
     return (
@@ -39,18 +41,31 @@ const MainApp = () => {
       <View style={styles.screenContainer}>
         {activeTab === 'home' && (
           <HomeScreen
-            onNavigateBooking={() => setActiveTab('book')}
+            onNavigateBooking={(params) => {
+              setBookingParams(params || null);
+              setActiveTab('book');
+            }}
             onNavigateAdmin={() => setActiveTab('admin')}
           />
         )}
         {activeTab === 'book' && (
           <BookingScreen
-            onBookingComplete={() => setActiveTab('appointments')}
-            onCancelFlow={() => setActiveTab('home')}
+            initialParams={bookingParams}
+            onBookingComplete={() => {
+              setBookingParams(null);
+              setActiveTab('appointments');
+            }}
+            onCancelFlow={() => {
+              setBookingParams(null);
+              setActiveTab('home');
+            }}
           />
         )}
         {activeTab === 'admin' && isAdmin && (
           <AdminManagementScreen />
+        )}
+        {activeTab === 'leaves' && roleName === 'Employee' && (
+          <LeaveRequestsScreen />
         )}
         {activeTab === 'appointments' && (
           <MyAppointmentsScreen
@@ -85,7 +100,10 @@ const MainApp = () => {
         {!isStaff && (
           <TouchableOpacity
             style={[styles.navItem, styles.bookTabItem, activeTab === 'book' && styles.bookTabItemActive, { backgroundColor: colors.primary }]}
-            onPress={() => setActiveTab('book')}
+            onPress={() => {
+              setBookingParams(null);
+              setActiveTab('book');
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.bookIcon}>✂️</Text>
@@ -95,7 +113,7 @@ const MainApp = () => {
           </TouchableOpacity>
         )}
 
-        {/* Admin Management (Hizmetler & Personeller CRUD) */}
+        {/* Admin Management (Hizmetler & Personeller & İzinler CRUD) */}
         {isAdmin && (
           <TouchableOpacity
             style={[styles.navItem, activeTab === 'admin' && styles.navItemActive]}
@@ -105,6 +123,20 @@ const MainApp = () => {
             <Text style={styles.navIcon}>⚙️</Text>
             <Text style={[styles.navLabel, { color: activeTab === 'admin' ? colors.primary : colors.textSecondary }]}>
               Yönetim
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Employee Leave Requests Tab */}
+        {roleName === 'Employee' && (
+          <TouchableOpacity
+            style={[styles.navItem, activeTab === 'leaves' && styles.navItemActive]}
+            onPress={() => setActiveTab('leaves')}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.navIcon}>🏖️</Text>
+            <Text style={[styles.navLabel, { color: activeTab === 'leaves' ? colors.primary : colors.textSecondary }]}>
+              İzinlerim
             </Text>
           </TouchableOpacity>
         )}

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 import { formatTurkishPhone } from '../../utils/phoneUtils';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 export const AppointmentsView = ({ onNotify }) => {
   const { user, roleName } = useAuth();
   const isAdmin = roleName === 'Admin' || user?.role === 2;
-  const isEmployee = roleName === 'Employee' || user?.role === 1;
+  const isEmployee = roleName === 'Employee' || user?.role === 3;
 
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
@@ -34,6 +36,8 @@ export const AppointmentsView = ({ onNotify }) => {
   const [newNotes, setNewNotes] = useState('');
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useBodyScrollLock(isCreateModalOpen);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -511,8 +515,8 @@ export const AppointmentsView = ({ onNotify }) => {
       </div>
 
       {/* Create Appointment Modal */}
-      {isCreateModalOpen && (
-        <div className="modal-overlay">
+      {isCreateModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsCreateModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
@@ -646,7 +650,8 @@ export const AppointmentsView = ({ onNotify }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

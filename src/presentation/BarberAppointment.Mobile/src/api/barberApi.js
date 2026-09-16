@@ -176,20 +176,6 @@ export const statsApi = {
   }
 };
 
-// Geriye dönük uyumluluk için barberApi alias'ı korunuyor
-export const barberApi = {
-  getServices: servicesApi.getAll,
-  getEmployees: employeesApi.getAll,
-  getEmployeesByService: employeesApi.getByService,
-  getEmployeesByServices: employeesApi.getByServices,
-  getAvailableSlots: appointmentsApi.getAvailableSlots,
-  getMyAppointments: appointmentsApi.getMy,
-  getAllAppointments: appointmentsApi.getAll,
-  createAppointment: appointmentsApi.create,
-  completeAppointment: appointmentsApi.complete,
-  cancelAppointment: appointmentsApi.cancel
-};
-
 export const smsApi = {
   sendCode: async (phoneNumber) => {
     return await client.post('/api/sms/send-code', { phoneNumber });
@@ -207,3 +193,64 @@ export const smsApi = {
     return await client.post('/api/sms/verify-and-book', { phoneNumber, code, appointment });
   }
 };
+
+export const leaveApi = {
+  getAll: async (params = {}) => {
+    const query = [];
+    if (params.employeeId) query.push(`employeeId=${encodeURIComponent(params.employeeId)}`);
+    if (params.status !== undefined && params.status !== '') query.push(`status=${encodeURIComponent(params.status)}`);
+    if (params.fromDate) query.push(`fromDate=${encodeURIComponent(params.fromDate)}`);
+    if (params.toDate) query.push(`toDate=${encodeURIComponent(params.toDate)}`);
+    const qs = query.join('&');
+    return await client.get(`/api/employee-leaves${qs ? `?${qs}` : ''}`);
+  },
+  getMyLeaves: async () => {
+    return await client.get('/api/employee-leaves/my-leaves');
+  },
+  getById: async (id) => {
+    return await client.get(`/api/employee-leaves/${id}`);
+  },
+  create: async (data) => {
+    return await client.post('/api/employee-leaves', data);
+  },
+  approve: async (id, adminNote = null) => {
+    return await client.put(`/api/employee-leaves/${id}/approve`, { adminNote });
+  },
+  reject: async (id, adminNote = null) => {
+    return await client.put(`/api/employee-leaves/${id}/reject`, { adminNote });
+  },
+  cancel: async (id, reason = null) => {
+    return await client.put(`/api/employee-leaves/${id}/cancel`, reason ? { reason } : {});
+  }
+};
+
+export const usersApi = {
+  getAll: async () => {
+    return await client.get('/api/users');
+  },
+  getById: async (id) => {
+    return await client.get(`/api/users/${id}`);
+  }
+};
+
+// Geriye dönük uyumluluk için barberApi alias'ı korunuyor
+export const barberApi = {
+  getServices: servicesApi.getAll,
+  getEmployees: employeesApi.getAll,
+  getEmployeesByService: employeesApi.getByService,
+  getEmployeesByServices: employeesApi.getByServices,
+  getAvailableSlots: appointmentsApi.getAvailableSlots,
+  getMyAppointments: appointmentsApi.getMy,
+  getAllAppointments: appointmentsApi.getAll,
+  createAppointment: appointmentsApi.create,
+  completeAppointment: appointmentsApi.complete,
+  cancelAppointment: appointmentsApi.cancel,
+  getLeaves: leaveApi.getAll,
+  getMyLeaves: leaveApi.getMyLeaves,
+  createLeave: leaveApi.create,
+  approveLeave: leaveApi.approve,
+  rejectLeave: leaveApi.reject,
+  cancelLeave: leaveApi.cancel,
+  getUsers: usersApi.getAll
+};
+

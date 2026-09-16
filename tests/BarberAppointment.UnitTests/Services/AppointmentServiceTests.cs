@@ -21,6 +21,7 @@ public class AppointmentServiceTests
     private readonly Mock<IUserRepository> _userRepoMock;
     private readonly Mock<IEmployeeRepository> _employeeRepoMock;
     private readonly Mock<IServiceRepository> _serviceRepoMock;
+    private readonly Mock<IEmployeeLeaveRequestRepository> _employeeLeaveRepoMock;
     private readonly Mock<IDateTimeProvider> _dateTimeProviderMock;
     private readonly Mock<IEmailService> _emailServiceMock;
     private readonly IWorkHoursPolicy _workHoursPolicy;
@@ -36,6 +37,7 @@ public class AppointmentServiceTests
         _userRepoMock = new Mock<IUserRepository>();
         _employeeRepoMock = new Mock<IEmployeeRepository>();
         _serviceRepoMock = new Mock<IServiceRepository>();
+        _employeeLeaveRepoMock = new Mock<IEmployeeLeaveRequestRepository>();
         _dateTimeProviderMock = new Mock<IDateTimeProvider>();
         _emailServiceMock = new Mock<IEmailService>();
 
@@ -43,6 +45,12 @@ public class AppointmentServiceTests
         _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.Employees).Returns(_employeeRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.Services).Returns(_serviceRepoMock.Object);
+        _unitOfWorkMock.Setup(u => u.EmployeeLeaves).Returns(_employeeLeaveRepoMock.Object);
+
+        _employeeLeaveRepoMock.Setup(l => l.GetApprovedLeavesInRangeAsync(It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<EmployeeLeaveRequest>());
+        _employeeLeaveRepoMock.Setup(l => l.HasApprovedLeaveConflictAsync(It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         _dateTimeProviderMock.Setup(d => d.UtcNow).Returns(_baseNow);
         _dateTimeProviderMock.Setup(d => d.Today).Returns(_baseNow.Date);
@@ -484,6 +492,39 @@ public class AppointmentServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WhenDateIsNotInWorkingDays_ThrowsBusinessException()
+    {
+        // Arrange - Pazartesi (1) günü, fakat personel sadece Salı-Cumartesi çalışıyor (2,3,4,5,6)
+        var mondayDate = new DateTime(2026, 6, 8, 11, 0, 0); // Monday
+        _dateTimeProviderMock.Setup(d => d.IsInPast(mondayDate)).Returns(false);
+        _dateTimeProviderMock.Setup(d => d.TurkeyNow).Returns(new DateTime(2026, 6, 1, 9, 0, 0));
+
+        var dto = new CreateAppointmentDto
+        {
+            UserId = 1,
+            EmployeeId = 1,
+            ServiceId = 1,
+            StartAt = mondayDate
+        };
+
+        var user = CreateValidUser(1);
+        var service = CreateValidService(1, 30);
+        var employee = CreateValidEmployee(1, 1);
+        employee.WorkingDays = "2,3,4,5,6"; // Salı-Cumartesi
+
+        _userRepoMock.Setup(u => u.GetByIdAsync(dto.UserId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _serviceRepoMock.Setup(s => s.GetByIdAsync(dto.ServiceId, It.IsAny<CancellationToken>())).ReturnsAsync(service);
+        _employeeRepoMock.Setup(e => e.GetByIdWithServicesAsync(dto.EmployeeId, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+
+        // Act
+        Func<Task> act = async () => await _sut.CreateAsync(dto);
+
+        // Assert
+        var exception = await act.Should().ThrowAsync<BusinessException>();
+        exception.WithMessage("*izinlidir*");
+    }
+
+    [Fact]
     public async Task CancelAsync_WhenAppointmentAlreadyCancelled_ThrowsBusinessException()
     {
         // Arrange
@@ -588,6 +629,84 @@ public class AppointmentServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Should().OnlyContain(slot => slot.StartAt > new DateTime(2026, 6, 10, 11, 0, 0));
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenDateFallsIntoApprovedLeave_ThrowsBusinessException()
+    {
+        // Arrange
+        var user = CreateValidUser(1);
+        var employee = CreateValidEmployee(1, 1);
+        var service = CreateValidService(1, 30);
+
+        _userRepoMock.Setup(u => u.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _employeeRepoMock.Setup(e => e.GetByIdWithServicesAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+        _serviceRepoMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(service);
+        _serviceRepoMock.Setup(s => s.GetByIdsAsync(It.IsAny<IEnumerable<int>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Service> { service });
+
+        // Has approved leave conflict
+        _employeeLeaveRepoMock.Setup(l => l.HasApprovedLeaveConflictAsync(1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var dto = new CreateAppointmentDto
+        {
+            UserId = 1,
+            EmployeeId = 1,
+            ServiceId = 1,
+            StartAt = new DateTime(2026, 6, 11, 14, 0, 0) // Thursday 14:00
+        };
+
+        // Act
+        Func<Task> act = () => _sut.CreateAsync(dto, 1, false);
+
+        // Assert
+        await act.Should().ThrowAsync<BusinessException>()
+            .WithMessage("*izinlidir*");
+    }
+
+    [Fact]
+    public async Task GetAvailableSlotsAsync_WhenApprovedLeaveExists_ExcludesOverlappingSlots()
+    {
+        // Arrange
+        var employee = CreateValidEmployee(1, 1);
+        var service = CreateValidService(1, 30);
+        var targetDate = new DateTime(2026, 6, 12); // Friday
+
+        _employeeRepoMock.Setup(e => e.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(employee);
+        _serviceRepoMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(service);
+        _appointmentRepoMock.Setup(a => a.GetByEmployeeAndDateRangeAsync(1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Appointment>());
+
+        // Personel 14:00 - 16:00 arası onaylı izinli
+        var leave = new EmployeeLeaveRequest
+        {
+            EmployeeId = 1,
+            StartDate = targetDate.AddHours(14),
+            EndDate = targetDate.AddHours(16),
+            Status = LeaveRequestStatus.Approved
+        };
+
+        _employeeLeaveRepoMock.Setup(l => l.GetApprovedLeavesInRangeAsync(1, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<EmployeeLeaveRequest> { leave });
+
+        var query = new AvailableSlotsQueryDto
+        {
+            EmployeeId = 1,
+            ServiceId = 1,
+            Date = targetDate
+        };
+
+        // Act
+        var result = await _sut.GetAvailableSlotsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        // 14:00, 14:30, 15:00, 15:30 saatleri slotlarda OLMAMALI
+        result.Should().NotContain(slot => slot.StartAt >= targetDate.AddHours(14) && slot.StartAt < targetDate.AddHours(16));
+        // 13:00 veya 16:00 gibi izin dışı slotlar bulunmalı
+        result.Should().Contain(slot => slot.StartAt == targetDate.AddHours(13));
+        result.Should().Contain(slot => slot.StartAt == targetDate.AddHours(16));
     }
 }
 

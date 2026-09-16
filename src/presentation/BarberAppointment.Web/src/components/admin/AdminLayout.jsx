@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Scissors, Users, Calendar, Sparkles, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { LayoutDashboard, Scissors, Users, Calendar, Sparkles, CheckCircle2, AlertCircle, X, CalendarOff } from 'lucide-react';
 import { DashboardView } from './DashboardView';
 import { ServicesView } from './ServicesView';
 import { EmployeesView } from './EmployeesView';
 import { AppointmentsView } from './AppointmentsView';
+import { LeaveRequestsView } from './LeaveRequestsView';
 import { useAuth } from '../../context/AuthContext';
 
 export const AdminLayout = ({ activeTab: propActiveTab, setActiveTab: propSetActiveTab }) => {
   const { user, roleName } = useAuth();
-  const [internalActiveTab, setInternalActiveTab] = useState('dashboard'); // 'dashboard' | 'services' | 'employees' | 'appointments'
+  const [internalActiveTab, setInternalActiveTab] = useState('dashboard'); // 'dashboard' | 'services' | 'employees' | 'appointments' | 'leaves'
   const activeTab = propActiveTab !== undefined ? propActiveTab : internalActiveTab;
   const setActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setInternalActiveTab;
   
@@ -29,6 +30,7 @@ export const AdminLayout = ({ activeTab: propActiveTab, setActiveTab: propSetAct
     { id: 'services', label: 'Hizmetler', icon: Scissors },
     ...(isAdmin ? [{ id: 'employees', label: 'Personeller', icon: Users }] : []),
     { id: 'appointments', label: 'Randevular', icon: Calendar },
+    { id: 'leaves', label: isAdmin ? 'İzin Talepleri' : 'İzin Taleplerim', icon: CalendarOff },
   ];
 
   return (
@@ -140,6 +142,9 @@ export const AdminLayout = ({ activeTab: propActiveTab, setActiveTab: propSetAct
         )}
         {activeTab === 'appointments' && (
           <AppointmentsView onNotify={showNotification} />
+        )}
+        {activeTab === 'leaves' && (
+          <LeaveRequestsView onNotify={showNotification} />
         )}
       </div>
     </div>

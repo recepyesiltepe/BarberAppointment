@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { barberApi, smsApi } from '../api/barberApi';
 import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../utils/phoneUtils';
 
-export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
+export const BookingScreen = ({ onBookingComplete, onCancelFlow, initialParams }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { user, updateUser } = useAuth();
@@ -238,20 +238,26 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
       setError('Lütfen randevu almak için en az bir hizmet seçiniz.');
       return;
     }
-    setSelectedEmployee(null);
-    setSelectedSlot(null);
     setError(null);
     setLoading(true);
 
     try {
       const serviceIds = selectedServices.map(s => s.id);
       const res = await barberApi.getEmployeesByServices(serviceIds);
-      if (res.success && res.data) {
-        setEmployees(res.data);
+      const availableEmps = res.success && res.data ? res.data : [];
+      setEmployees(availableEmps);
+
+      if (selectedEmployee && availableEmps.some(e => e.id === selectedEmployee.id)) {
+        setSelectedSlot(null);
+        const initialDate = datesList[0].iso;
+        setSelectedDate(initialDate);
+        fetchSlots(selectedEmployee.id, serviceIds, initialDate);
+        setCurrentStep(3);
       } else {
-        setEmployees([]);
+        setSelectedEmployee(null);
+        setSelectedSlot(null);
+        setCurrentStep(2);
       }
-      setCurrentStep(2);
     } catch (err) {
       setError('Personeller getirilemedi: ' + err.message);
     } finally {
@@ -292,6 +298,51 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
       setLoadingSlots(false);
     }
   };
+
+  // Dışarıdan veya Ana Sayfadan Gelen Ön Seçim (initialParams) Yönetimi
+  useEffect(() => {
+    if (!initialParams) return;
+    const { employee, service } = initialParams;
+
+    if (employee && service) {
+      setSelectedServices([service]);
+      setSelectedEmployee(employee);
+      setSelectedSlot(null);
+      setError(null);
+      const initialDate = datesList[0].iso;
+      setSelectedDate(initialDate);
+      fetchSlots(employee.id, [service.id], initialDate);
+      setCurrentStep(3);
+    } else if (service) {
+      setSelectedServices([service]);
+      setSelectedEmployee(null);
+      setSelectedSlot(null);
+      setError(null);
+      // Bu hizmeti veren kuaförleri getir ve 2. adıma geç
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await barberApi.getEmployeesByServices([service.id]);
+          if (res.success && res.data) {
+            setEmployees(res.data);
+          } else {
+            setEmployees([]);
+          }
+          setCurrentStep(2);
+        } catch (err) {
+          setError('Personeller getirilemedi: ' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    } else if (employee) {
+      setSelectedEmployee(employee);
+      setSelectedServices([]);
+      setSelectedSlot(null);
+      setError(null);
+      setCurrentStep(1);
+    }
+  }, [initialParams]);
 
   const handleDateChange = (dateIso) => {
     setSelectedDate(dateIso);

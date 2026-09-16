@@ -35,6 +35,10 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(e => e.WeeklyOffDay)
             .IsRequired(false);
 
+        builder.Property(e => e.WorkingDays)
+            .HasMaxLength(50)
+            .IsRequired(false);
+
         builder.Property(e => e.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

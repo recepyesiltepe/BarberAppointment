@@ -6,11 +6,36 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Modal
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { barberApi, statsApi } from '../api/barberApi';
+
+const DAYS_OF_WEEK = [
+  { key: 1, label: 'Pzt' },
+  { key: 2, label: 'Sal' },
+  { key: 3, label: 'Çar' },
+  { key: 4, label: 'Per' },
+  { key: 5, label: 'Cum' },
+  { key: 6, label: 'Cmt' },
+  { key: 0, label: 'Paz' },
+];
+
+const formatWorkingDays = (workingDaysStr) => {
+  if (!workingDaysStr) return 'Haftanın her günü';
+  const days = workingDaysStr.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+  if (days.length === 7) return 'Haftanın 7 Günü';
+  if (days.length === 0) return 'Belirtilmemiş';
+  return days
+    .sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+    .map(d => {
+      const match = DAYS_OF_WEEK.find(item => item.key === d);
+      return match ? match.label : d;
+    })
+    .join(', ');
+};
 
 export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
   const { colors } = useTheme();
@@ -24,6 +49,7 @@ export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedBarberModal, setSelectedBarberModal] = useState(null);
 
   const loadData = async () => {
     try {
@@ -182,13 +208,23 @@ export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
           <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
         ) : (
           services.map((s) => (
-            <View key={s.id} style={styles.listItem}>
+            <TouchableOpacity
+              key={s.id}
+              style={styles.listItem}
+              onPress={() => isCustomer && onNavigateBooking && onNavigateBooking({ service: s })}
+              activeOpacity={isCustomer ? 0.7 : 1}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemTitle}>{s.name}</Text>
                 <Text style={styles.itemSubtitle}>⏱ {s.durationMinutes} dakika</Text>
               </View>
-              <Text style={styles.itemPrice}>{s.price} ₺</Text>
-            </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.itemPrice}>{s.price} ₺</Text>
+                {isCustomer && (
+                  <Text style={{ fontSize: 10, color: colors.primary, fontWeight: '700', marginTop: 2 }}>Randevu Al ›</Text>
+                )}
+              </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
@@ -200,21 +236,161 @@ export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
           <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
         ) : (
           employees.map((emp) => (
-            <View key={emp.id} style={styles.listItem}>
+            <TouchableOpacity
+              key={emp.id}
+              style={styles.listItem}
+              onPress={() => setSelectedBarberModal(emp)}
+              activeOpacity={0.7}
+            >
               <View style={styles.staffAvatar}>
                 <Text style={styles.staffAvatarText}>{emp.fullName?.charAt(0)}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.itemTitle}>{emp.fullName}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.itemTitle}>{emp.fullName}</Text>
+                  {emp.services && emp.services.length > 0 && (
+                    <View style={styles.serviceCountBadge}>
+                      <Text style={styles.serviceCountBadgeText}>{emp.services.length} Hizmet</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.itemSubtitle, { color: colors.info }]}>{emp.title || 'Usta Kuaför'}</Text>
               </View>
-              <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>Aktif</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '600' }}>İncele</Text>
+                <Text style={{ fontSize: 16, color: colors.textMuted, fontWeight: '700' }}>›</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>
+
+      {/* Berber Detay Modalı */}
+      <Modal
+        visible={!!selectedBarberModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSelectedBarberModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.bgCard }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                <View style={styles.barberModalAvatar}>
+                  <Text style={styles.barberModalAvatarText}>
+                    {selectedBarberModal?.fullName?.charAt(0)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>{selectedBarberModal?.fullName}</Text>
+                  <Text style={{ fontSize: 12, color: colors.info, fontWeight: '600', marginTop: 2 }}>
+                    {selectedBarberModal?.title || 'Usta Kuaför'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSelectedBarberModal(null)}
+                style={styles.modalCloseBtn}
+              >
+                <Text style={{ fontSize: 18, color: colors.textMuted }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sub-info Bar: Çalışma Saatleri ve Günleri */}
+            <View style={styles.barberSubInfoBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 12 }}>⏰</Text>
+                <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>
+                  Mesai: {selectedBarberModal?.workStartTime ? selectedBarberModal.workStartTime.substring(0, 5) : '09:00'} - {selectedBarberModal?.workEndTime ? selectedBarberModal.workEndTime.substring(0, 5) : '19:00'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <Text style={{ fontSize: 12 }}>📅</Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                  Çalışma Günleri: <Text style={{ color: colors.primary, fontWeight: '600' }}>{formatWorkingDays(selectedBarberModal?.workingDays)}</Text>
+                </Text>
+              </View>
+            </View>
+
+            {/* Verdiği Hizmetler */}
+            <View style={{ paddingVertical: 12, flexShrink: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 }}>
+                ✂️ Verdiği Hizmetler ({selectedBarberModal?.services?.length || 0})
+              </Text>
+
+              <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                {(!selectedBarberModal?.services || selectedBarberModal.services.length === 0) ? (
+                  <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic', paddingVertical: 16, textAlign: 'center' }}>
+                    Bu personel salonun tüm standart hizmetlerini verebilmektedir.
+                  </Text>
+                ) : (
+                  selectedBarberModal.services.map((srv) => (
+                    <View key={srv.id} style={styles.barberServiceItem}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
+                            {srv.name}
+                          </Text>
+                          {srv.isComposite && (
+                            <View style={styles.packageTag}>
+                              <Text style={styles.packageTagText}>Paket</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                          ⏱ {srv.durationMinutes} dk
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: colors.primary }}>
+                          {srv.price} ₺
+                        </Text>
+                        {isCustomer && (
+                          <TouchableOpacity
+                            style={styles.selectSrvBtn}
+                            onPress={() => {
+                              const emp = selectedBarberModal;
+                              setSelectedBarberModal(null);
+                              onNavigateBooking && onNavigateBooking({ employee: emp, service: srv });
+                            }}
+                          >
+                            <Text style={styles.selectSrvBtnText}>Seç & Randevu Al</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setSelectedBarberModal(null)}
+              >
+                <Text style={styles.closeBtnText}>Kapat</Text>
+              </TouchableOpacity>
+
+              {isCustomer && (
+                <TouchableOpacity
+                  style={styles.bookBarberBtn}
+                  onPress={() => {
+                    const emp = selectedBarberModal;
+                    setSelectedBarberModal(null);
+                    onNavigateBooking && onNavigateBooking({ employee: emp });
+                  }}
+                >
+                  <Text style={styles.bookBarberBtnText}>✂️ Bu Kuaförle Randevu Al</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -390,5 +566,135 @@ const createStyles = (colors) =>
       color: colors.success,
       fontSize: 10,
       fontWeight: '700'
+    },
+    serviceCountBadge: {
+      backgroundColor: 'rgba(56, 189, 248, 0.15)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(56, 189, 248, 0.3)'
+    },
+    serviceCountBadgeText: {
+      color: colors.info,
+      fontSize: 10,
+      fontWeight: '700'
+    },
+    // Berber Modal Stilleri
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'flex-end'
+    },
+    modalCard: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 20,
+      maxHeight: '85%'
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border
+    },
+    barberModalAvatar: {
+      width: 46,
+      height: 46,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    barberModalAvatarText: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: '#000'
+    },
+    modalTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: colors.textPrimary
+    },
+    modalCloseBtn: {
+      padding: 6
+    },
+    barberSubInfoBar: {
+      backgroundColor: colors.bgMain,
+      padding: 12,
+      borderRadius: 12,
+      marginTop: 12,
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    barberServiceItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      backgroundColor: colors.bgMain,
+      borderRadius: 10,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    packageTag: {
+      backgroundColor: '#7c3aed',
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 4
+    },
+    packageTagText: {
+      fontSize: 9,
+      color: '#fff',
+      fontWeight: '700'
+    },
+    selectSrvBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8
+    },
+    selectSrvBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: '#000'
+    },
+    modalFooter: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border
+    },
+    closeBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border
+    },
+    closeBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textSecondary
+    },
+    bookBarberBtn: {
+      flex: 2,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderRadius: 10,
+      backgroundColor: colors.primary
+    },
+    bookBarberBtnText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#000'
     }
   });

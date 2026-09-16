@@ -174,7 +174,7 @@ public class AuthService : IAuthService
             ExpiresIn = expiresIn,
             RefreshToken = refreshToken,
             RefreshTokenExpiresAt = user.RefreshTokenExpiresAt,
-            User = MapToProfileDto(user),
+            User = MapToProfileDto(user, employeeId),
             RequiresEmailVerification = false
         };
     }
@@ -187,7 +187,15 @@ public class AuthService : IAuthService
             throw new NotFoundException($"ID: {userId} olan kullanıcı bulunamadı.");
         }
 
-        return MapToProfileDto(user);
+        int? employeeId = null;
+        if (user.Role == Core.Enums.UserRole.Employee)
+        {
+            var employees = await _unitOfWork.Employees.GetAllAsync(cancellationToken);
+            var emp = employees.FirstOrDefault(e => e.UserId == user.Id);
+            employeeId = emp?.Id;
+        }
+
+        return MapToProfileDto(user, employeeId);
     }
 
     public async Task<SmsVerificationResultDto> SendProfileOtpAsync(int userId, string? fullName, string? phone, CancellationToken cancellationToken = default)
@@ -644,7 +652,7 @@ public class AuthService : IAuthService
             ExpiresIn = expiresIn,
             RefreshToken = newRefreshToken,
             RefreshTokenExpiresAt = user.RefreshTokenExpiresAt,
-            User = MapToProfileDto(user),
+            User = MapToProfileDto(user, employeeId),
             RequiresEmailVerification = false
         };
     }
@@ -673,7 +681,7 @@ public class AuthService : IAuthService
         }
     }
 
-    private static UserProfileDto MapToProfileDto(User u) => new()
+    private static UserProfileDto MapToProfileDto(User u, int? employeeId = null) => new()
     {
         Id = u.Id,
         FullName = u.FullName,
@@ -688,6 +696,7 @@ public class AuthService : IAuthService
         },
         IsPhoneVerified = u.IsPhoneVerified,
         IsEmailVerified = u.IsEmailVerified,
-        MemberSince = u.CreatedAt
+        MemberSince = u.CreatedAt,
+        EmployeeId = employeeId ?? u.Employee?.Id
     };
 }

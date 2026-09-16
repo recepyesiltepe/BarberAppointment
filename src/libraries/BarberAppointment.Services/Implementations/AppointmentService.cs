@@ -205,9 +205,20 @@ public class AppointmentService : IAppointmentService
         var totalDuration = services.Sum(s => s.DurationMinutes);
         var endAt = dto.StartAt.AddMinutes(totalDuration);
 
-        // 6.1. Personel izin günü kontrolü
-        if (employee.WeeklyOffDay.HasValue && dto.StartAt.DayOfWeek == employee.WeeklyOffDay.Value)
-            throw new BusinessException($"'{employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir.");
+        // 6.1. Personel çalışma günü kontrolü
+        if (!employee.IsWorkingOn(dto.StartAt.DayOfWeek))
+            throw new BusinessException($"'{employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir (çalışmamaktadır).");
+
+        // 6.2. Personel onaylı izin kontrolü
+        if (_unitOfWork.EmployeeLeaves != null)
+        {
+            var hasLeaveConflict = await _unitOfWork.EmployeeLeaves.HasApprovedLeaveConflictAsync(
+                dto.EmployeeId, dto.StartAt, endAt, cancellationToken: cancellationToken);
+            if (hasLeaveConflict)
+            {
+                throw new BusinessException($"'{employee.FullName}' personeli seçilen tarih ve saatte izinlidir.");
+            }
+        }
 
         // 7. İş Kuralı: Çalışma saatleri politikası kontrolü (Personel mesaisi ve Salon politikası)
         var empWorkStart = employee.WorkStartTime != default ? employee.WorkStartTime : _workHoursPolicy.WorkDayStart;
@@ -344,9 +355,20 @@ public class AppointmentService : IAppointmentService
         var serviceDuration = appointment.Service!.DurationMinutes;
         var newEndAt = dto.StartAt.AddMinutes(serviceDuration);
 
-        // Personel haftalık izin günü kontrolü
-        if (appointment.Employee.WeeklyOffDay.HasValue && dto.StartAt.DayOfWeek == appointment.Employee.WeeklyOffDay.Value)
-            throw new BusinessException($"'{appointment.Employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir.");
+        // Personel çalışma günü kontrolü
+        if (!appointment.Employee.IsWorkingOn(dto.StartAt.DayOfWeek))
+            throw new BusinessException($"'{appointment.Employee.FullName}' personeli {dto.StartAt:dddd} günleri izinlidir (çalışmamaktadır).");
+
+        // Personel onaylı izin kontrolü
+        if (_unitOfWork.EmployeeLeaves != null)
+        {
+            var hasLeaveConflict = await _unitOfWork.EmployeeLeaves.HasApprovedLeaveConflictAsync(
+                appointment.EmployeeId, dto.StartAt, newEndAt, cancellationToken: cancellationToken);
+            if (hasLeaveConflict)
+            {
+                throw new BusinessException($"'{appointment.Employee.FullName}' personeli seçilen tarih ve saatte izinlidir.");
+            }
+        }
 
         // Çalışma saatleri politikası kontrolü (Personel mesaisi ve Salon politikası)
         var empWorkStart = appointment.Employee.WorkStartTime != default ? appointment.Employee.WorkStartTime : _workHoursPolicy.WorkDayStart;
@@ -562,8 +584,8 @@ public class AppointmentService : IAppointmentService
 
         var targetDate = DateTime.SpecifyKind(query.Date.Date, DateTimeKind.Unspecified);
 
-        // 1. Personel haftalık izin günü kontrolü (İzinliyse slot üretilmez)
-        if (employee.WeeklyOffDay.HasValue && targetDate.DayOfWeek == employee.WeeklyOffDay.Value)
+        // 1. Personel haftalık çalışma günü kontrolü (Çalışmadığı günlerde slot üretilmez)
+        if (!employee.IsWorkingOn(targetDate.DayOfWeek))
         {
             return Array.Empty<AvailableSlotDto>();
         }
@@ -579,6 +601,18 @@ public class AppointmentService : IAppointmentService
         var existingAppointments = await _unitOfWork.Appointments
             .GetByEmployeeAndDateRangeAsync(query.EmployeeId, dayStart, dayEnd, cancellationToken);
 
+        // O günkü onaylı personel izinlerini al
+        IReadOnlyList<EmployeeLeaveRequest> approvedLeaves = Array.Empty<EmployeeLeaveRequest>();
+        if (_unitOfWork.EmployeeLeaves != null)
+        {
+            var leavesFromDb = await _unitOfWork.EmployeeLeaves.GetApprovedLeavesInRangeAsync(
+                query.EmployeeId, dayStart, dayEnd, cancellationToken);
+            if (leavesFromDb != null)
+            {
+                approvedLeaves = leavesFromDb;
+            }
+        }
+
         var slots = new List<AvailableSlotDto>();
         var slotStep = (slotDuration > 0 && slotDuration < 30) ? slotDuration : 30;
         var cursor = dayStart;
@@ -593,9 +627,10 @@ public class AppointmentService : IAppointmentService
                 continue;
             }
 
-            // 4. Bu slot herhangi bir mevcut randevuyla çakışıyor mu? (Dolu slotlar listelenmemeli)
+            // 4. Bu slot herhangi bir mevcut randevuyla veya onaylı izinle çakışıyor mu? (Dolu / izinli slotlar listelenmemeli)
             var isOccupied = existingAppointments.Any(a =>
-                cursor < a.EndAt && slotEnd > a.StartAt);
+                cursor < a.EndAt && slotEnd > a.StartAt) ||
+                approvedLeaves.Any(l => cursor < l.EndDate && slotEnd > l.StartDate);
 
             if (!isOccupied)
             {

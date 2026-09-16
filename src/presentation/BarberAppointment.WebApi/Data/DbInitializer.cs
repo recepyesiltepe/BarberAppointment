@@ -143,6 +143,29 @@ public static class DbInitializer
                         CREATE INDEX IX_AppointmentServiceItems_ServiceId ON dbo.AppointmentServiceItems(ServiceId);
                     END");
 
+                await context.Database.ExecuteSqlRawAsync(@"
+                    IF OBJECT_ID(N'dbo.EmployeeLeaveRequests', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.EmployeeLeaveRequests (
+                            Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            EmployeeId INT NOT NULL,
+                            StartDate DATETIME2(0) NOT NULL,
+                            EndDate DATETIME2(0) NOT NULL,
+                            Reason NVARCHAR(500) NULL,
+                            Status TINYINT NOT NULL DEFAULT (0),
+                            AdminNote NVARCHAR(500) NULL,
+                            ReviewedByUserId INT NULL,
+                            ReviewedAt DATETIME2 NULL,
+                            IsActive BIT NOT NULL DEFAULT (1),
+                            CreatedAt DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+                            UpdatedAt DATETIME2 NULL,
+                            CONSTRAINT FK_EmployeeLeaveRequests_Employees FOREIGN KEY (EmployeeId) REFERENCES dbo.Employees (Id) ON DELETE CASCADE,
+                            CONSTRAINT FK_EmployeeLeaveRequests_Users FOREIGN KEY (ReviewedByUserId) REFERENCES dbo.Users (Id) ON DELETE NO ACTION
+                        );
+                        CREATE INDEX IX_EmployeeLeaveRequests_Employee_Status ON dbo.EmployeeLeaveRequests(EmployeeId, Status);
+                        CREATE INDEX IX_EmployeeLeaveRequests_Dates ON dbo.EmployeeLeaveRequests(StartDate, EndDate);
+                    END");
+
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PendingPasswordHash') BEGIN ALTER TABLE dbo.Users ADD PendingPasswordHash VARBINARY(64) NULL; END");
@@ -170,6 +193,9 @@ public static class DbInitializer
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Employees', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Employees') AND name = 'WeeklyOffDay') BEGIN ALTER TABLE dbo.Employees ADD WeeklyOffDay INT NULL; END");
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "IF OBJECT_ID(N'dbo.Employees', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Employees') AND name = 'WorkingDays') BEGIN ALTER TABLE dbo.Employees ADD WorkingDays NVARCHAR(50) NULL; END");
             }
             catch (Exception ex)
             {

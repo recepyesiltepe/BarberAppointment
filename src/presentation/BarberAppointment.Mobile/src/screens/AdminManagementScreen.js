@@ -15,12 +15,39 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { servicesApi, employeesApi } from '../api/barberApi';
+import { LeaveRequestsScreen } from './LeaveRequestsScreen';
+
+const DAYS_OF_WEEK = [
+  { id: 1, label: 'Pzt', fullLabel: 'Pazartesi' },
+  { id: 2, label: 'Sal', fullLabel: 'Salı' },
+  { id: 3, label: 'Çar', fullLabel: 'Çarşamba' },
+  { id: 4, label: 'Per', fullLabel: 'Perşembe' },
+  { id: 5, label: 'Cum', fullLabel: 'Cuma' },
+  { id: 6, label: 'Cmt', fullLabel: 'Cumartesi' },
+  { id: 0, label: 'Paz', fullLabel: 'Pazar' }
+];
+
+const getOffDaysText = (workingDays) => {
+  let list = [1, 2, 3, 4, 5, 6];
+  if (Array.isArray(workingDays)) {
+    list = workingDays;
+  } else if (typeof workingDays === 'string') {
+    try { list = JSON.parse(workingDays); } catch (e) {
+      list = workingDays.split(',').map(Number).filter(n => !isNaN(n));
+    }
+  }
+  const allDays = [1, 2, 3, 4, 5, 6, 0];
+  const off = allDays.filter(d => !list.includes(d));
+  if (off.length === 0) return 'Yok (7 Gün)';
+  const dayNames = { 1: 'Pzt', 2: 'Sal', 3: 'Çar', 4: 'Per', 5: 'Cum', 6: 'Cmt', 0: 'Paz' };
+  return off.map(d => dayNames[d]).join(', ');
+};
 
 export const AdminManagementScreen = () => {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [activeSection, setActiveSection] = useState('services'); // 'services' | 'employees'
+  const [activeSection, setActiveSection] = useState('services'); // 'services' | 'employees' | 'leaves'
 
   // Hizmetler State
   const [services, setServices] = useState([]);
@@ -53,7 +80,18 @@ export const AdminManagementScreen = () => {
   const [empTitle, setEmpTitle] = useState('Kuaför & Stilist');
   const [empIsActive, setEmpIsActive] = useState(true);
   const [empSelectedServiceIds, setEmpSelectedServiceIds] = useState([]);
+  const [empWorkStartTime, setEmpWorkStartTime] = useState('09:00');
+  const [empWorkEndTime, setEmpWorkEndTime] = useState('19:00');
+  const [empWorkingDays, setEmpWorkingDays] = useState([1, 2, 3, 4, 5, 6]);
   const [employeeSubmitting, setEmployeeSubmitting] = useState(false);
+
+  const handleToggleWorkingDay = (dayId) => {
+    setEmpWorkingDays(prev =>
+      prev.includes(dayId)
+        ? (prev.length > 1 ? prev.filter(d => d !== dayId) : prev)
+        : [...prev, dayId].sort()
+    );
+  };
 
   const fetchServices = async () => {
     try {
@@ -241,6 +279,9 @@ export const AdminManagementScreen = () => {
     setEmpTitle('Kuaför & Stilist');
     setEmpIsActive(true);
     setEmpSelectedServiceIds([]);
+    setEmpWorkStartTime('09:00');
+    setEmpWorkEndTime('19:00');
+    setEmpWorkingDays([1, 2, 3, 4, 5, 6]);
     setIsEmployeeModalOpen(true);
   };
 
@@ -249,6 +290,19 @@ export const AdminManagementScreen = () => {
     setEmpFullName(emp.fullName || '');
     setEmpTitle(emp.title || '');
     setEmpIsActive(emp.isActive ?? true);
+    setEmpWorkStartTime(emp.workStartTime || '09:00');
+    setEmpWorkEndTime(emp.workEndTime || '19:00');
+    let days = [1, 2, 3, 4, 5, 6];
+    if (Array.isArray(emp.workingDays)) {
+      days = emp.workingDays;
+    } else if (typeof emp.workingDays === 'string') {
+      try {
+        days = JSON.parse(emp.workingDays);
+      } catch (e) {
+        days = emp.workingDays.split(',').map(Number).filter(n => !isNaN(n));
+      }
+    }
+    setEmpWorkingDays(days && days.length > 0 ? days : [1, 2, 3, 4, 5, 6]);
     const assignedIds = emp.services ? emp.services.map((s) => s.id) : [];
     setEmpSelectedServiceIds(assignedIds);
     setIsEmployeeModalOpen(true);
@@ -295,13 +349,18 @@ export const AdminManagementScreen = () => {
 
     setEmployeeSubmitting(true);
     try {
+      const payload = {
+        fullName: empFullName.trim(),
+        title: empTitle.trim() || 'Kuaför & Stilist',
+        isActive: empIsActive,
+        workStartTime: empWorkStartTime.trim() || '09:00',
+        workEndTime: empWorkEndTime.trim() || '19:00',
+        workingDays: empWorkingDays && empWorkingDays.length > 0 ? empWorkingDays : [1, 2, 3, 4, 5, 6]
+      };
+
       if (editingEmployee) {
         // 1. Bilgileri güncelle
-        const res = await employeesApi.update(editingEmployee.id, {
-          fullName: empFullName.trim(),
-          title: empTitle.trim(),
-          isActive: empIsActive
-        });
+        const res = await employeesApi.update(editingEmployee.id, payload);
 
         // 2. Hizmet atamalarını güncelle
         await employeesApi.assignServices(editingEmployee.id, empSelectedServiceIds).catch(() => {});
@@ -313,11 +372,7 @@ export const AdminManagementScreen = () => {
         }
       } else {
         // Yeni personel oluştur
-        const res = await employeesApi.create({
-          fullName: empFullName.trim(),
-          title: empTitle.trim(),
-          isActive: empIsActive
-        });
+        const res = await employeesApi.create(payload);
 
         if (res.success && res.data?.id) {
           if (empSelectedServiceIds.length > 0) {
@@ -371,12 +426,25 @@ export const AdminManagementScreen = () => {
             👥 Personeller ({employees.length})
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segmentButton, activeSection === 'leaves' && styles.segmentButtonActive]}
+          onPress={() => setActiveSection('leaves')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.segmentText, activeSection === 'leaves' && styles.segmentTextActive]}>
+            🏖️ İzinler
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
+      {activeSection === 'leaves' ? (
+        <LeaveRequestsScreen />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        >
         {/* ========================================================================= */}
         {/* HİZMETLER PANELİ */}
         {/* ========================================================================= */}
@@ -554,6 +622,22 @@ export const AdminManagementScreen = () => {
                       </View>
                     </View>
 
+                    {/* Çalışma Saatleri ve İzin Günleri */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4, marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>⏰</Text>
+                        <Text style={{ fontSize: 12, color: colors.textPrimary, fontWeight: '600' }}>
+                          {emp.workStartTime ? emp.workStartTime.substring(0, 5) : '09:00'} - {emp.workEndTime ? emp.workEndTime.substring(0, 5) : '19:00'}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>🏖️</Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                          İzin: <Text style={{ color: colors.primary, fontWeight: '600' }}>{getOffDaysText(emp.workingDays)}</Text>
+                        </Text>
+                      </View>
+                    </View>
+
                     {/* Atanmış Hizmet Etiketleri */}
                     <View style={{ marginVertical: 10 }}>
                       <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4, fontWeight: '600' }}>
@@ -596,6 +680,7 @@ export const AdminManagementScreen = () => {
           </View>
         )}
       </ScrollView>
+      )}
 
       {/* ========================================================================= */}
       {/* HİZMET EKLE / DÜZENLE MODAL */}
@@ -819,6 +904,58 @@ export const AdminManagementScreen = () => {
                   trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="#fff"
                 />
+              </View>
+
+              {/* Çalışma Saatleri */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Mesai Başlangıç</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="09:00"
+                    placeholderTextColor={colors.textMuted}
+                    value={empWorkStartTime}
+                    onChangeText={setEmpWorkStartTime}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Mesai Bitiş</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="19:00"
+                    placeholderTextColor={colors.textMuted}
+                    value={empWorkEndTime}
+                    onChangeText={setEmpWorkEndTime}
+                  />
+                </View>
+              </View>
+
+              {/* Haftalık Çalışma Günleri */}
+              <View style={{ marginTop: 10 }}>
+                <Text style={styles.inputLabel}>Haftalık Çalışma Günleri</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8 }}>
+                  Çalıştığı günleri seçin (seçilmeyen günler haftalık tatil / izinli sayılır):
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {DAYS_OF_WEEK.map((d) => {
+                    const isWorking = empWorkingDays.includes(d.key);
+                    return (
+                      <TouchableOpacity
+                        key={d.key}
+                        style={[
+                          styles.dayChip,
+                          isWorking && styles.dayChipActive
+                        ]}
+                        onPress={() => handleToggleWorkingDay(d.key)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.dayChipText, isWorking && styles.dayChipTextActive]}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
               {/* Hizmet Atama Çoklu Seçim */}
@@ -1177,6 +1314,27 @@ const createStyles = (colors) =>
       fontSize: 13,
       color: '#000',
       fontWeight: '800'
+    },
+    dayChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgMain
+    },
+    dayChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: 'rgba(245, 158, 11, 0.15)'
+    },
+    dayChipText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary
+    },
+    dayChipTextActive: {
+      color: colors.primary,
+      fontWeight: '700'
     }
   });
 

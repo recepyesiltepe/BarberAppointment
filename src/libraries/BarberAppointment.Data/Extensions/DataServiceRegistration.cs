@@ -26,6 +26,7 @@ public static class DataServiceRegistration
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<IServiceRepository, ServiceRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IEmployeeLeaveRequestRepository, EmployeeLeaveRequestRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

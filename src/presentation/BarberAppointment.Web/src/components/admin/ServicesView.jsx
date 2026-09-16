@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Scissors, Plus, Edit2, Trash2, Search, Clock, Check, X, AlertCircle, Sparkles, Package, Layers, Info } from 'lucide-react';
 import { servicesApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 export const ServicesView = ({ onNotify }) => {
   const { user, roleName } = useAuth();
@@ -26,6 +28,8 @@ export const ServicesView = ({ onNotify }) => {
   const [suggestedAutoName, setSuggestedAutoName] = useState('');
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useBodyScrollLock(isModalOpen);
 
   const fetchServices = async () => {
     setLoading(true);
@@ -521,8 +525,8 @@ export const ServicesView = ({ onNotify }) => {
       </div>
 
       {/* Add / Edit Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay">
+      {isModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
           <div className="modal-content" style={{ maxWidth: '580px' }}>
             <div className="modal-header">
               <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
@@ -803,7 +807,8 @@ export const ServicesView = ({ onNotify }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

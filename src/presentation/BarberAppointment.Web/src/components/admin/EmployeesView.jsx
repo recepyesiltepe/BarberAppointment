@@ -1,7 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { User, Plus, Edit2, Trash2, Search, Scissors, Shield, Check, X, AlertCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { User, Plus, Edit2, Trash2, Search, Scissors, Shield, Check, X, AlertCircle, Clock, Calendar } from 'lucide-react';
 import { employeesApi, servicesApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+
+const DAYS_OF_WEEK = [
+  { id: 1, label: 'Pzt', fullLabel: 'Pazartesi' },
+  { id: 2, label: 'Sal', fullLabel: 'Salı' },
+  { id: 3, label: 'Çar', fullLabel: 'Çarşamba' },
+  { id: 4, label: 'Per', fullLabel: 'Perşembe' },
+  { id: 5, label: 'Cum', fullLabel: 'Cuma' },
+  { id: 6, label: 'Cmt', fullLabel: 'Cumartesi' },
+  { id: 0, label: 'Paz', fullLabel: 'Pazar' }
+];
+
+const getOffDaysText = (selectedDays) => {
+  const allDays = [1, 2, 3, 4, 5, 6, 0];
+  const off = allDays.filter(d => !selectedDays.includes(d));
+  if (off.length === 0) return 'Yok (7 Gün)';
+  return off.map(d => DAYS_OF_WEEK.find(item => item.id === d)?.fullLabel).join(', ');
+};
+
+const formatEmployeeDays = (emp) => {
+  let daysList = [];
+  if (emp.workingDays) {
+    daysList = emp.workingDays.split(',').map(Number).filter(n => !isNaN(n));
+  } else if (emp.weeklyOffDay !== null && emp.weeklyOffDay !== undefined) {
+    daysList = [0, 1, 2, 3, 4, 5, 6].filter(d => d !== emp.weeklyOffDay);
+  } else {
+    daysList = [1, 2, 3, 4, 5, 6];
+  }
+
+  if (daysList.length === 7) return 'Haftanın 7 Günü';
+  if (daysList.length === 6 && !daysList.includes(0)) return 'Pzt - Cmt (Pazar İzinli)';
+  if (daysList.length === 5 && !daysList.includes(0) && !daysList.includes(6)) return 'Hafta İçi (5 Gün)';
+  
+  return daysList
+    .sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b))
+    .map(d => DAYS_OF_WEEK.find(item => item.id === d)?.label)
+    .join(', ');
+};
 
 export const EmployeesView = ({ onNotify }) => {
   const { user, roleName } = useAuth();
@@ -17,9 +56,14 @@ export const EmployeesView = ({ onNotify }) => {
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
+  const [workStartTime, setWorkStartTime] = useState('09:00');
+  const [workEndTime, setWorkEndTime] = useState('19:00');
+  const [workingDays, setWorkingDays] = useState([1, 2, 3, 4, 5, 6]);
   const [isActive, setIsActive] = useState(true);
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useBodyScrollLock(isModalOpen);
 
   const fetchData = async () => {
     setLoading(true);
@@ -42,12 +86,28 @@ export const EmployeesView = ({ onNotify }) => {
     fetchData();
   }, []);
 
+  const handleToggleWorkingDay = (dayId) => {
+    setWorkingDays(prev => {
+      if (prev.includes(dayId)) {
+        if (prev.length <= 1) {
+          return prev; // En az bir çalışma günü seçili olmalı
+        }
+        return prev.filter(d => d !== dayId);
+      } else {
+        return [...prev, dayId];
+      }
+    });
+  };
+
   const handleOpenAdd = () => {
     if (!isAdmin) return;
     setEditingEmployee(null);
     setFullName('');
     setTitle('Kuaför & Stilist');
     setSelectedServiceIds([]);
+    setWorkStartTime('09:00');
+    setWorkEndTime('19:00');
+    setWorkingDays([1, 2, 3, 4, 5, 6]);
     setIsActive(true);
     setFormError(null);
     setIsModalOpen(true);
@@ -58,9 +118,20 @@ export const EmployeesView = ({ onNotify }) => {
     setEditingEmployee(emp);
     setFullName(emp.fullName);
     setTitle(emp.title || '');
-    // Eğer serviste atanmış hizmetler varsa
     const assignedIds = emp.services ? emp.services.map(s => s.id) : [];
     setSelectedServiceIds(assignedIds);
+    setWorkStartTime(emp.workStartTime ? emp.workStartTime.slice(0, 5) : '09:00');
+    setWorkEndTime(emp.workEndTime ? emp.workEndTime.slice(0, 5) : '19:00');
+
+    if (emp.workingDays) {
+      const days = emp.workingDays.split(',').map(Number).filter(n => !isNaN(n));
+      setWorkingDays(days.length > 0 ? days : [1, 2, 3, 4, 5, 6]);
+    } else if (emp.weeklyOffDay !== null && emp.weeklyOffDay !== undefined) {
+      setWorkingDays([0, 1, 2, 3, 4, 5, 6].filter(d => d !== emp.weeklyOffDay));
+    } else {
+      setWorkingDays([1, 2, 3, 4, 5, 6]);
+    }
+
     setIsActive(emp.isActive);
     setFormError(null);
     setIsModalOpen(true);
@@ -100,25 +171,47 @@ export const EmployeesView = ({ onNotify }) => {
       return;
     }
 
+    if (!workStartTime || !workEndTime) {
+      setFormError('Lütfen mesai başlangıç ve bitiş saatlerini giriniz.');
+      return;
+    }
+
+    if (workStartTime >= workEndTime) {
+      setFormError('Mesai bitiş saati başlangıç saatinden sonra olmalıdır.');
+      return;
+    }
+
+    if (workingDays.length === 0) {
+      setFormError('Lütfen en az bir çalışma günü seçiniz.');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      const allDays = [0, 1, 2, 3, 4, 5, 6];
+      const offDays = allDays.filter(d => !workingDays.includes(d));
+      const computedWeeklyOffDay = offDays.length > 0 ? offDays[0] : null;
+      const workingDaysStr = workingDays.slice().sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b)).join(',');
+
+      const payload = {
+        fullName: fullName.trim(),
+        title: title.trim(),
+        workStartTime: workStartTime.length === 5 ? workStartTime + ':00' : workStartTime,
+        workEndTime: workEndTime.length === 5 ? workEndTime + ':00' : workEndTime,
+        weeklyOffDay: computedWeeklyOffDay,
+        workingDays: workingDaysStr,
+        serviceIds: selectedServiceIds
+      };
+
       if (editingEmployee) {
-        // Personel ve yetkili olduğu hizmetleri güncelle
         await employeesApi.update(editingEmployee.id, {
-          fullName,
-          title,
-          isActive,
-          serviceIds: selectedServiceIds
+          ...payload,
+          isActive
         });
 
-        if (onNotify) onNotify('Personel bilgileri ve hizmetleri başarıyla güncellendi.', 'success');
+        if (onNotify) onNotify('Personel bilgileri, mesai saatleri ve çalışma günleri güncellendi.', 'success');
       } else {
-        // Yeni personel oluştur
-        await employeesApi.create({
-          fullName,
-          title,
-          serviceIds: selectedServiceIds
-        });
+        await employeesApi.create(payload);
 
         if (onNotify) onNotify('Yeni personel başarıyla eklendi.', 'success');
       }
@@ -199,6 +292,7 @@ export const EmployeesView = ({ onNotify }) => {
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unvan</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verdiği Hizmetler</th>
+                  <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mesai & Günler</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Durum</th>
                   {isAdmin && (
                     <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>İşlemler</th>
@@ -233,7 +327,7 @@ export const EmployeesView = ({ onNotify }) => {
                       {emp.title || 'Usta Kuaför'}
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '320px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '300px' }}>
                         {emp.services && emp.services.length > 0 ? (
                           emp.services.map(s => (
                             <span key={s.id} style={{
@@ -250,6 +344,17 @@ export const EmployeesView = ({ onNotify }) => {
                         ) : (
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hizmet atanmadı</span>
                         )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                          <Clock size={13} color="var(--primary-400)" />
+                          <span>{emp.workStartTime?.slice(0, 5) || '09:00'} - {emp.workEndTime?.slice(0, 5) || '19:00'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {formatEmployeeDays(emp)}
+                        </div>
                       </div>
                     </td>
                     <td style={{ padding: '1rem' }}>
@@ -292,8 +397,8 @@ export const EmployeesView = ({ onNotify }) => {
       </div>
 
       {/* Add / Edit Modal */}
-      {isModalOpen && isAdmin && (
-        <div className="modal-overlay">
+      {isModalOpen && isAdmin && typeof document !== 'undefined' && createPortal(
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
           <div className="modal-content">
             <div className="modal-header">
               <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
@@ -339,6 +444,83 @@ export const EmployeesView = ({ onNotify }) => {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
+                </div>
+
+                {/* Working Hours Interval */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Clock size={14} color="var(--primary-400)" />
+                      <span>Mesai Başlangıç</span>
+                    </label>
+                    <input
+                      type="time"
+                      className="form-input no-icon"
+                      value={workStartTime}
+                      onChange={(e) => setWorkStartTime(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Clock size={14} color="var(--primary-400)" />
+                      <span>Mesai Bitiş</span>
+                    </label>
+                    <input
+                      type="time"
+                      className="form-input no-icon"
+                      value={workEndTime}
+                      onChange={(e) => setWorkEndTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Working Days Selector */}
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Calendar size={14} color="var(--primary-400)" />
+                      <span>Haftalık Çalışma Günleri ({workingDays.length} Gün)</span>
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      İzin: <strong style={{ color: '#f87171' }}>{getOffDaysText(workingDays)}</strong>
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.4rem' }}>
+                    {DAYS_OF_WEEK.map(day => {
+                      const isWorking = workingDays.includes(day.id);
+                      return (
+                        <button
+                          key={day.id}
+                          type="button"
+                          onClick={() => handleToggleWorkingDay(day.id)}
+                          title={`${day.fullLabel}: ${isWorking ? 'Çalışıyor' : 'İzinli (Tıklayarak değiştir)'}`}
+                          style={{
+                            padding: '0.55rem 0.2rem',
+                            borderRadius: 'var(--radius-sm)',
+                            border: isWorking ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
+                            background: isWorking ? 'rgba(56, 189, 248, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                            color: isWorking ? '#38bdf8' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>{day.label}</span>
+                          <span style={{ fontSize: '0.65rem', opacity: isWorking ? 1 : 0.6, fontWeight: 500 }}>
+                            {isWorking ? 'Aktif' : 'İzin'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Service Assignment Checklist */}
@@ -438,7 +620,8 @@ export const EmployeesView = ({ onNotify }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

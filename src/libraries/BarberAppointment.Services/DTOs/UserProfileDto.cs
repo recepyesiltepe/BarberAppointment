@@ -17,6 +17,7 @@ public class UserProfileDto
     public bool IsPhoneVerified { get; set; }
     public bool IsEmailVerified { get; set; }
     public DateTime MemberSince { get; set; }
+    public int? EmployeeId { get; set; }
 }
 
 /// <summary>

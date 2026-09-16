@@ -48,6 +48,7 @@ public static class ServiceRegistration
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAppointmentReminderProcessor, AppointmentReminderProcessor>();
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IEmployeeLeaveService, EmployeeLeaveService>();
 
         // FluentValidation Validators
         services.AddValidatorsFromAssemblyContaining<CreateAppointmentValidator>();
