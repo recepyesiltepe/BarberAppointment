@@ -27,6 +27,10 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(s => s.IsComposite)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(s => s.CreatedAt)
             .HasPrecision(0)
             .HasDefaultValueSql("SYSUTCDATETIME()");

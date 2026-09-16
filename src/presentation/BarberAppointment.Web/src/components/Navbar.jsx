@@ -259,16 +259,6 @@ export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <button
-                onClick={() => setShowSmsModal(true)}
-                className="btn btn-secondary btn-sm"
-                title="SMS Telefon Doğrulama"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.65rem' }}
-              >
-                <Smartphone size={14} color="#fbbf24" />
-                <span className="hide-on-mobile">SMS Doğrula</span>
-              </button>
-
-              <button
                 onClick={() => setCurrentTab('login')}
                 className="btn btn-primary btn-sm"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}

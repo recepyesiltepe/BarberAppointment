@@ -42,6 +42,8 @@ export const AdminManagementScreen = () => {
   const [srvDuration, setSrvDuration] = useState('30');
   const [srvPrice, setSrvPrice] = useState('150');
   const [srvIsActive, setSrvIsActive] = useState(true);
+  const [srvIsComposite, setSrvIsComposite] = useState(false);
+  const [srvSubServiceIds, setSrvSubServiceIds] = useState([]);
   const [serviceSubmitting, setServiceSubmitting] = useState(false);
 
   // Personel Modal State
@@ -100,6 +102,8 @@ export const AdminManagementScreen = () => {
     setSrvDuration('30');
     setSrvPrice('150');
     setSrvIsActive(true);
+    setSrvIsComposite(false);
+    setSrvSubServiceIds([]);
     setIsServiceModalOpen(true);
   };
 
@@ -109,7 +113,24 @@ export const AdminManagementScreen = () => {
     setSrvDuration(String(srv.durationMinutes || 30));
     setSrvPrice(String(srv.price || 0));
     setSrvIsActive(srv.isActive ?? true);
+    setSrvIsComposite(!!srv.isComposite);
+    setSrvSubServiceIds(srv.subServices ? srv.subServices.map(s => s.id) : []);
     setIsServiceModalOpen(true);
+  };
+
+  const handleToggleSubServiceMobile = (subId) => {
+    const exists = srvSubServiceIds.includes(subId);
+    const nextIds = exists ? srvSubServiceIds.filter(id => id !== subId) : [...srvSubServiceIds, subId];
+    setSrvSubServiceIds(nextIds);
+
+    const selectedSubs = services.filter(s => nextIds.includes(s.id));
+    const autoDuration = selectedSubs.reduce((acc, s) => acc + s.durationMinutes, 0);
+    const autoPrice = selectedSubs.reduce((acc, s) => acc + s.price, 0);
+    if (autoDuration > 0) setSrvDuration(String(autoDuration));
+    if (autoPrice > 0) setSrvPrice(String(autoPrice));
+    if (!srvName || srvName.includes('+')) {
+      setSrvName(selectedSubs.map(s => s.name).join(' + '));
+    }
   };
 
   const handleToggleServiceStatus = async (srv) => {
@@ -119,7 +140,9 @@ export const AdminManagementScreen = () => {
         name: srv.name,
         durationMinutes: srv.durationMinutes,
         price: srv.price,
-        isActive: newStatus
+        isActive: newStatus,
+        isComposite: srv.isComposite,
+        subServiceIds: srv.subServices ? srv.subServices.map(s => s.id) : null
       });
       if (res.success) {
         Alert.alert('Başarılı', `"${srv.name}" hizmeti ${newStatus ? 'aktif' : 'pasif'} duruma getirildi.`);
@@ -160,6 +183,12 @@ export const AdminManagementScreen = () => {
       Alert.alert('Uyarı', 'Lütfen hizmet adını giriniz.');
       return;
     }
+
+    if (srvIsComposite && srvSubServiceIds.length < 2) {
+      Alert.alert('Uyarı', 'Kompozit paket oluşturmak için en az 2 farklı alt hizmet seçmelisiniz.');
+      return;
+    }
+
     const durationNum = parseInt(srvDuration, 10);
     const priceNum = parseFloat(srvPrice);
 
@@ -174,33 +203,32 @@ export const AdminManagementScreen = () => {
 
     setServiceSubmitting(true);
     try {
+      const payload = {
+        name: srvName.trim(),
+        durationMinutes: durationNum,
+        price: priceNum,
+        isActive: srvIsActive,
+        isComposite: srvIsComposite,
+        subServiceIds: srvIsComposite ? srvSubServiceIds : null
+      };
+
       if (editingService) {
-        const res = await servicesApi.update(editingService.id, {
-          name: srvName.trim(),
-          durationMinutes: durationNum,
-          price: priceNum,
-          isActive: srvIsActive
-        });
+        const res = await servicesApi.update(editingService.id, payload);
         if (res.success) {
-          Alert.alert('Başarılı', 'Hizmet başarıyla güncellendi.');
+          Alert.alert('Başarılı', 'Hizmet güncellendi.');
           setIsServiceModalOpen(false);
           fetchServices();
         }
       } else {
-        const res = await servicesApi.create({
-          name: srvName.trim(),
-          durationMinutes: durationNum,
-          price: priceNum,
-          isActive: srvIsActive
-        });
+        const res = await servicesApi.create(payload);
         if (res.success) {
-          Alert.alert('Başarılı', 'Yeni hizmet başarıyla eklendi.');
+          Alert.alert('Başarılı', 'Yeni hizmet eklendi.');
           setIsServiceModalOpen(false);
           fetchServices();
         }
       }
     } catch (err) {
-      Alert.alert('Hata', err.message || 'İşlem gerçekleştirilemedi.');
+      Alert.alert('Hata', err.message || 'İşlem başarısız.');
     } finally {
       setServiceSubmitting(false);
     }
@@ -415,8 +443,13 @@ export const AdminManagementScreen = () => {
                 <View key={srv.id} style={styles.itemCard}>
                   <View style={styles.itemCardHeader}>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <Text style={styles.itemTitle}>{srv.name}</Text>
+                        {srv.isComposite && (
+                          <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '700' }}>📦 Paket</Text>
+                          </View>
+                        )}
                         <View style={[styles.statusBadge, srv.isActive ? styles.badgeActive : styles.badgeInactive]}>
                           <Text style={[styles.statusBadgeText, { color: srv.isActive ? '#10b981' : '#f87171' }]}>
                             {srv.isActive ? 'Aktif' : 'Pasif'}
@@ -426,6 +459,11 @@ export const AdminManagementScreen = () => {
                       <Text style={styles.itemSubtitle}>
                         ⏱ {srv.durationMinutes} dk işlem süresi • 🏷 {srv.price} ₺
                       </Text>
+                      {srv.isComposite && srv.subServices && srv.subServices.length > 0 && (
+                        <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                          İçerik: {srv.subServices.map(s => s.name).join(' + ')}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
@@ -580,10 +618,87 @@ export const AdminManagementScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              <View style={{ marginBottom: 14 }}>
+                <Text style={styles.inputLabel}>Hizmet Türü</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      alignItems: 'center',
+                      borderRadius: 8,
+                      backgroundColor: !srvIsComposite ? colors.primary : colors.card,
+                      borderWidth: 1,
+                      borderColor: !srvIsComposite ? colors.primary : colors.border
+                    }}
+                    onPress={() => setSrvIsComposite(false)}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 13, color: !srvIsComposite ? '#000' : colors.textPrimary }}>
+                      ✂️ Tekil Hizmet
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      alignItems: 'center',
+                      borderRadius: 8,
+                      backgroundColor: srvIsComposite ? '#0284c7' : colors.card,
+                      borderWidth: 1,
+                      borderColor: srvIsComposite ? '#38bdf8' : colors.border
+                    }}
+                    onPress={() => setSrvIsComposite(true)}
+                  >
+                    <Text style={{ fontWeight: '700', fontSize: 13, color: srvIsComposite ? '#fff' : colors.textPrimary }}>
+                      📦 Kompozit Paket
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {srvIsComposite && (
+                <View style={{
+                  backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(56, 189, 248, 0.25)',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 14
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#38bdf8', marginBottom: 6 }}>
+                    Dahil Edilecek Alt Hizmetler (En az 2)
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {services.filter(s => !s.isComposite && (editingService ? s.id !== editingService.id : true)).map(sub => {
+                      const isSel = srvSubServiceIds.includes(sub.id);
+                      return (
+                        <TouchableOpacity
+                          key={sub.id}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 6,
+                            backgroundColor: isSel ? '#0284c7' : colors.card,
+                            borderWidth: 1,
+                            borderColor: isSel ? '#38bdf8' : colors.border
+                          }}
+                          onPress={() => handleToggleSubServiceMobile(sub.id)}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: isSel ? '700' : '500', color: isSel ? '#fff' : colors.textPrimary }}>
+                            {isSel ? '✓ ' : '+ '}{sub.name} ({sub.durationMinutes} dk - {sub.price} ₺)
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
               <Text style={styles.inputLabel}>Hizmet Adı *</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Örn: Saç & Sakal Tasarımı"
+                placeholder={srvIsComposite ? "Örn: Saç + Sakal Paketi" : "Örn: Saç Kesimi"}
                 placeholderTextColor={colors.textMuted}
                 value={srvName}
                 onChangeText={setSrvName}

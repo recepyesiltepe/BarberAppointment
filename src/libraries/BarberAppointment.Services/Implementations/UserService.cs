@@ -54,6 +54,13 @@ public class UserService : IUserService
         if (existingUser != null)
             throw new ConflictException($"'{dto.Email}' e-posta adresi ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
 
+        if (!string.IsNullOrWhiteSpace(dto.Phone))
+        {
+            var existingUserByPhone = await _unitOfWork.Users.GetByPhoneAsync(dto.Phone.Trim(), cancellationToken);
+            if (existingUserByPhone != null)
+                throw new ConflictException($"'{dto.Phone}' telefon numarası ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
+        }
+
         _passwordHasher.CreatePasswordHash("Password123!", out var hash, out var salt);
 
         var user = new User

@@ -37,6 +37,12 @@ public class EmployeeService : IEmployeeService
         return employees.Select(MapToDto).ToList();
     }
 
+    public async Task<IReadOnlyList<EmployeeDto>> GetByMultipleServiceIdsAsync(IEnumerable<int> serviceIds, CancellationToken cancellationToken = default)
+    {
+        var employees = await _unitOfWork.Employees.GetEmployeesByMultipleServiceIdsAsync(serviceIds, cancellationToken);
+        return employees.Select(MapToDto).ToList();
+    }
+
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeDto dto, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(dto.FullName))

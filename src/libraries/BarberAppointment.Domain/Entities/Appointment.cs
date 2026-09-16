@@ -21,4 +21,6 @@ public class Appointment : BaseEntity
     // Hatırlatma bildirim alanları (BackgroundService)
     public bool IsReminderSent { get; set; } = false;
     public DateTime? ReminderSentAt { get; set; }
+
+    public virtual ICollection<AppointmentServiceItem> AppointmentServices { get; set; } = new List<AppointmentServiceItem>();
 }

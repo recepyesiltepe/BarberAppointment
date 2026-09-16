@@ -111,9 +111,23 @@ export const LoginScreen = ({ onSuccess }) => {
         setShowVerifyEmailModal(true);
         setSuccessMsg('Kaydınız başarıyla oluşturuldu! İlk girişinizi yapabilmek için lütfen e-postanıza gönderilen doğrulama kodunu onaylayınız.');
         setActiveTab('login');
-        setLoginEmail(regEmail.trim());
+        setLoginEmail('');
+        setLoginPassword('');
+        setRegFullName('');
+        setRegEmail('');
+        setRegPhone('');
+        setRegPassword('');
+        setRegConfirmPassword('');
       } else {
         setSuccessMsg('Hesabınız başarıyla oluşturuldu! Hoş geldiniz.');
+        setActiveTab('login');
+        setLoginEmail('');
+        setLoginPassword('');
+        setRegFullName('');
+        setRegEmail('');
+        setRegPhone('');
+        setRegPassword('');
+        setRegConfirmPassword('');
         if (onSuccess) onSuccess();
       }
     } catch (err) {
@@ -123,11 +137,10 @@ export const LoginScreen = ({ onSuccess }) => {
     }
   };
 
-  const handleVerifySuccess = (verifiedEmail) => {
+  const handleVerifySuccess = () => {
     setActiveTab('login');
-    if (verifiedEmail) {
-      setLoginEmail(verifiedEmail);
-    }
+    setLoginEmail('');
+    setLoginPassword('');
     setSuccessMsg('E-posta adresiniz başarıyla doğrulandı! Şimdi şifrenizle giriş yapabilirsiniz.');
     setError(null);
     setIsUnverifiedError(false);
@@ -262,18 +275,19 @@ export const LoginScreen = ({ onSuccess }) => {
 
         {/* LOGIN FORM */}
         {activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit}>
+          <form onSubmit={handleLoginSubmit} autoComplete="off">
             <div className="form-group">
               <label className="form-label">E-Posta Adresi</label>
               <div className="form-input-wrapper">
                 <Mail size={18} className="form-input-icon" />
                 <input
                   type="email"
+                  name="email"
                   className="form-input"
                   placeholder="ornek@example.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -302,12 +316,13 @@ export const LoginScreen = ({ onSuccess }) => {
                 <Lock size={18} className="form-input-icon" />
                 <input
                   type={showLoginPassword ? 'text' : 'password'}
+                  name="password"
                   className="form-input"
                   style={{ paddingRight: '2.85rem' }}
                   placeholder="••••••••"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   required
                 />
                 <button
@@ -413,7 +428,7 @@ export const LoginScreen = ({ onSuccess }) => {
                 <input
                   type="email"
                   name="email"
-                  autoComplete="email"
+                  autoComplete="username"
                   className="form-input"
                   placeholder="ahmet@example.com"
                   value={regEmail}

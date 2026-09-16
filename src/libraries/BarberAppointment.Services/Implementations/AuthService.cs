@@ -46,10 +46,22 @@ public class AuthService : IAuthService
             throw new ConflictException($"'{dto.Email}' e-posta adresi ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
         }
 
-        // 2. Şifre hashleme
+        // 2. Telefon numarası tekillik kontrolü
+        var normalizedPhone = TurkishPhoneNumberHelper.Normalize(dto.Phone);
+        if (!string.IsNullOrWhiteSpace(normalizedPhone))
+        {
+            var existingUserByPhone = await _unitOfWork.Users.GetByPhoneAsync(normalizedPhone, cancellationToken);
+            if (existingUserByPhone != null)
+            {
+                _logger.LogWarning("Mevcut telefon numarası ile kayıt denemesi: Phone={Phone}", normalizedPhone);
+                throw new ConflictException($"'{dto.Phone}' telefon numarası ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
+            }
+        }
+
+        // 3. Şifre hashleme
         _passwordHasher.CreatePasswordHash(dto.Password, out var passwordHash, out var passwordSalt);
 
-        // 3. Kullanıcı kaydı oluşturma ve doğrulama token'ı üretimi
+        // 4. Kullanıcı kaydı oluşturma ve doğrulama token'ı üretimi
         var verificationToken = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var user = new User
         {
@@ -206,6 +218,17 @@ public class AuthService : IAuthService
             throw new BusinessException("Doğrulama kodu gönderilecek geçerli bir telefon numarası bulunamadı. Lütfen telefon numaranızı kontrol ediniz.");
         }
 
+        // Eğer telefon numarası değiştiriliyorsa, yeni numaranın başka bir kullanıcı tarafından kullanılmadığını doğrula
+        if (isPhoneChanged)
+        {
+            var existingUserByPhone = await _unitOfWork.Users.GetByPhoneAsync(targetPhone, cancellationToken);
+            if (existingUserByPhone != null && existingUserByPhone.Id != userId)
+            {
+                _logger.LogWarning("Profil OTP isteği engellendi: Telefon başka bir kullanıcıya ait. UserId={UserId}, TargetPhone={Phone}", userId, targetPhone);
+                throw new ConflictException("Bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır.");
+            }
+        }
+
         return await _smsVerificationService.SendCodeAsync(targetPhone, cancellationToken);
     }
 
@@ -230,6 +253,17 @@ public class AuthService : IAuthService
         if (!isNameChanged && !isPhoneChanged)
         {
             throw new BusinessException("Profil bilgilerinizde herhangi bir değişiklik bulunmamaktadır.");
+        }
+
+        // Eğer telefon numarası değiştiriliyorsa, yeni numaranın başka bir kullanıcı tarafından kullanılmadığını doğrula
+        if (isPhoneChanged && !string.IsNullOrWhiteSpace(targetPhone))
+        {
+            var existingUserByPhone = await _unitOfWork.Users.GetByPhoneAsync(targetPhone, cancellationToken);
+            if (existingUserByPhone != null && existingUserByPhone.Id != userId)
+            {
+                _logger.LogWarning("Profil güncelleme engellendi: Telefon başka bir kullanıcıya ait. UserId={UserId}, TargetPhone={Phone}", userId, targetPhone);
+                throw new ConflictException("Bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır.");
+            }
         }
 
         if (string.IsNullOrWhiteSpace(dto.OtpCode))

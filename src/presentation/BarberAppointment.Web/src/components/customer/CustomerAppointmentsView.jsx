@@ -91,12 +91,23 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
     return `⏳ ${diffMins} dakika sonra`;
   };
 
-  const filteredAppointments = appointments.filter(a => {
-    const isPast = new Date(a.startAt) < new Date() || a.status === 3 || a.status === 4;
-    if (filterTab === 'upcoming') return !isPast && (a.status === 1 || a.status === 2);
-    if (filterTab === 'history') return isPast;
-    return true;
-  });
+  const filteredAppointments = appointments
+    .filter(a => {
+      const isPast = new Date(a.startAt) < new Date() || a.status === 3 || a.status === 4;
+      if (filterTab === 'upcoming') return !isPast && (a.status === 1 || a.status === 2);
+      if (filterTab === 'history') return isPast;
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.startAt).getTime();
+      const timeB = new Date(b.startAt).getTime();
+      if (filterTab === 'upcoming') {
+        // Yaklaşan randevularda tarihi ve saati en yakın olan en başta (artan kronolojik sıra)
+        return timeA - timeB;
+      }
+      // Geçmiş ve tüm randevularda ise en güncel/son olan en başta (azalan sıra)
+      return timeB - timeA;
+    });
 
   const upcomingCount = appointments.filter(a => (a.status === 1 || a.status === 2) && new Date(a.startAt) >= new Date()).length;
   const historyCount = appointments.filter(a => a.status === 3 || a.status === 4 || new Date(a.startAt) < new Date()).length;

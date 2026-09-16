@@ -229,5 +229,131 @@ public class AuthProfileOtpTests
         await act.Should().ThrowAsync<BusinessException>()
             .WithMessage("*değişiklik bulunmamaktadır*");
     }
+
+    [Fact]
+    public async Task RegisterAsync_WhenEmailAlreadyExists_ThrowsConflictException()
+    {
+        // Arrange
+        var existingUser = new User
+        {
+            Id = 1,
+            FullName = "Mevcut Kullanıcı",
+            Email = "varolan@test.com",
+            Phone = "05551112233"
+        };
+        _userRepoMock.Setup(r => r.GetByEmailAsync("varolan@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+
+        var dto = new RegisterDto
+        {
+            FullName = "Yeni Kullanıcı",
+            Email = "varolan@test.com",
+            Phone = "05559998877",
+            Password = "Password123!",
+            ConfirmPassword = "Password123!"
+        };
+
+        // Act & Assert
+        var act = () => _authService.RegisterAsync(dto);
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*zaten kayıtlı bir kullanıcı bulunmaktadır*");
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WhenPhoneAlreadyExists_ThrowsConflictException()
+    {
+        // Arrange
+        _userRepoMock.Setup(r => r.GetByEmailAsync("yeni@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var existingUserWithPhone = new User
+        {
+            Id = 2,
+            FullName = "Mevcut Telefon Sahibi",
+            Email = "diger@test.com",
+            Phone = "05551112233"
+        };
+        _userRepoMock.Setup(r => r.GetByPhoneAsync("05551112233", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUserWithPhone);
+
+        var dto = new RegisterDto
+        {
+            FullName = "Yeni Kullanıcı",
+            Email = "yeni@test.com",
+            Phone = "05551112233",
+            Password = "Password123!",
+            ConfirmPassword = "Password123!"
+        };
+
+        // Act & Assert
+        var act = () => _authService.RegisterAsync(dto);
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*telefon numarası ile zaten kayıtlı bir kullanıcı bulunmaktadır*");
+    }
+
+    [Fact]
+    public async Task SendProfileOtpAsync_WhenNewPhoneAlreadyBelongsToAnotherUser_ThrowsConflictException()
+    {
+        // Arrange
+        var currentUser = new User
+        {
+            Id = 1,
+            FullName = "Ahmet Yılmaz",
+            Email = "ahmet@test.com",
+            Phone = "05551111111"
+        };
+        _userRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(currentUser);
+
+        var otherUser = new User
+        {
+            Id = 2,
+            FullName = "Mehmet Demir",
+            Email = "mehmet@test.com",
+            Phone = "05552222222"
+        };
+        _userRepoMock.Setup(r => r.GetByPhoneAsync("05552222222", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(otherUser);
+
+        // Act & Assert
+        var act = () => _authService.SendProfileOtpAsync(1, "Ahmet Yılmaz", "0555 222 22 22");
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*Bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır*");
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_WhenNewPhoneAlreadyBelongsToAnotherUser_ThrowsConflictException()
+    {
+        // Arrange
+        var currentUser = new User
+        {
+            Id = 1,
+            FullName = "Ahmet Yılmaz",
+            Email = "ahmet@test.com",
+            Phone = "05551111111"
+        };
+        _userRepoMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(currentUser);
+
+        var otherUser = new User
+        {
+            Id = 2,
+            FullName = "Mehmet Demir",
+            Email = "mehmet@test.com",
+            Phone = "05552222222"
+        };
+        _userRepoMock.Setup(r => r.GetByPhoneAsync("05552222222", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(otherUser);
+
+        var dto = new UpdateProfileDto
+        {
+            FullName = "Ahmet Yılmaz",
+            Phone = "0555 222 22 22",
+            OtpCode = "123456"
+        };
+
+        // Act & Assert
+        var act = () => _authService.UpdateProfileAsync(1, dto);
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*Bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır*");
+    }
 }
 

@@ -137,13 +137,24 @@ export const MyAppointmentsScreen = ({ onNavigateBooking }) => {
     return `⏳ ${diffMins} dakika sonra`;
   };
 
-  // Filtreleme
-  const filteredAppointments = appointments.filter(a => {
-    const isPast = new Date(a.startAt) < new Date() || a.status === 3 || a.status === 4;
-    if (filterTab === 'upcoming') return !isPast && (a.status === 1 || a.status === 2);
-    if (filterTab === 'history') return isPast;
-    return true;
-  });
+  // Filtreleme ve Sıralama
+  const filteredAppointments = appointments
+    .filter(a => {
+      const isPast = new Date(a.startAt) < new Date() || a.status === 3 || a.status === 4;
+      if (filterTab === 'upcoming') return !isPast && (a.status === 1 || a.status === 2);
+      if (filterTab === 'history') return isPast;
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.startAt).getTime();
+      const timeB = new Date(b.startAt).getTime();
+      if (filterTab === 'upcoming') {
+        // Yaklaşan randevularda tarihi ve saati en yakın olan en başta (artan kronolojik sıra)
+        return timeA - timeB;
+      }
+      // Geçmiş ve tüm randevularda ise en güncel/son olan en başta (azalan sıra)
+      return timeB - timeA;
+    });
 
   return (
     <ScrollView

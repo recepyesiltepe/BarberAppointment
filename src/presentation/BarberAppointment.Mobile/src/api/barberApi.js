@@ -72,6 +72,11 @@ export const employeesApi = {
   getByService: async (serviceId) => {
     return await client.get(`/api/employees/by-service/${serviceId}`);
   },
+  getByServices: async (serviceIds = []) => {
+    if (!serviceIds || serviceIds.length === 0) return { success: true, data: [] };
+    const query = serviceIds.map(id => `serviceIds=${encodeURIComponent(id)}`).join('&');
+    return await client.get(`/api/employees/by-services?${query}`);
+  },
   create: async (data) => {
     return await client.post('/api/employees', data);
   },
@@ -93,8 +98,15 @@ export const appointmentsApi = {
   getMy: async () => {
     return await client.get('/api/appointments/my');
   },
-  getAvailableSlots: async (employeeId, serviceId, date) => {
-    return await client.get(`/api/appointments/available-slots?employeeId=${employeeId}&serviceId=${serviceId}&date=${date}`);
+  getAvailableSlots: async (employeeId, serviceId, date, serviceIds = []) => {
+    const params = [];
+    params.push(`employeeId=${encodeURIComponent(employeeId)}`);
+    if (serviceId) params.push(`serviceId=${encodeURIComponent(serviceId)}`);
+    params.push(`date=${encodeURIComponent(date)}`);
+    if (serviceIds && serviceIds.length > 0) {
+      serviceIds.forEach(id => params.push(`serviceIds=${encodeURIComponent(id)}`));
+    }
+    return await client.get(`/api/appointments/available-slots?${params.join('&')}`);
   },
   create: async (data) => {
     return await client.post('/api/appointments', data);
@@ -169,6 +181,7 @@ export const barberApi = {
   getServices: servicesApi.getAll,
   getEmployees: employeesApi.getAll,
   getEmployeesByService: employeesApi.getByService,
+  getEmployeesByServices: employeesApi.getByServices,
   getAvailableSlots: appointmentsApi.getAvailableSlots,
   getMyAppointments: appointmentsApi.getMy,
   getAllAppointments: appointmentsApi.getAll,

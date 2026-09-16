@@ -11,11 +11,31 @@ public class ServiceRepository : Repository<Service>, IServiceRepository
     {
     }
 
+    public override async Task<Service?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .Include(s => s.SubServiceItems.OrderBy(csi => csi.Order))
+                .ThenInclude(csi => csi.SubService)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    }
+
+    public override async Task<IReadOnlyList<Service>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Include(s => s.SubServiceItems.OrderBy(csi => csi.Order))
+                .ThenInclude(csi => csi.SubService)
+            .OrderBy(s => s.Name)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Service>> GetActiveServicesAsync(CancellationToken cancellationToken = default)
     {
         return await DbSet
             .AsNoTracking()
             .Where(s => s.IsActive)
+            .Include(s => s.SubServiceItems.OrderBy(csi => csi.Order))
+                .ThenInclude(csi => csi.SubService)
             .OrderBy(s => s.Name)
             .ToListAsync(cancellationToken);
     }
@@ -26,6 +46,8 @@ public class ServiceRepository : Repository<Service>, IServiceRepository
         return await DbSet
             .AsNoTracking()
             .Where(s => idList.Contains(s.Id))
+            .Include(s => s.SubServiceItems.OrderBy(csi => csi.Order))
+                .ThenInclude(csi => csi.SubService)
             .ToListAsync(cancellationToken);
     }
 
@@ -33,6 +55,12 @@ public class ServiceRepository : Repository<Service>, IServiceRepository
     {
         return await Context.Appointments
             .AnyAsync(a => a.ServiceId == serviceId, cancellationToken);
+    }
+
+    public async Task<bool> IsPartOfCompositeServiceAsync(int serviceId, CancellationToken cancellationToken = default)
+    {
+        return await Context.CompositeServiceItems
+            .AnyAsync(csi => csi.SubServiceId == serviceId && csi.CompositeService.IsActive, cancellationToken);
     }
 
     public async Task DeleteServiceWithRelationsAsync(int serviceId, CancellationToken cancellationToken = default)
@@ -47,7 +75,17 @@ public class ServiceRepository : Repository<Service>, IServiceRepository
             Context.EmployeeServices.RemoveRange(employeeServices);
         }
 
-        // 2. Hizmeti sil
+        // 2. Bu hizmetin kompozit alt hizmet bağlantılarını temizle (CompositeServiceItems)
+        var compositeItems = await Context.CompositeServiceItems
+            .Where(csi => csi.CompositeServiceId == serviceId || csi.SubServiceId == serviceId)
+            .ToListAsync(cancellationToken);
+
+        if (compositeItems.Any())
+        {
+            Context.CompositeServiceItems.RemoveRange(compositeItems);
+        }
+
+        // 3. Hizmeti sil
         var service = await DbSet.FirstOrDefaultAsync(s => s.Id == serviceId, cancellationToken);
         if (service != null)
         {

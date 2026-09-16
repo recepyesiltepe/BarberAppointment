@@ -131,12 +131,42 @@ public class AppointmentService : IAppointmentService
             throw new BusinessException("Hesabı pasif olan müşteri için randevu oluşturulamaz.");
         }
 
-        // 3. İş Kuralı (FR-H03): Hizmet aktiflik kontrolü
-        var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken)
-            ?? throw new NotFoundException($"ID: {dto.ServiceId} olan hizmet bulunamadı.");
+        // Hizmet ID'lerini belirle (ServiceIds öncelikli, yoksa ServiceId fallback)
+        var targetServiceIds = dto.ServiceIds != null && dto.ServiceIds.Any(id => id > 0)
+            ? dto.ServiceIds.Where(id => id > 0).Distinct().ToList()
+            : new List<int> { dto.ServiceId };
 
-        if (!service.IsActive)
-            throw new BusinessException($"'{service.Name}' hizmeti aktif değildir.");
+        if (!targetServiceIds.Any() || targetServiceIds.All(id => id <= 0))
+            throw new BusinessException("En az bir geçerli hizmet seçilmelidir.");
+
+        // 3. İş Kuralı (FR-H03): Hizmet aktiflik ve varlık kontrolü
+        List<Service> services;
+        if (targetServiceIds.Count == 1)
+        {
+            var singleId = targetServiceIds[0];
+            var s = await _unitOfWork.Services.GetByIdAsync(singleId, cancellationToken)
+                ?? throw new NotFoundException($"ID: {singleId} olan hizmet bulunamadı.");
+            services = new List<Service> { s };
+        }
+        else
+        {
+            var fetched = await _unitOfWork.Services.GetByIdsAsync(targetServiceIds, cancellationToken);
+            if (fetched.Count != targetServiceIds.Count)
+            {
+                var missingIds = targetServiceIds.Except(fetched.Select(f => f.Id));
+                throw new NotFoundException($"Seçilen hizmetler bulunamadı: {string.Join(", ", missingIds)}");
+            }
+            services = fetched.ToList();
+        }
+
+        foreach (var s in services)
+        {
+            if (!s.IsActive)
+                throw new BusinessException($"'{s.Name}' hizmeti aktif değildir.");
+        }
+
+        // Kompozit & Alt Hizmet çakışma doğrulaması (Mutual exclusion)
+        ValidateServicesConflict(services);
 
         // 4. İş Kuralı (FR-P03): Personel aktiflik kontrolü
         var employee = await _unitOfWork.Employees.GetByIdWithServicesAsync(dto.EmployeeId, cancellationToken)
@@ -145,13 +175,34 @@ public class AppointmentService : IAppointmentService
         if (!employee.IsActive)
             throw new BusinessException($"'{employee.FullName}' personeli aktif değildir.");
 
-        // 5. İş Kuralı (FR-R02): Personel hizmet yetkinlik kontrolü
-        var canPerformService = employee.EmployeeServices.Any(es => es.ServiceId == dto.ServiceId);
-        if (!canPerformService)
-            throw new BusinessException($"'{employee.FullName}' personeli '{service.Name}' hizmetini sunmamaktadır.");
+        // 5. İş Kuralı (FR-R02): Personel hizmet yetkinlik kontrolü (Seçilen TÜM hizmetleri yerine getirebilmeli)
+        var empServiceIds = employee.EmployeeServices
+            .Where(es => es.Service == null || es.Service.IsActive)
+            .Select(es => es.ServiceId)
+            .ToHashSet();
 
-        // 6. İş Kuralı (FR-H04): Bitiş zamanı otomatik hesaplama
-        var endAt = dto.StartAt.AddMinutes(service.DurationMinutes);
+        foreach (var srv in services)
+        {
+            bool canPerform;
+            if (srv.IsComposite && srv.SubServiceItems != null && srv.SubServiceItems.Any())
+            {
+                var subIds = srv.SubServiceItems.Select(csi => csi.SubServiceId).ToList();
+                canPerform = empServiceIds.Contains(srv.Id) || subIds.All(subId => empServiceIds.Contains(subId));
+            }
+            else
+            {
+                canPerform = empServiceIds.Contains(srv.Id);
+            }
+
+            if (!canPerform)
+            {
+                throw new BusinessException($"'{employee.FullName}' personeli '{srv.Name}' hizmetini sunmamaktadır veya paket içeriğindeki tüm alt hizmetleri karşılayamamaktadır.");
+            }
+        }
+
+        // 6. İş Kuralı (FR-H04): Bitiş zamanı otomatik hesaplama (Tüm seçili hizmetlerin süreleri toplamı)
+        var totalDuration = services.Sum(s => s.DurationMinutes);
+        var endAt = dto.StartAt.AddMinutes(totalDuration);
 
         // 6.1. Personel izin günü kontrolü
         if (employee.WeeklyOffDay.HasValue && dto.StartAt.DayOfWeek == employee.WeeklyOffDay.Value)
@@ -175,16 +226,29 @@ public class AppointmentService : IAppointmentService
             throw new ConflictException($"'{employee.FullName}' personelinin {dto.StartAt:HH:mm}–{endAt:HH:mm} saatleri arasında başka bir randevusu bulunmaktadır.");
         }
 
+        var primaryService = services.First();
+
         var appointment = new Appointment
         {
             UserId = dto.UserId,
             EmployeeId = dto.EmployeeId,
-            ServiceId = dto.ServiceId,
+            ServiceId = primaryService.Id,
             StartAt = dto.StartAt,
             EndAt = endAt,
             Status = AppointmentStatus.Confirmed,
             Notes = dto.Notes
         };
+
+        foreach (var srv in services)
+        {
+            appointment.AppointmentServices.Add(new AppointmentServiceItem
+            {
+                ServiceId = srv.Id,
+                Price = srv.Price,
+                DurationMinutes = srv.DurationMinutes,
+                IsActive = true
+            });
+        }
 
         await _unitOfWork.Appointments.AddAsync(appointment, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -202,7 +266,7 @@ public class AppointmentService : IAppointmentService
                 ChangedByRole = isAdmin ? "Admin" : "Customer",
                 ChangedByName = user.FullName,
                 ChangedDate = _dateTimeProvider.UtcNow,
-                Details = $"Randevu oluşturuldu: {dto.StartAt:yyyy-MM-dd HH:mm} (Hizmet: {service.Name}, Personel: {employee.FullName})"
+                Details = $"Randevu oluşturuldu: {dto.StartAt:yyyy-MM-dd HH:mm} (Hizmetler: {string.Join(", ", services.Select(s => s.Name))}, Toplam Süre: {totalDuration} dk, Personel: {employee.FullName})"
             };
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -211,7 +275,11 @@ public class AppointmentService : IAppointmentService
         // DTO dönüşümü için navigation'ları doldur
         appointment.User = user;
         appointment.Employee = employee;
-        appointment.Service = service;
+        appointment.Service = primaryService;
+        foreach (var asi in appointment.AppointmentServices)
+        {
+            asi.Service = services.FirstOrDefault(s => s.Id == asi.ServiceId) ?? primaryService;
+        }
 
         var resultDto = MapToDto(appointment);
 
@@ -462,9 +530,27 @@ public class AppointmentService : IAppointmentService
 
     public async Task<IReadOnlyList<AvailableSlotDto>> GetAvailableSlotsAsync(AvailableSlotsQueryDto query, CancellationToken cancellationToken = default)
     {
-        // Hizmet süresini öğren
-        var service = await _unitOfWork.Services.GetByIdAsync(query.ServiceId, cancellationToken)
-            ?? throw new NotFoundException($"ID: {query.ServiceId} olan hizmet bulunamadı.");
+        var targetServiceIds = query.ServiceIds != null && query.ServiceIds.Any(id => id > 0)
+            ? query.ServiceIds.Where(id => id > 0).Distinct().ToList()
+            : new List<int> { query.ServiceId };
+
+        int slotDuration;
+        if (targetServiceIds.Count == 1)
+        {
+            var service = await _unitOfWork.Services.GetByIdAsync(targetServiceIds[0], cancellationToken)
+                ?? throw new NotFoundException($"ID: {targetServiceIds[0]} olan hizmet bulunamadı.");
+            slotDuration = service.DurationMinutes;
+        }
+        else
+        {
+            var services = await _unitOfWork.Services.GetByIdsAsync(targetServiceIds, cancellationToken);
+            if (!services.Any())
+                throw new NotFoundException("Seçilen hizmetler bulunamadı.");
+            slotDuration = services.Sum(s => s.DurationMinutes);
+        }
+
+        if (slotDuration <= 0)
+            slotDuration = 30;
 
         // Personeli doğrula
         var employee = await _unitOfWork.Employees.GetByIdAsync(query.EmployeeId, cancellationToken)
@@ -493,7 +579,7 @@ public class AppointmentService : IAppointmentService
             .GetByEmployeeAndDateRangeAsync(query.EmployeeId, dayStart, dayEnd, cancellationToken);
 
         var slots = new List<AvailableSlotDto>();
-        var slotDuration = service.DurationMinutes;
+        var slotStep = (slotDuration > 0 && slotDuration < 30) ? slotDuration : 30;
         var cursor = dayStart;
         while (cursor.AddMinutes(slotDuration) <= dayEnd)
         {
@@ -502,7 +588,7 @@ public class AppointmentService : IAppointmentService
             // 3. Geçmiş zamana ait slotlar listelenmemeli
             if (_dateTimeProvider.IsInPast(cursor))
             {
-                cursor = cursor.AddMinutes(slotDuration);
+                cursor = cursor.AddMinutes(slotStep);
                 continue;
             }
 
@@ -520,30 +606,105 @@ public class AppointmentService : IAppointmentService
                 });
             }
 
-            cursor = cursor.AddMinutes(slotDuration);
+            cursor = cursor.AddMinutes(slotStep);
         }
 
         return slots;
     }
 
-    // ─── Yardımcı dönüşüm ────────────────────────────────────────────────────
+    // ─── Yardımcı metotlar ───────────────────────────────────────────────────
 
-    private static AppointmentDto MapToDto(Appointment a) => new()
+    private static void ValidateServicesConflict(IReadOnlyList<Service> services)
     {
-        Id = a.Id,
-        UserId = a.UserId,
-        CustomerName = a.User?.FullName ?? string.Empty,
-        CustomerPhone = a.User?.Phone ?? string.Empty,
-        EmployeeId = a.EmployeeId,
-        EmployeeName = a.Employee?.FullName ?? string.Empty,
-        ServiceId = a.ServiceId,
-        ServiceName = a.Service?.Name ?? string.Empty,
-        Price = a.Service?.Price ?? 0,
-        DurationMinutes = a.Service?.DurationMinutes ?? 0,
-        StartAt = a.StartAt,
-        EndAt = a.EndAt,
-        Status = a.Status,
-        Notes = a.Notes,
-        CreatedAt = a.CreatedAt
-    };
+        if (services == null || services.Count <= 1)
+            return;
+
+        foreach (var srv in services)
+        {
+            if (srv.IsComposite && srv.SubServiceItems != null && srv.SubServiceItems.Any())
+            {
+                var subServiceIds = srv.SubServiceItems.Select(csi => csi.SubServiceId).ToHashSet();
+
+                foreach (var other in services)
+                {
+                    if (other.Id == srv.Id)
+                        continue;
+
+                    // 1. Kural: Kompozit paket seçiliyken içeriğindeki alt hizmet seçilemez
+                    if (subServiceIds.Contains(other.Id))
+                    {
+                        throw new BusinessException(
+                            $"'{srv.Name}' paketi seçiliyken, bu paketin içeriğinde zaten yer alan '{other.Name}' hizmeti ayrıca seçilemez.");
+                    }
+
+                    // 2. Kural: İki kompozit paket aynı alt hizmeti içeremez
+                    if (other.IsComposite && other.SubServiceItems != null)
+                    {
+                        var commonSub = other.SubServiceItems.FirstOrDefault(csi => subServiceIds.Contains(csi.SubServiceId));
+                        if (commonSub != null)
+                        {
+                            var subName = commonSub.SubService?.Name ?? $"ID: {commonSub.SubServiceId}";
+                            throw new BusinessException(
+                                $"'{srv.Name}' ve '{other.Name}' paketlerinin her ikisi de '{subName}' hizmetini içermektedir. Lütfen çakışan paketleri aynı anda seçmeyiniz.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static AppointmentDto MapToDto(Appointment a)
+    {
+        var servicesList = a.AppointmentServices != null && a.AppointmentServices.Any()
+            ? a.AppointmentServices.Select(asi => new AppointmentServiceItemDto
+            {
+                ServiceId = asi.ServiceId,
+                ServiceName = asi.Service?.Name ?? (asi.ServiceId == a.ServiceId ? a.Service?.Name ?? string.Empty : string.Empty),
+                Price = asi.Price,
+                DurationMinutes = asi.DurationMinutes
+            }).ToList()
+            : (a.Service != null
+                ? new List<AppointmentServiceItemDto>
+                {
+                    new()
+                    {
+                        ServiceId = a.ServiceId,
+                        ServiceName = a.Service.Name,
+                        Price = a.Service.Price,
+                        DurationMinutes = a.Service.DurationMinutes
+                    }
+                }
+                : new List<AppointmentServiceItemDto>());
+
+        var totalPrice = servicesList.Any() ? servicesList.Sum(s => s.Price) : (a.Service?.Price ?? 0);
+        var totalDuration = (int)(a.EndAt - a.StartAt).TotalMinutes;
+        if (totalDuration <= 0)
+        {
+            totalDuration = servicesList.Any() ? servicesList.Sum(s => s.DurationMinutes) : (a.Service?.DurationMinutes ?? 0);
+        }
+
+        var serviceName = servicesList.Any()
+            ? string.Join(" + ", servicesList.Select(s => s.ServiceName))
+            : (a.Service?.Name ?? string.Empty);
+
+        return new AppointmentDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            CustomerName = a.User?.FullName ?? string.Empty,
+            CustomerPhone = a.User?.Phone ?? string.Empty,
+            EmployeeId = a.EmployeeId,
+            EmployeeName = a.Employee?.FullName ?? string.Empty,
+            ServiceId = a.ServiceId,
+            ServiceName = serviceName,
+            Price = totalPrice,
+            DurationMinutes = totalDuration,
+            StartAt = a.StartAt,
+            EndAt = a.EndAt,
+            Status = a.Status,
+            Notes = a.Notes,
+            CreatedAt = a.CreatedAt,
+            Services = servicesList
+        };
+    }
 }

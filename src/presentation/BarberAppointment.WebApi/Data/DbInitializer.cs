@@ -103,10 +103,46 @@ public static class DbInitializer
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordResetExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordResetExpiresAt DATETIME2 NULL; END");
 
                 await context.Database.ExecuteSqlRawAsync(
-                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordChangeToken') BEGIN ALTER TABLE dbo.Users ADD PasswordChangeToken NVARCHAR(128) NULL; END");
+                    "IF OBJECT_ID(N'dbo.PasswordResetToken', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordChangeTokenExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordChangeTokenExpiresAt DATETIME2 NULL; END");
 
                 await context.Database.ExecuteSqlRawAsync(
-                    "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PasswordChangeTokenExpiresAt') BEGIN ALTER TABLE dbo.Users ADD PasswordChangeTokenExpiresAt DATETIME2 NULL; END");
+                    "IF OBJECT_ID(N'dbo.Services', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Services') AND name = 'IsComposite') BEGIN ALTER TABLE dbo.Services ADD IsComposite BIT NOT NULL CONSTRAINT DF_Services_IsComposite DEFAULT (0); END");
+
+                await context.Database.ExecuteSqlRawAsync(@"
+                    IF OBJECT_ID(N'dbo.CompositeServiceItems', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.CompositeServiceItems (
+                            Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            CompositeServiceId INT NOT NULL,
+                            SubServiceId INT NOT NULL,
+                            [Order] INT NOT NULL DEFAULT (0),
+                            IsActive BIT NOT NULL DEFAULT (1),
+                            CreatedAt DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+                            CONSTRAINT FK_CompositeServiceItems_CompositeService FOREIGN KEY (CompositeServiceId) REFERENCES dbo.Services (Id) ON DELETE CASCADE,
+                            CONSTRAINT FK_CompositeServiceItems_SubService FOREIGN KEY (SubServiceId) REFERENCES dbo.Services (Id) ON DELETE NO ACTION
+                        );
+                        CREATE UNIQUE INDEX IX_CompositeServiceItems_Composite_Sub ON dbo.CompositeServiceItems(CompositeServiceId, SubServiceId);
+                    END");
+
+                await context.Database.ExecuteSqlRawAsync(@"
+                    IF OBJECT_ID(N'dbo.AppointmentServiceItems', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.AppointmentServiceItems (
+                            Id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            AppointmentId INT NOT NULL,
+                            ServiceId INT NOT NULL,
+                            Price DECIMAL(18,2) NOT NULL DEFAULT (0),
+                            DurationMinutes INT NOT NULL DEFAULT (0),
+                            IsActive BIT NOT NULL DEFAULT (1),
+                            CreatedAt DATETIME2 NOT NULL DEFAULT (SYSUTCDATETIME()),
+                            UpdatedAt DATETIME2 NULL,
+                            CONSTRAINT FK_AppointmentServiceItems_Appointments FOREIGN KEY (AppointmentId) REFERENCES dbo.Appointments (Id) ON DELETE CASCADE,
+                            CONSTRAINT FK_AppointmentServiceItems_Services FOREIGN KEY (ServiceId) REFERENCES dbo.Services (Id) ON DELETE NO ACTION
+                        );
+                        CREATE INDEX IX_AppointmentServiceItems_AppointmentId ON dbo.AppointmentServiceItems(AppointmentId);
+                        CREATE INDEX IX_AppointmentServiceItems_ServiceId ON dbo.AppointmentServiceItems(ServiceId);
+                    END");
+
 
                 await context.Database.ExecuteSqlRawAsync(
                     "IF OBJECT_ID(N'dbo.Users', N'U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Users') AND name = 'PendingPasswordHash') BEGIN ALTER TABLE dbo.Users ADD PendingPasswordHash VARBINARY(64) NULL; END");
@@ -279,6 +315,45 @@ public static class DbInitializer
             }
 
             await context.SaveChangesAsync();
+
+            // 3.1. Kompozit Hizmet (Saç + sakal) Alt Hizmetlerini Bağla
+            var sacSakal = await context.Services.FirstOrDefaultAsync(s => s.Name.ToLower() == "saç + sakal");
+            var sacKesimi = await context.Services.FirstOrDefaultAsync(s => s.Name.ToLower() == "saç kesimi");
+            var sakalTirasi = await context.Services.FirstOrDefaultAsync(s => s.Name.ToLower() == "sakal tıraşı");
+
+            if (sacSakal != null && sacKesimi != null && sakalTirasi != null)
+            {
+                if (!sacSakal.IsComposite)
+                {
+                    sacSakal.IsComposite = true;
+                }
+
+                var hasSac = await context.CompositeServiceItems.AnyAsync(c => c.CompositeServiceId == sacSakal.Id && c.SubServiceId == sacKesimi.Id);
+                if (!hasSac)
+                {
+                    await context.CompositeServiceItems.AddAsync(new CompositeServiceItem
+                    {
+                        CompositeServiceId = sacSakal.Id,
+                        SubServiceId = sacKesimi.Id,
+                        Order = 1,
+                        IsActive = true
+                    });
+                }
+
+                var hasSakal = await context.CompositeServiceItems.AnyAsync(c => c.CompositeServiceId == sacSakal.Id && c.SubServiceId == sakalTirasi.Id);
+                if (!hasSakal)
+                {
+                    await context.CompositeServiceItems.AddAsync(new CompositeServiceItem
+                    {
+                        CompositeServiceId = sacSakal.Id,
+                        SubServiceId = sakalTirasi.Id,
+                        Order = 2,
+                        IsActive = true
+                    });
+                }
+
+                await context.SaveChangesAsync();
+            }
 
             // 4. Personel - Hizmet İlişkilerini Doğrula
             var allEmployees = await context.Employees.ToListAsync();

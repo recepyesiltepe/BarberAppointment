@@ -19,6 +19,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .Include(a => a.User)
             .Include(a => a.Employee)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .OrderByDescending(a => a.StartAt)
             .ToListAsync(cancellationToken);
     }
@@ -36,6 +38,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .Include(a => a.User)
             .Include(a => a.Employee)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .AsQueryable();
 
         if (employeeId.HasValue)
@@ -74,6 +78,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .Include(a => a.User)
             .Include(a => a.Employee)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .AsQueryable();
 
         if (employeeId.HasValue)
@@ -124,6 +130,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .Include(a => a.User)
             .Include(a => a.Employee)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
     }
 
@@ -137,6 +145,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .AsNoTracking()
             .Include(a => a.User)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .Where(a =>
                 a.EmployeeId == employeeId &&
                 a.StartAt >= start &&
@@ -152,6 +162,8 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             .AsNoTracking()
             .Include(a => a.Employee)
             .Include(a => a.Service)
+            .Include(a => a.AppointmentServices)
+                .ThenInclude(asi => asi.Service)
             .Where(a => a.UserId == userId)
             .OrderByDescending(a => a.StartAt)
             .ToListAsync(cancellationToken);

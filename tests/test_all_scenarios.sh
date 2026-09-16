@@ -260,11 +260,19 @@ PHONE_OTHER="0555${RUN_ID}02"
 PHONE_MY="0555${RUN_ID}03"
 PHONE_VB="0555${RUN_ID}04"
 
+# 7.0 Anonim İstek Engeli (Giriş Yapılmamışsa 401 Unauthorized)
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber":"'$PHONE_TEST'"}')
+run_test "POST /api/sms/send-code (Anonim İstek Engeli -> 401 Unauthorized)" 401 "$STATUS"
+
 # 7.1 Kod Gönder (Geçerli Numara)
 SMS_SEND_RES=$(curl -s -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_TEST'"}')
 SMS_SEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_OTHER'"}')
 SMS_CODE=$(echo "$SMS_SEND_RES" | grep -o '"simulationCode":"[^"]*' | cut -d'"' -f4)
@@ -273,18 +281,21 @@ run_test "POST /api/sms/send-code (Geçerli Telefon -> 200 OK)" 200 "$SMS_SEND_S
 
 # 7.2 Kod Gönder (Geçersiz Telefon)
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"12345"}')
 run_test "POST /api/sms/send-code (Geçersiz Telefon -> 400 Bad Request)" 400 "$STATUS"
 
 # 7.3 Cooldown Kontrolü (Aynı Numaraya Peş Peşe İstek)
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_TEST'"}')
 run_test "POST /api/sms/send-code (Cooldown Engeli -> 400 Bad Request)" 400 "$STATUS"
 
 # 7.4 Hatalı Kod ile Doğrulama Denemesi
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/verify-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_TEST'","code":"000000"}')
 run_test "POST /api/sms/verify-code (Hatalı Kod -> 400 Bad Request)" 400 "$STATUS"
@@ -292,6 +303,7 @@ run_test "POST /api/sms/verify-code (Hatalı Kod -> 400 Bad Request)" 400 "$STAT
 # 7.5 Doğru Kod ile Başarılı Doğrulama
 if [ -n "$SMS_CODE" ]; then
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/sms/verify-code" \
+    -H "Authorization: Bearer $CUST_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"phoneNumber":"'$PHONE_TEST'","code":"'$SMS_CODE'"}')
   run_test "POST /api/sms/verify-code (Doğru Simülasyon Kodu -> 200 OK)" 200 "$STATUS"
@@ -300,11 +312,12 @@ else
 fi
 
 # 7.6 Durum Sorgulama
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/sms/status?phoneNumber=$PHONE_TEST")
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $CUST_TOKEN" "$BASE_URL/api/sms/status?phoneNumber=$PHONE_TEST")
 run_test "GET /api/sms/status (Durum Sorgulama -> 200 OK)" 200 "$STATUS"
 
 # 7.7 Giriş Yapmış Kullanıcı Telefon Doğrulama (verify-my-phone)
 MY_PHONE_RES=$(curl -s -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_MY'"}')
 MY_PHONE_CODE=$(echo "$MY_PHONE_RES" | grep -o '"simulationCode":"[^"]*' | cut -d'"' -f4)
@@ -341,6 +354,7 @@ run_test "POST /api/sms/verify-and-book (Hatalı Kod -> 400 Bad Request)" 400 "$
 
 # 8.3 Yeni Kod Üret ve verify-and-book ile Başarılı Randevu Akışını Tamamla
 VB_SMS_RES=$(curl -s -X POST "$BASE_URL/api/sms/send-code" \
+  -H "Authorization: Bearer $CUST_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber":"'$PHONE_VB'"}')
 VB_CODE=$(echo "$VB_SMS_RES" | grep -o '"simulationCode":"[^"]*' | cut -d'"' -f4)

@@ -30,8 +30,11 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
 
-  // Selected Booking State
-  const [selectedService, setSelectedService] = useState(null);
+  // Selected Booking State (Multi-service support)
+  const [selectedServices, setSelectedServices] = useState([]);
+  const selectedService = selectedServices[0] || null;
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedDate, setSelectedDate] = useState(''); // 'YYYY-MM-DD'
   const [selectedSlot, setSelectedSlot] = useState(null); // { startAt, endAt, durationMinutes }
@@ -118,7 +121,8 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
       const appointmentPayload = {
         userId: user?.id || 1,
         employeeId: selectedEmployee.id,
-        serviceId: selectedService.id,
+        serviceId: selectedServices[0]?.id || selectedService?.id,
+        serviceIds: selectedServices.map(s => s.id),
         startAt: selectedSlot.startAt,
         notes: notes || null
       };
@@ -182,23 +186,70 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
     loadServices();
   }, []);
 
-  // Hizmet seçildiğinde personelleri yükle ve 2. Adıma geç
-  const handleSelectService = async (service) => {
-    setSelectedService(service);
+  // Çakışma ve Karşılıklı Dışlama Kontrolü (Mutual Exclusion)
+  const getServiceConflictReason = (srv) => {
+    if (!selectedServices || selectedServices.length === 0) return null;
+    if (selectedServices.some(s => s.id === srv.id)) return null;
+
+    if (srv.isComposite && srv.subServices && srv.subServices.length > 0) {
+      const srvSubIds = srv.subServices.map(sub => sub.id);
+      for (const sel of selectedServices) {
+        if (srvSubIds.includes(sel.id)) {
+          return `İçeriğindeki "${sel.name}" zaten seçilmiştir`;
+        }
+        if (sel.isComposite && sel.subServices && sel.subServices.length > 0) {
+          const common = sel.subServices.find(sub => srvSubIds.includes(sub.id));
+          if (common) {
+            return `"${sel.name}" paketi ile ortak "${common.name}" içeriyor`;
+          }
+        }
+      }
+    }
+
+    for (const sel of selectedServices) {
+      if (sel.isComposite && sel.subServices && sel.subServices.length > 0) {
+        if (sel.subServices.some(sub => sub.id === srv.id)) {
+          return `Seçili "${sel.name}" paketinin içeriğindedir`;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const handleToggleService = (service) => {
+    const isSelected = selectedServices.some(s => s.id === service.id);
+    if (isSelected) {
+      setSelectedServices(prev => prev.filter(s => s.id !== service.id));
+      setError(null);
+    } else {
+      const conflict = getServiceConflictReason(service);
+      if (conflict) {
+        setError(`Bu hizmet seçilemez: ${conflict}`);
+        return;
+      }
+      setError(null);
+      setSelectedServices(prev => [...prev, service]);
+    }
+  };
+
+  const handleProceedToEmployees = async () => {
+    if (selectedServices.length === 0) {
+      setError('Lütfen randevu almak için en az bir hizmet seçiniz.');
+      return;
+    }
     setSelectedEmployee(null);
     setSelectedSlot(null);
     setError(null);
     setLoading(true);
 
     try {
-      // Hizmeti verebilen personelleri getir
-      const res = await barberApi.getEmployeesByService(service.id).catch(() => barberApi.getEmployees());
-      if (res.success && res.data && res.data.length > 0) {
+      const serviceIds = selectedServices.map(s => s.id);
+      const res = await barberApi.getEmployeesByServices(serviceIds);
+      if (res.success && res.data) {
         setEmployees(res.data);
       } else {
-        // Fallback tüm aktif personeller
-        const fallback = await barberApi.getEmployees();
-        setEmployees(fallback.data || []);
+        setEmployees([]);
       }
       setCurrentStep(2);
     } catch (err) {
@@ -215,16 +266,18 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
     setError(null);
     const initialDate = datesList[0].iso;
     setSelectedDate(initialDate);
-    fetchSlots(employee.id, selectedService.id, initialDate);
+    const serviceIds = selectedServices.map(s => s.id);
+    fetchSlots(employee.id, serviceIds, initialDate);
     setCurrentStep(3);
   };
 
-  // Boş Slotları Getir
-  const fetchSlots = async (employeeId, serviceId, date) => {
+  // Boş Slotları Getir (Toplam süreye göre)
+  const fetchSlots = async (employeeId, serviceIds, date) => {
     setLoadingSlots(true);
     setError(null);
     try {
-      const res = await barberApi.getAvailableSlots(employeeId, serviceId, date);
+      const primaryId = serviceIds[0];
+      const res = await barberApi.getAvailableSlots(employeeId, primaryId, date, serviceIds);
       if (res.success) {
         const rawSlots = res.data || [];
         const filtered = rawSlots.filter(s => !isSlotInPast(s.startAt));
@@ -243,8 +296,8 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
   const handleDateChange = (dateIso) => {
     setSelectedDate(dateIso);
     setSelectedSlot(null);
-    if (selectedEmployee && selectedService) {
-      fetchSlots(selectedEmployee.id, selectedService.id, dateIso);
+    if (selectedEmployee && selectedServices.length > 0) {
+      fetchSlots(selectedEmployee.id, selectedServices.map(s => s.id), dateIso);
     }
   };
 
@@ -346,30 +399,85 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
       {/* ─── STEP 1: HİZMET SEÇİMİ ────────────────────────────────────────── */}
       {currentStep === 1 && (
         <View>
-          <Text style={styles.instruction}>Size uygun bakım veya tıraş hizmetini seçin:</Text>
+          <Text style={styles.instruction}>Size uygun bakım veya tıraş hizmetlerini seçin (birden fazla seçebilirsiniz):</Text>
           {loading ? (
             <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
           ) : (
-            services.map((srv) => (
-              <TouchableOpacity
-                key={srv.id}
-                style={[
-                  styles.card,
-                  selectedService?.id === srv.id && styles.cardSelected
-                ]}
-                onPress={() => handleSelectService(srv)}
-                activeOpacity={0.75}
-              >
+            services.map((srv) => {
+              const isSelected = selectedServices.some(s => s.id === srv.id);
+              const conflictReason = getServiceConflictReason(srv);
+              const isDisabled = !isSelected && !!conflictReason;
+
+              return (
+                <TouchableOpacity
+                  key={srv.id}
+                  style={[
+                    styles.card,
+                    isSelected && styles.cardSelected,
+                    isDisabled && { opacity: 0.55, borderColor: 'rgba(239, 68, 68, 0.4)' }
+                  ]}
+                  onPress={() => {
+                    if (isDisabled) {
+                      setError(`Bu hizmet seçilemez: ${conflictReason}`);
+                      return;
+                    }
+                    handleToggleService(srv);
+                  }}
+                  activeOpacity={isDisabled ? 1 : 0.75}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 16 }}>{isSelected ? '✅' : (isDisabled ? '⛔' : '⬜')}</Text>
+                      <Text style={styles.cardTitle}>{srv.name}</Text>
+                      {srv.isComposite && (
+                        <View style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.3)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: '#38bdf8', fontSize: 10, fontWeight: '700' }}>📦 Paket</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.cardSub}>⏱ Süre: {srv.durationMinutes} dakika</Text>
+                    {srv.isComposite && srv.subServices && srv.subServices.length > 0 && (
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
+                        İçerik: {srv.subServices.map(s => s.name).join(' + ')}
+                      </Text>
+                    )}
+                    {isDisabled && conflictReason && (
+                      <Text style={{ fontSize: 11, color: '#f87171', marginTop: 4, fontWeight: '600' }}>
+                        ⚠️ {conflictReason}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceText}>{srv.price} ₺</Text>
+                    <Text style={[styles.arrowText, isSelected && { color: colors.primary, fontWeight: '700' }]}>
+                      {isSelected ? 'Seçildi ✓' : (isDisabled ? 'Engellendi' : 'Ekle +')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+
+          {selectedServices.length > 0 && (
+            <View style={[styles.summaryCard, { marginTop: 12, borderColor: colors.primary, backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>{srv.name}</Text>
-                  <Text style={styles.cardSub}>⏱ Süre: {srv.durationMinutes} dakika</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '700' }}>SEÇİLEN HİZMETLER ({selectedServices.length})</Text>
+                  <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+                    {selectedServices.map(s => s.name).join(' + ')}
+                  </Text>
+                  <Text style={{ color: colors.primaryLight, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
+                    ⏱ Toplam: {totalDuration} dk • 💰 {totalPrice} ₺
+                  </Text>
                 </View>
-                <View style={styles.priceContainer}>
-                  <Text style={styles.priceText}>{srv.price} ₺</Text>
-                  <Text style={styles.arrowText}>İleri ›</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                <TouchableOpacity
+                  style={[styles.primaryButton, { paddingHorizontal: 16, paddingVertical: 10, marginTop: 0 }]}
+                  onPress={handleProceedToEmployees}
+                >
+                  <Text style={styles.primaryButtonText}>Kuaför Seç ›</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
         </View>
       )}
@@ -379,16 +487,32 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         <View>
           <View style={styles.selectedBanner}>
             <Text style={styles.selectedBannerText}>
-              ✂️ Seçilen Hizmet: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{selectedService?.name}</Text> ({selectedService?.price} ₺)
+              ✂️ Seçilen Hizmetler ({selectedServices.length}): <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{selectedServices.map(s => s.name).join(', ')}</Text> ({totalPrice} ₺ • {totalDuration} dk)
             </Text>
           </View>
 
-          <Text style={styles.instruction}>İşleminizi yapacak uzman personeli seçin:</Text>
+          <Text style={styles.instruction}>Seçtiğiniz tüm hizmetleri eksiksiz sunabilen uzman personeli seçin:</Text>
 
           {loading ? (
             <View style={{ alignItems: 'center', marginVertical: 30 }}>
               <ActivityIndicator color={colors.primary} />
               <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>Personeller yükleniyor...</Text>
+            </View>
+          ) : employees.length === 0 ? (
+            <View style={[styles.summaryCard, { alignItems: 'center', padding: 24 }]}>
+              <Text style={{ fontSize: 32, marginBottom: 8 }}>✂️</Text>
+              <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '700', textAlign: 'center', marginBottom: 6 }}>
+                Uygun Kuaför Bulunamadı
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, textAlign: 'center', marginBottom: 16 }}>
+                Seçtiğiniz tüm hizmetleri ({selectedServices.map(s => s.name).join(', ')}) eksiksiz sunabilen kuaför personeli bulunamadı.
+              </Text>
+              <TouchableOpacity
+                style={[styles.primaryButton, { paddingHorizontal: 18, paddingVertical: 8 }]}
+                onPress={() => setCurrentStep(1)}
+              >
+                <Text style={styles.primaryButtonText}>‹ Hizmet Seçimine Geri Dön</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             employees.map((emp) => (
@@ -428,7 +552,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
         <View>
           <View style={styles.selectedBanner}>
             <Text style={styles.selectedBannerText}>
-              ✂️ {selectedService?.name} • 👤 {selectedEmployee?.fullName}
+              ✂️ {selectedServices.map(s => s.name).join(' + ')} ({totalDuration} dk) • 👤 {selectedEmployee?.fullName}
             </Text>
           </View>
 
@@ -528,12 +652,18 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             <Text style={styles.summaryHeading}>📋 Randevu Özeti</Text>
 
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Hizmet:</Text>
-              <Text style={styles.summaryVal}>{selectedService?.name}</Text>
+              <Text style={styles.summaryLabel}>Seçilen Hizmetler:</Text>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                {selectedServices.map(s => (
+                  <Text key={s.id} style={[styles.summaryVal, { fontSize: 13, marginBottom: 2 }]}>
+                    {s.name} ({s.durationMinutes} dk) - {s.price} ₺
+                  </Text>
+                ))}
+              </View>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Hizmet Süresi:</Text>
-              <Text style={styles.summaryVal}>{selectedService?.durationMinutes} Dakika</Text>
+              <Text style={styles.summaryLabel}>Toplam Süre:</Text>
+              <Text style={styles.summaryVal}>{totalDuration} Dakika</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Personel:</Text>
@@ -552,7 +682,7 @@ export const BookingScreen = ({ onBookingComplete, onCancelFlow }) => {
             <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.summaryLabel}>Toplam Tutar:</Text>
               <Text style={[styles.summaryVal, { color: colors.primary, fontSize: 18, fontWeight: '800' }]}>
-                {selectedService?.price} ₺
+                {totalPrice} ₺
               </Text>
             </View>
           </View>

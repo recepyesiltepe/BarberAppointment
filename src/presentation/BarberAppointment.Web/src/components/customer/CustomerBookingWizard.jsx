@@ -15,13 +15,21 @@ import {
   Smartphone,
   KeyRound,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Check,
+  Plus,
+  Ban
 } from 'lucide-react';
 import { servicesApi, employeesApi, appointmentsApi, smsApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 import { formatTurkishPhone, isValidTurkishPhone, normalizeTurkishPhone } from '../../utils/phoneUtils';
 
-export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
+export const CustomerBookingWizard = ({
+  onBookingComplete,
+  onNotify,
+  initialEmployee = null,
+  initialService = null
+}) => {
   const { user, updateUser } = useAuth();
 
   // Wizard Step: 1 = Service, 2 = Employee, 3 = Date & Slot, 4 = Review, 5 = Success
@@ -36,8 +44,12 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
   const [error, setError] = useState(null);
   const [serviceSearch, setServiceSearch] = useState('');
 
-  // Booking Selections
-  const [selectedService, setSelectedService] = useState(null);
+  // Booking Selections (Multi-service support)
+  const [selectedServices, setSelectedServices] = useState([]);
+  const selectedService = selectedServices[0] || null;
+  const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0);
+  const totalDuration = selectedServices.reduce((acc, s) => acc + s.durationMinutes, 0);
+
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -149,7 +161,8 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
       const appointmentPayload = {
         userId: user?.id || 1,
         employeeId: selectedEmployee.id,
-        serviceId: selectedService.id,
+        serviceId: selectedServices[0]?.id || selectedService?.id,
+        serviceIds: selectedServices.map(s => s.id),
         startAt: selectedSlot.startAt,
         notes: notes || null
       };
@@ -219,21 +232,84 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     loadServices();
   }, []);
 
-  // When a service is selected, load compatible employees
-  const handleSelectService = async (service) => {
-    setSelectedService(service);
+  // Çakışma ve Karşılıklı Dışlama Kontrolü (Mutual Exclusion):
+  // 1. Kompozit paket seçiliyken, bu paketin alt hizmetleri seçilemez.
+  // 2. Alt hizmetlerden biri seçiliyken, bu alt hizmeti içeren kompozit paket seçilemez.
+  const getServiceConflictReason = (srv) => {
+    if (!selectedServices || selectedServices.length === 0) return null;
+    if (selectedServices.some(s => s.id === srv.id)) return null;
+
+    // A) Aday hizmet bir kompozit paket ise:
+    if (srv.isComposite && srv.subServices && srv.subServices.length > 0) {
+      const srvSubIds = srv.subServices.map(sub => sub.id);
+      for (const sel of selectedServices) {
+        if (srvSubIds.includes(sel.id)) {
+          return `İçeriğindeki "${sel.name}" zaten seçilmiştir`;
+        }
+        if (sel.isComposite && sel.subServices && sel.subServices.length > 0) {
+          const common = sel.subServices.find(sub => srvSubIds.includes(sub.id));
+          if (common) {
+            return `"${sel.name}" paketi ile ortak "${common.name}" hizmetini içeriyor`;
+          }
+        }
+      }
+    }
+
+    // B) Seçili hizmetler arasında kompozit paket varsa ve aday hizmet bunun bir alt hizmeti ise:
+    for (const sel of selectedServices) {
+      if (sel.isComposite && sel.subServices && sel.subServices.length > 0) {
+        if (sel.subServices.some(sub => sub.id === srv.id)) {
+          return `Seçili "${sel.name}" paketinin içeriğindedir`;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Hizmet seç / kaldır (Toggle)
+  const handleToggleService = (service) => {
+    const isSelected = selectedServices.some(s => s.id === service.id);
+    if (isSelected) {
+      setSelectedServices(prev => prev.filter(s => s.id !== service.id));
+      setError(null);
+    } else {
+      const conflictReason = getServiceConflictReason(service);
+      if (conflictReason) {
+        setError(`Bu hizmet seçilemez: ${conflictReason}`);
+        return;
+      }
+      setError(null);
+      setSelectedServices(prev => [...prev, service]);
+    }
+  };
+
+  // Seçilen tüm hizmetlerle Kuaför seçimi adımına ilerle
+  const handleProceedToEmployees = async () => {
+    if (selectedServices.length === 0) {
+      setError('Lütfen randevu almak için en az bir hizmet seçiniz.');
+      return;
+    }
     setSelectedEmployee(null);
     setSelectedSlot(null);
     setError(null);
     setLoading(true);
 
     try {
-      const res = await employeesApi.getByService(service.id).catch(() => employeesApi.getAll(true));
-      if (res.success && res.data && res.data.length > 0) {
+      const serviceIds = selectedServices.map(s => s.id);
+      // Backend: Sadece seçilen TÜM hizmetleri verebilen yetkin personelleri listeler
+      const res = await employeesApi.getByServices(serviceIds);
+      if (res.success && res.data) {
         setEmployees(res.data);
+        if (selectedEmployee && res.data.some(e => e.id === selectedEmployee.id)) {
+          const initialDate = datesList[0].iso;
+          setSelectedDate(initialDate);
+          fetchSlots(selectedEmployee.id, serviceIds, initialDate);
+          setCurrentStep(3);
+          return;
+        }
       } else {
-        const fallback = await employeesApi.getAll(true);
-        setEmployees(fallback.data || []);
+        setEmployees([]);
       }
       setCurrentStep(2);
     } catch (err) {
@@ -243,26 +319,27 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
     }
   };
 
-  // When an employee is selected, initialize date and fetch slots
+  // Personel seçildiğinde randevu slotlarını toplam süreye göre yükle
   const handleSelectEmployee = (employee) => {
     setSelectedEmployee(employee);
     setSelectedSlot(null);
     setError(null);
     const initialDate = datesList[0].iso;
     setSelectedDate(initialDate);
-    fetchSlots(employee.id, selectedService.id, initialDate);
+    const serviceIds = selectedServices.map(s => s.id);
+    fetchSlots(employee.id, serviceIds, initialDate);
     setCurrentStep(3);
   };
 
-  // Fetch available slots from backend
-  const fetchSlots = async (employeeId, serviceId, date) => {
+  // Fetch available slots from backend (Toplam süreye göre)
+  const fetchSlots = async (employeeId, serviceIds, date) => {
     setLoadingSlots(true);
     setError(null);
     try {
-      const res = await appointmentsApi.getAvailableSlots(employeeId, serviceId, date);
+      const primaryId = serviceIds[0];
+      const res = await appointmentsApi.getAvailableSlots(employeeId, primaryId, date, serviceIds);
       if (res.success) {
         const rawSlots = res.data || [];
-        // Geçmiş saatleri frontend tarafında da kesin olarak filtrele
         const filtered = rawSlots.filter(slot => !isSlotInPast(slot.startAt));
         setAvailableSlots(filtered);
       } else {
@@ -279,10 +356,29 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
   const handleDateChange = (dateIso) => {
     setSelectedDate(dateIso);
     setSelectedSlot(null);
-    if (selectedEmployee && selectedService) {
-      fetchSlots(selectedEmployee.id, selectedService.id, dateIso);
+    if (selectedEmployee && selectedServices.length > 0) {
+      fetchSlots(selectedEmployee.id, selectedServices.map(s => s.id), dateIso);
     }
   };
+
+  // Initial employee and service propagation
+  useEffect(() => {
+    if (initialService) {
+      setSelectedServices([initialService]);
+    }
+  }, [initialService]);
+
+  useEffect(() => {
+    if (initialEmployee) {
+      setSelectedEmployee(initialEmployee);
+      if (initialService) {
+        const initialDate = datesList[0].iso;
+        setSelectedDate(initialDate);
+        fetchSlots(initialEmployee.id, [initialService.id], initialDate);
+        setCurrentStep(3);
+      }
+    }
+  }, [initialEmployee, initialService]);
 
 
 
@@ -455,6 +551,42 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             </div>
           </div>
 
+          {selectedEmployee && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.25rem',
+              background: 'rgba(2, 132, 199, 0.12)',
+              border: '1px solid rgba(2, 132, 199, 0.35)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.85rem',
+              color: '#38bdf8'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <User size={16} />
+                <span>
+                  Tercih Edilen Berber: <strong>{selectedEmployee.fullName}</strong> ({selectedEmployee.title || 'Usta Kuaför'})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEmployee(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                Değiştir
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>
               <div className="spinner-sm" style={{ width: '28px', height: '28px', margin: '0 auto 1rem', borderColor: 'var(--primary-400)', borderTopColor: 'transparent' }} />
@@ -478,43 +610,223 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-              {filteredServices.map((srv) => (
-                <div
-                  key={srv.id}
-                  onClick={() => handleSelectService(srv)}
-                  style={{
-                    padding: '1.25rem',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--card-nested-bg)',
-                    border: selectedService?.id === srv.id ? '2px solid var(--primary-400)' : '1px solid var(--border-subtle)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary-400)'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = selectedService?.id === srv.id ? 'var(--primary-400)' : 'var(--border-subtle)'}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{srv.name}</h4>
-                      <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>{srv.price} ₺</span>
+              {filteredServices.map((srv) => {
+                const isSelected = selectedServices.some(s => s.id === srv.id);
+                const conflictReason = getServiceConflictReason(srv);
+                const isDisabled = !isSelected && !!conflictReason;
+
+                return (
+                  <div
+                    key={srv.id}
+                    onClick={() => {
+                      if (!isDisabled) handleToggleService(srv);
+                    }}
+                    style={{
+                      padding: '1.25rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: isSelected
+                        ? 'rgba(245, 158, 11, 0.08)'
+                        : (isDisabled ? 'rgba(30, 41, 59, 0.4)' : 'var(--card-nested-bg)'),
+                      border: isSelected
+                        ? '2px solid var(--primary-400)'
+                        : (isDisabled ? '1px dashed rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)'),
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                      opacity: isDisabled ? 0.6 : 1,
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      position: 'relative'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isDisabled && !isSelected) e.currentTarget.style.borderColor = 'var(--primary-400)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isDisabled && !isSelected) e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '4px',
+                              border: isSelected ? '2px solid var(--primary-400)' : '2px solid var(--border-medium)',
+                              background: isSelected ? 'var(--primary-400)' : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              {isSelected && <Check size={14} color="#000" strokeWidth={3} />}
+                            </div>
+                            <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{srv.name}</h4>
+                          </div>
+
+                          {srv.isComposite && (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              width: 'fit-content',
+                              marginTop: '0.25rem'
+                            }}>
+                              📦 Avantajlı Paket
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>{srv.price} ₺</span>
+                          {srv.isComposite && srv.subServices && srv.subServices.length > 0 && (() => {
+                            const totalList = srv.subServices.reduce((acc, sub) => acc + sub.price, 0);
+                            if (totalList > srv.price) {
+                              return (
+                                <div style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 700 }}>
+                                  {totalList - srv.price} ₺ Kazanç
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        <Clock size={14} /> {srv.durationMinutes} dakika işlem süresi
+                      </div>
+
+                      {srv.isComposite && srv.subServices && srv.subServices.length > 0 && (
+                        <div style={{
+                          marginTop: '0.6rem',
+                          padding: '0.4rem 0.6rem',
+                          background: 'rgba(56, 189, 248, 0.05)',
+                          border: '1px dashed rgba(56, 189, 248, 0.25)',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          color: 'var(--text-secondary)'
+                        }}>
+                          <span style={{ fontWeight: 600, color: '#38bdf8' }}>Paket İçeriği: </span>
+                          {srv.subServices.map(s => s.name).join(' + ')}
+                        </div>
+                      )}
+
+                      {isDisabled && conflictReason && (
+                        <div style={{
+                          marginTop: '0.6rem',
+                          padding: '0.4rem 0.6rem',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          color: '#fca5a5',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem'
+                        }}>
+                          <Ban size={14} style={{ flexShrink: 0 }} />
+                          <span>{conflictReason}</span>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      <Clock size={14} /> {srv.durationMinutes} dakika işlem süresi
+
+                    <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                      {isSelected ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}
+                        >
+                          <Check size={14} />
+                          <span>Seçildi</span>
+                        </button>
+                      ) : isDisabled ? (
+                        <span style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 600 }}>
+                          Çakışma Var
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}
+                        >
+                          <Plus size={14} />
+                          <span>Hizmeti Ekle</span>
+                        </button>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem' }}>
-                      <span>Seç ve İlerle</span>
-                      <ChevronRight size={14} />
-                    </button>
+          {/* Seçili Hizmetler ve İlerleme Çubuğu */}
+          {selectedServices.length > 0 ? (
+            <div style={{
+              position: 'sticky',
+              bottom: '1rem',
+              zIndex: 10,
+              marginTop: '1.5rem',
+              padding: '1rem 1.5rem',
+              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(12px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SEÇİLEN HİZMETLER ({selectedServices.length})</div>
+                  <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '1rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '2px' }}>
+                    {selectedServices.map(s => (
+                      <span key={s.id} style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', color: '#fde68a' }}>
+                        {s.name}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              ))}
+                <div style={{ display: 'flex', gap: '1.25rem', borderLeft: '1px solid var(--border-subtle)', paddingLeft: '1.25rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOPLAM SÜRE</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Clock size={15} color="var(--primary-400)" /> {totalDuration} dk
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOPLAM TUTAR</div>
+                    <div style={{ fontWeight: 800, color: '#fbbf24', fontSize: '1.2rem' }}>
+                      {totalPrice} ₺
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleProceedToEmployees}
+                className="btn btn-primary"
+                style={{ padding: '0.75rem 1.5rem', fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <span>Kuaför Seçimiyle Devam Et</span>
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-subtle)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              💡 Randevu almak istediğiniz bir veya birden fazla hizmeti yukarıdaki kartlara tıklayarak seçiniz.
             </div>
           )}
         </div>
@@ -531,10 +843,12 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             marginBottom: '1.5rem',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem'
           }}>
             <div style={{ fontSize: '0.9rem', color: '#fbbf24' }}>
-              ✂️ Seçilen Hizmet: <strong style={{ color: 'var(--text-primary)' }}>{selectedService?.name}</strong> ({selectedService?.price} ₺ • {selectedService?.durationMinutes} dk)
+              ✂️ Seçilen Hizmetler ({selectedServices.length}): <strong style={{ color: 'var(--text-primary)' }}>{selectedServices.map(s => s.name).join(', ')}</strong> ({totalPrice} ₺ • {totalDuration} dk)
             </div>
             <button onClick={() => setCurrentStep(1)} className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}>
               Değiştir
@@ -555,6 +869,22 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             <div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>
               <div className="spinner-sm" style={{ width: '28px', height: '28px', margin: '0 auto 1rem', borderColor: '#38bdf8', borderTopColor: 'transparent' }} />
               <div>Personeller yükleniyor...</div>
+            </div>
+          ) : employees.length === 0 ? (
+            <div className="empty-state">
+              <User size={40} className="empty-state-icon" />
+              <h4 className="empty-state-title">Uygun kuaför bulunamadı</h4>
+              <p className="empty-state-text">
+                Seçtiğiniz tüm hizmetleri ({selectedServices.map(s => s.name).join(', ')}) eksiksiz sunabilen kuaför personeli bulunamadı. Lütfen hizmet seçiminizi güncelleyiniz.
+              </p>
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '1rem' }}
+              >
+                Hizmet Seçimine Geri Dön
+              </button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
@@ -620,10 +950,12 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
             marginBottom: '1.5rem',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.5rem'
           }}>
             <div style={{ fontSize: '0.9rem', color: '#fbbf24' }}>
-              ✂️ {selectedService?.name} • 👤 {selectedEmployee?.fullName}
+              ✂️ {selectedServices.map(s => s.name).join(' + ')} ({totalDuration} dk) • 👤 {selectedEmployee?.fullName}
             </div>
             <button onClick={() => setCurrentStep(2)} className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}>
               Değiştir
@@ -776,9 +1108,18 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
           }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hizmet</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{selectedService?.name}</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedService?.durationMinutes} Dakika İşlem</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Seçilen Hizmetler ({selectedServices.length})</div>
+                <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {selectedServices.map(s => (
+                    <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.name} ({s.durationMinutes} dk)</span>
+                      <span style={{ fontWeight: 700, color: '#fbbf24' }}>{s.price} ₺</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--primary-400)', marginTop: '0.5rem', fontWeight: 600 }}>
+                  ⏱️ Toplam {totalDuration} Dakika İşlem
+                </div>
               </div>
 
               <div>
@@ -796,9 +1137,9 @@ export const CustomerBookingWizard = ({ onBookingComplete, onNotify }) => {
               </div>
 
               <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ödenecek Tutar</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Toplam Tutar</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24', marginTop: '2px' }}>
-                  {selectedService?.price} ₺
+                  {totalPrice} ₺
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Salonda ödeme</div>
               </div>

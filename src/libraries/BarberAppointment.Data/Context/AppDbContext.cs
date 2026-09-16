@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public virtual DbSet<EmployeeService> EmployeeServices => Set<EmployeeService>();
     public virtual DbSet<Appointment> Appointments => Set<Appointment>();
     public virtual DbSet<AppointmentAuditLog> AppointmentAuditLogs => Set<AppointmentAuditLog>();
+    public virtual DbSet<CompositeServiceItem> CompositeServiceItems => Set<CompositeServiceItem>();
+    public virtual DbSet<AppointmentServiceItem> AppointmentServiceItems => Set<AppointmentServiceItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

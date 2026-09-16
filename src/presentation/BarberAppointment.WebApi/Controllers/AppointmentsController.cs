@@ -175,14 +175,16 @@ public class AppointmentsController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<AvailableSlotDto>>>> GetAvailableSlots(
         [FromQuery] int employeeId,
-        [FromQuery] int serviceId,
+        [FromQuery] int? serviceId,
+        [FromQuery] List<int>? serviceIds,
         [FromQuery] DateTime date,
         CancellationToken cancellationToken)
     {
         var query = new AvailableSlotsQueryDto
         {
             EmployeeId = employeeId,
-            ServiceId = serviceId,
+            ServiceId = serviceId ?? (serviceIds?.FirstOrDefault() ?? 0),
+            ServiceIds = serviceIds,
             Date = date
         };
 

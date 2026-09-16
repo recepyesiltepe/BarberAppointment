@@ -10,6 +10,7 @@ namespace BarberAppointment.WebApi.Controllers;
 [ApiController]
 [Route("api/sms")]
 [Produces("application/json")]
+[Authorize]
 public class SmsVerificationController : ControllerBase
 {
     private readonly ISmsVerificationService _smsVerificationService;
@@ -21,13 +22,14 @@ public class SmsVerificationController : ControllerBase
 
     /// <summary>
     /// Belirtilen cep telefonu numarasına 6 haneli OTP SMS doğrulama kodu gönderir (Ek Geliştirme 3).
+    /// Yalnızca sisteme giriş yapmış kullanıcılar talepte bulunabilir.
     /// </summary>
     /// <param name="dto">Telefon numarası bilgisi.</param>
     /// <param name="cancellationToken">İptal belirteci.</param>
     [HttpPost("send-code")]
-    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<SmsVerificationResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ApiResponse<SmsVerificationResultDto>>> SendCode(
         [FromBody] SendSmsVerificationDto dto,
         CancellationToken cancellationToken)
@@ -48,9 +50,9 @@ public class SmsVerificationController : ControllerBase
     /// <param name="dto">Telefon numarası ve kod.</param>
     /// <param name="cancellationToken">İptal belirteci.</param>
     [HttpPost("verify-code")]
-    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<SmsVerificationResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ApiResponse<SmsVerificationResultDto>>> VerifyCode(
         [FromBody] VerifySmsCodeDto dto,
         CancellationToken cancellationToken)
@@ -70,8 +72,9 @@ public class SmsVerificationController : ControllerBase
     /// <param name="phoneNumber">Telefon numarası.</param>
     /// <param name="cancellationToken">İptal belirteci.</param>
     [HttpGet("status")]
-    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<SmsVerificationStatusDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ApiResponse<SmsVerificationStatusDto>>> GetStatus(
         [FromQuery] string phoneNumber,
         CancellationToken cancellationToken)
@@ -90,7 +93,6 @@ public class SmsVerificationController : ControllerBase
     /// Tüm veritabanı erişimi servis katmanında yürütülür.
     /// </summary>
     [HttpPost("verify-my-phone")]
-    [Authorize]
     [ProducesResponseType(typeof(ApiResponse<SmsVerificationResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
@@ -118,14 +120,18 @@ public class SmsVerificationController : ControllerBase
     /// İş akışı tamamen servis katmanına devredilmiştir.
     /// </summary>
     [HttpPost("verify-and-book")]
-    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<VerifyAndBookResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ApiResponse<VerifyAndBookResultDto>>> VerifyAndBook(
         [FromBody] VerifyAndBookDto dto,
         CancellationToken cancellationToken)
     {
         var authenticatedUserId = GetCurrentUserId();
+        if (authenticatedUserId == null)
+        {
+            return Unauthorized(ApiResponse.Fail("Geçersiz oturum bilgisi.", StatusCodes.Status401Unauthorized));
+        }
         var result = await _smsVerificationService.VerifyAndBookAsync(dto, authenticatedUserId, cancellationToken);
         if (!result.Success)
         {

@@ -18,6 +18,14 @@ public class CreateServiceValidator : AbstractValidator<CreateServiceDto>
         RuleFor(x => x.Price)
             .GreaterThan(0)
             .WithMessage("Hizmet ücreti sıfırdan büyük olmalıdır.");
+
+        When(x => x.IsComposite, () =>
+        {
+            RuleFor(x => x.SubServiceIds)
+                .NotEmpty().WithMessage("Kompozit bir hizmet için en az 2 alt hizmet seçilmelidir.")
+                .Must(ids => ids != null && ids.Distinct().Count() >= 2)
+                .WithMessage("Kompozit bir hizmet en az 2 farklı alt hizmet içermelidir.");
+        });
     }
 }
 
@@ -36,5 +44,13 @@ public class UpdateServiceValidator : AbstractValidator<UpdateServiceDto>
         RuleFor(x => x.Price)
             .GreaterThan(0)
             .WithMessage("Hizmet ücreti sıfırdan büyük olmalıdır.");
+
+        When(x => x.IsComposite, () =>
+        {
+            RuleFor(x => x.SubServiceIds)
+                .NotEmpty().WithMessage("Kompozit bir hizmet için en az 2 alt hizmet seçilmelidir.")
+                .Must(ids => ids != null && ids.Distinct().Count() >= 2)
+                .WithMessage("Kompozit bir hizmet en az 2 farklı alt hizmet içermelidir.");
+        });
     }
 }

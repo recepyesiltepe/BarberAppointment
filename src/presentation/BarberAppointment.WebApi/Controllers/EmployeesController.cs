@@ -57,6 +57,19 @@ public class EmployeesController : ControllerBase
     }
 
     /// <summary>
+    /// Belirtilen tüm hizmetleri eksiksiz sunabilen yetkin personelleri listeler (Herkese açık).
+    /// </summary>
+    [HttpGet("by-services")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<EmployeeDto>>>> GetByServiceIds(
+        [FromQuery] List<int> serviceIds,
+        CancellationToken cancellationToken)
+    {
+        var employees = await _employeeService.GetByMultipleServiceIdsAsync(serviceIds, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<EmployeeDto>>.Ok(employees));
+    }
+
+    /// <summary>
     /// Yeni bir personel kaydı oluşturur (Yalnızca Admin).
     /// </summary>
     [HttpPost]

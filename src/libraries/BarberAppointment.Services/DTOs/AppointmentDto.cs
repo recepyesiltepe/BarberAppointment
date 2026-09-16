@@ -27,6 +27,15 @@ public class AppointmentDto
     };
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<AppointmentServiceItemDto> Services { get; set; } = new();
+}
+
+public class AppointmentServiceItemDto
+{
+    public int ServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public int DurationMinutes { get; set; }
 }
 
 public class CreateAppointmentDto
@@ -34,6 +43,7 @@ public class CreateAppointmentDto
     public int UserId { get; set; }
     public int EmployeeId { get; set; }
     public int ServiceId { get; set; }
+    public List<int>? ServiceIds { get; set; }
     public DateTime StartAt { get; set; }
     public string? Notes { get; set; }
 }
@@ -56,6 +66,7 @@ public class AvailableSlotsQueryDto
 {
     public int EmployeeId { get; set; }
     public int ServiceId { get; set; }
+    public List<int>? ServiceIds { get; set; }
     public DateTime Date { get; set; }
 }
 

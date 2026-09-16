@@ -14,8 +14,9 @@ public class CreateAppointmentValidator : AbstractValidator<CreateAppointmentDto
         RuleFor(x => x.EmployeeId)
             .GreaterThan(0).WithMessage("Geçerli bir personel (EmployeeId) seçilmelidir.");
 
-        RuleFor(x => x.ServiceId)
-            .GreaterThan(0).WithMessage("Geçerli bir hizmet (ServiceId) seçilmelidir.");
+        RuleFor(x => x)
+            .Must(x => x.ServiceId > 0 || (x.ServiceIds != null && x.ServiceIds.Any(id => id > 0)))
+            .WithMessage("En az bir geçerli hizmet seçilmelidir.");
 
         RuleFor(x => x.StartAt)
             .NotEmpty().WithMessage("Randevu başlangıç tarihi ve saati belirtilmelidir.")
@@ -48,8 +49,9 @@ public class AvailableSlotsQueryValidator : AbstractValidator<AvailableSlotsQuer
         RuleFor(x => x.EmployeeId)
             .GreaterThan(0).WithMessage("Geçerli bir personel ID belirtilmelidir.");
 
-        RuleFor(x => x.ServiceId)
-            .GreaterThan(0).WithMessage("Geçerli bir hizmet ID belirtilmelidir.");
+        RuleFor(x => x)
+            .Must(x => x.ServiceId > 0 || (x.ServiceIds != null && x.ServiceIds.Any(id => id > 0)))
+            .WithMessage("En az bir geçerli hizmet ID belirtilmelidir.");
 
         RuleFor(x => x.Date)
             .NotEmpty().WithMessage("Slot sorgulama tarihi belirtilmelidir.");
