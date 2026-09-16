@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../api/authApi';
 
 const AuthContext = createContext(null);
@@ -7,6 +7,18 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const logout = useCallback(() => {
+    const savedRefreshToken = localStorage.getItem('barber_refresh_token');
+    if (savedRefreshToken) {
+      authApi.revokeToken(savedRefreshToken).catch(() => {});
+    }
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('barber_jwt_token');
+    localStorage.removeItem('barber_refresh_token');
+    localStorage.removeItem('barber_user');
+  }, []);
 
   // Uygulama ilk açıldığında localStorage'dan oturumu geri yükle
   useEffect(() => {
@@ -42,7 +54,7 @@ export const AuthProvider = ({ children }) => {
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
-  }, []);
+  }, [logout]);
 
   const login = async (email, password) => {
     setIsLoading(true);
@@ -92,18 +104,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const logout = () => {
-    const savedRefreshToken = localStorage.getItem('barber_refresh_token');
-    if (savedRefreshToken) {
-      authApi.revokeToken(savedRefreshToken).catch(() => {});
-    }
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('barber_jwt_token');
-    localStorage.removeItem('barber_refresh_token');
-    localStorage.removeItem('barber_user');
   };
 
   const getRoleName = () => {

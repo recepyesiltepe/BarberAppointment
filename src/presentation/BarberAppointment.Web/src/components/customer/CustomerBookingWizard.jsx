@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Scissors,
   User,
@@ -7,15 +7,12 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
-  CheckCircle2,
   AlertCircle,
-  FileText,
   Search,
   X,
   Smartphone,
   KeyRound,
   ShieldCheck,
-  RefreshCw,
   Check,
   Plus,
   Ban
@@ -211,7 +208,7 @@ export const CustomerBookingWizard = ({
     return dates;
   };
 
-  const datesList = getNext7Days();
+  const datesList = useMemo(() => getNext7Days(), []);
 
   // Load Services on mount
   useEffect(() => {
@@ -378,7 +375,7 @@ export const CustomerBookingWizard = ({
         setCurrentStep(3);
       }
     }
-  }, [initialEmployee, initialService]);
+  }, [initialEmployee, initialService, datesList]);
 
 
 
@@ -410,7 +407,7 @@ export const CustomerBookingWizard = ({
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                background: currentStep >= 1 ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.08)',
+                background: currentStep >= 1 ? 'var(--primary-gradient)' : 'var(--btn-secondary-bg)',
                 color: currentStep >= 1 ? '#000' : 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
@@ -511,14 +508,14 @@ export const CustomerBookingWizard = ({
             <div>
               <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Scissors size={24} color="var(--primary-400)" />
-                <span>1. Adım: Hizmetinizi Seçin</span>
+                <span>1. Adım: Hizmet Seçimi</span>
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
                 Almak istediğiniz bakım veya saç tasarım hizmetini belirleyin.
               </p>
             </div>
 
-            <div className="theme-search-box" style={{ width: '260px' }}>
+            <div className="theme-search-box" style={{ width: '220px' }}>
               <Search size={16} className="search-icon" />
               <input
                 type="text"
@@ -531,7 +528,7 @@ export const CustomerBookingWizard = ({
                   type="button"
                   className="search-clear-btn"
                   onClick={() => setServiceSearch('')}
-                  title="Temizle"
+                  title="Aramayı Temizle"
                 >
                   <X size={13} />
                 </button>
@@ -546,11 +543,11 @@ export const CustomerBookingWizard = ({
               justifyContent: 'space-between',
               padding: '0.75rem 1rem',
               marginBottom: '1.25rem',
-              background: 'rgba(2, 132, 199, 0.12)',
-              border: '1px solid rgba(2, 132, 199, 0.35)',
+              background: 'var(--accent-info-bg)',
+              border: '1px solid var(--accent-info-border)',
               borderRadius: 'var(--radius-md)',
               fontSize: '0.85rem',
-              color: '#38bdf8'
+              color: 'var(--accent-info-text)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <User size={16} />
@@ -614,7 +611,7 @@ export const CustomerBookingWizard = ({
                       borderRadius: 'var(--radius-md)',
                       background: isSelected
                         ? 'rgba(245, 158, 11, 0.08)'
-                        : (isDisabled ? 'rgba(30, 41, 59, 0.4)' : 'var(--card-nested-bg)'),
+                        : (isDisabled ? 'var(--disabled-card-bg)' : 'var(--card-nested-bg)'),
                       border: isSelected
                         ? '2px solid var(--primary-400)'
                         : (isDisabled ? '1px dashed rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)'),
@@ -658,9 +655,9 @@ export const CustomerBookingWizard = ({
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '0.25rem',
-                              background: 'rgba(56, 189, 248, 0.15)',
-                              color: '#38bdf8',
-                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              background: 'var(--badge-service-bg)',
+                              color: 'var(--badge-service-text)',
+                              border: '1px solid var(--badge-service-border)',
                               padding: '0.1rem 0.4rem',
                               borderRadius: '4px',
                               fontSize: '0.7rem',
@@ -673,12 +670,12 @@ export const CustomerBookingWizard = ({
                           )}
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>{srv.price} ₺</span>
+                          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--price-text)' }}>{srv.price} ₺</span>
                           {srv.isComposite && srv.subServices && srv.subServices.length > 0 && (() => {
                             const totalList = srv.subServices.reduce((acc, sub) => acc + sub.price, 0);
                             if (totalList > srv.price) {
                               return (
-                                <div style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 700 }}>
+                                <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
                                   {totalList - srv.price} ₺ Kazanç
                                 </div>
                               );
@@ -696,13 +693,13 @@ export const CustomerBookingWizard = ({
                         <div style={{
                           marginTop: '0.6rem',
                           padding: '0.4rem 0.6rem',
-                          background: 'rgba(56, 189, 248, 0.05)',
-                          border: '1px dashed rgba(56, 189, 248, 0.25)',
+                          background: 'var(--accent-info-bg)',
+                          border: '1px dashed var(--accent-info-border)',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
                           color: 'var(--text-secondary)'
                         }}>
-                          <span style={{ fontWeight: 600, color: '#38bdf8' }}>Paket İçeriği: </span>
+                          <span style={{ fontWeight: 600, color: 'var(--accent-info-text)' }}>Paket İçeriği: </span>
                           {srv.subServices.map(s => s.name).join(' + ')}
                         </div>
                       )}
@@ -715,7 +712,7 @@ export const CustomerBookingWizard = ({
                           border: '1px solid rgba(239, 68, 68, 0.25)',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
-                          color: '#fca5a5',
+                          color: 'var(--danger)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '0.35rem'
@@ -765,10 +762,10 @@ export const CustomerBookingWizard = ({
               zIndex: 10,
               marginTop: '1.5rem',
               padding: '1rem 1.5rem',
-              background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
+              background: 'var(--floating-bar-bg)',
+              border: '1px solid var(--floating-bar-border)',
               borderRadius: 'var(--radius-lg)',
-              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+              boxShadow: 'var(--floating-bar-shadow)',
               backdropFilter: 'blur(12px)',
               display: 'flex',
               alignItems: 'center',
@@ -779,9 +776,9 @@ export const CustomerBookingWizard = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>SEÇİLEN HİZMETLER ({selectedServices.length})</div>
-                  <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '1rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '2px' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--price-text)', fontSize: '1rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '2px' }}>
                     {selectedServices.map(s => (
-                      <span key={s.id} style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', color: '#fde68a' }}>
+                      <span key={s.id} style={{ background: 'var(--tag-badge-bg)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', color: 'var(--tag-badge-text)' }}>
                         {s.name}
                       </span>
                     ))}
@@ -796,7 +793,7 @@ export const CustomerBookingWizard = ({
                   </div>
                   <div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>TOPLAM TUTAR</div>
-                    <div style={{ fontWeight: 800, color: '#fbbf24', fontSize: '1.2rem' }}>
+                    <div style={{ fontWeight: 800, color: 'var(--price-text)', fontSize: '1.2rem' }}>
                       {totalPrice} ₺
                     </div>
                   </div>
@@ -813,7 +810,7 @@ export const CustomerBookingWizard = ({
               </button>
             </div>
           ) : (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-subtle)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--card-nested-bg)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-subtle)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               💡 Randevu almak istediğiniz bir veya birden fazla hizmeti yukarıdaki kartlara tıklayarak seçiniz.
             </div>
           )}
@@ -825,8 +822,8 @@ export const CustomerBookingWizard = ({
         <div className="glass-card" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
           <div style={{
             padding: '0.75rem 1rem',
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'var(--tag-badge-bg)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             marginBottom: '1.5rem',
             display: 'flex',
@@ -835,7 +832,7 @@ export const CustomerBookingWizard = ({
             flexWrap: 'wrap',
             gap: '0.5rem'
           }}>
-            <div style={{ fontSize: '0.9rem', color: '#fbbf24' }}>
+            <div style={{ fontSize: '0.9rem', color: 'var(--tag-badge-text)' }}>
               ✂️ Seçilen Hizmetler ({selectedServices.length}): <strong style={{ color: 'var(--text-primary)' }}>{selectedServices.map(s => s.name).join(', ')}</strong> ({totalPrice} ₺ • {totalDuration} dk)
             </div>
             <button onClick={() => setCurrentStep(1)} className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}>
@@ -932,8 +929,8 @@ export const CustomerBookingWizard = ({
         <div className="glass-card" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)' }}>
           <div style={{
             padding: '0.75rem 1rem',
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'var(--tag-badge-bg)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             marginBottom: '1.5rem',
             display: 'flex',
@@ -942,7 +939,7 @@ export const CustomerBookingWizard = ({
             flexWrap: 'wrap',
             gap: '0.5rem'
           }}>
-            <div style={{ fontSize: '0.9rem', color: '#fbbf24' }}>
+            <div style={{ fontSize: '0.9rem', color: 'var(--tag-badge-text)' }}>
               ✂️ {selectedServices.map(s => s.name).join(' + ')} ({totalDuration} dk) • 👤 {selectedEmployee?.fullName}
             </div>
             <button onClick={() => setCurrentStep(2)} className="btn btn-ghost btn-sm" style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}>
@@ -1101,7 +1098,7 @@ export const CustomerBookingWizard = ({
                   {selectedServices.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                       <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.name} ({s.durationMinutes} dk)</span>
-                      <span style={{ fontWeight: 700, color: '#fbbf24' }}>{s.price} ₺</span>
+                      <span style={{ fontWeight: 700, color: 'var(--price-text)' }}>{s.price} ₺</span>
                     </div>
                   ))}
                 </div>
@@ -1112,21 +1109,21 @@ export const CustomerBookingWizard = ({
 
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Uzman Kuaför</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>{selectedEmployee?.fullName}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--badge-service-text)', marginTop: '2px' }}>{selectedEmployee?.fullName}</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedEmployee?.title || 'Usta Kuaför'}</div>
               </div>
 
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Randevu Zamanı</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{formatDateHuman(selectedDate)}</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fbbf24', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--price-text)', marginTop: '2px' }}>
                   {formatTime(selectedSlot?.startAt)} – {formatTime(selectedSlot?.endAt)}
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Toplam Tutar</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24', marginTop: '2px' }}>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--price-text)', marginTop: '2px' }}>
                   {totalPrice} ₺
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Salonda ödeme</div>
@@ -1149,15 +1146,15 @@ export const CustomerBookingWizard = ({
 
           {/* Phone Verification Section: Kayıtlı telefon numarası otomatik kullanılır, OTP zorunludur */}
           <div style={{
-            background: 'rgba(245, 158, 11, 0.05)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'var(--tag-badge-bg)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
             padding: '1.5rem',
             marginBottom: '1.5rem'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <Smartphone size={22} color="#fbbf24" />
+                <Smartphone size={22} color="var(--primary-400)" />
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                   Randevu Onay Kodu (SMS Doğrulaması)
                 </h3>
@@ -1170,7 +1167,7 @@ export const CustomerBookingWizard = ({
             </p>
 
             {smsError && (
-              <div className="alert-card" style={{ marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}>
+              <div className="alert-card alert-card-error" style={{ marginBottom: '1rem' }}>
                 <AlertCircle size={16} />
                 <span>{smsError}</span>
               </div>
@@ -1182,17 +1179,17 @@ export const CustomerBookingWizard = ({
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '0.85rem 1.25rem',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: 'var(--accent-info-bg)',
+              border: '1px solid var(--accent-info-border)',
               borderRadius: 'var(--radius-md)',
               marginBottom: '1rem',
               flexWrap: 'wrap',
               gap: '0.75rem'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <ShieldCheck size={22} color="#38bdf8" />
+                <ShieldCheck size={22} color="var(--accent-info-text)" />
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--accent-info-text)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Kayıtlı Telefon Numaranız (Otomatik)
                   </div>
                   <div style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: 700 }}>
@@ -1219,24 +1216,24 @@ export const CustomerBookingWizard = ({
             </div>
 
             {smsStep === 2 && (
-              <div className="animate-fade-in" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="animate-fade-in" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
                 {smsSimulationCode && (
                   <div style={{
                     padding: '0.6rem 0.85rem',
-                    background: 'rgba(56, 189, 248, 0.1)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    background: 'var(--accent-info-bg)',
+                    border: '1px solid var(--accent-info-border)',
                     borderRadius: 'var(--radius-sm)',
                     marginBottom: '1rem',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <span style={{ fontSize: '0.8rem', color: '#7dd3fc' }}>🧪 Test Simülasyon Kodu: <strong>{smsSimulationCode}</strong></span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--accent-info-text)' }}>🧪 Test Simülasyon Kodu: <strong>{smsSimulationCode}</strong></span>
                     <button
                       type="button"
                       onClick={() => setSmsCode(smsSimulationCode)}
                       className="btn btn-ghost btn-sm"
-                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: 'var(--accent-info-text)' }}
                     >
                       Kodu Doldur
                     </button>
@@ -1245,7 +1242,7 @@ export const CustomerBookingWizard = ({
 
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <KeyRound size={16} color="#fbbf24" />
+                    <KeyRound size={16} color="var(--primary-400)" />
                     <span>6 Haneli Doğrulama Kodunu Giriniz</span>
                   </label>
                   <input
@@ -1367,17 +1364,17 @@ export const CustomerBookingWizard = ({
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kuaför:</span>
-              <span style={{ fontWeight: 600, color: '#38bdf8' }}>{createdAppointment?.employeeName}</span>
+              <span style={{ fontWeight: 600, color: 'var(--badge-service-text)' }}>{createdAppointment?.employeeName}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Zaman:</span>
-              <span style={{ fontWeight: 700, color: '#fbbf24' }}>
+              <span style={{ fontWeight: 700, color: 'var(--price-text)' }}>
                 {new Date(createdAppointment?.startAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} {formatTime(createdAppointment?.startAt)} – {formatTime(createdAppointment?.endAt)}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tutar:</span>
-              <span style={{ fontWeight: 800, color: '#fbbf24', fontSize: '1.2rem' }}>{createdAppointment?.price} ₺</span>
+              <span style={{ fontWeight: 800, color: 'var(--price-text)', fontSize: '1.2rem' }}>{createdAppointment?.price} ₺</span>
             </div>
           </div>
 

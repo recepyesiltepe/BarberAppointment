@@ -44,7 +44,7 @@ export const PasswordStrengthIndicator = ({
         style={{
           width: '100%',
           height: '4px',
-          background: 'rgba(255, 255, 255, 0.08)',
+          background: 'var(--border-subtle)',
           borderRadius: '999px',
           overflow: 'hidden',
           marginBottom: '0.65rem'
@@ -83,7 +83,7 @@ export const PasswordStrengthIndicator = ({
             {c.met ? (
               <CheckCircle2 size={13} color="#10b981" style={{ flexShrink: 0 }} />
             ) : (
-              <Circle size={13} color="rgba(255,255,255,0.25)" style={{ flexShrink: 0 }} />
+              <Circle size={13} color="var(--border-medium)" style={{ flexShrink: 0 }} />
             )}
             <span>{c.label}</span>
           </div>
@@ -96,7 +96,7 @@ export const PasswordStrengthIndicator = ({
           style={{
             marginTop: '0.5rem',
             paddingTop: '0.45rem',
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+            borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.35rem',

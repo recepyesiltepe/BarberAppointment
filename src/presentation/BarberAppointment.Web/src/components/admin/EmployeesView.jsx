@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { User, Plus, Edit2, Trash2, Search, Scissors, Shield, Check, X, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { User, Plus, Edit2, Trash2, Search, Scissors, Shield, Check, X, AlertCircle, Clock, Calendar, Mail, Phone, Lock, Eye, EyeOff, Key } from 'lucide-react';
 import { employeesApi, servicesApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { PasswordStrengthIndicator } from '../common/PasswordStrengthIndicator';
+import { isStrongPassword } from '../../utils/passwordUtils';
 
 const DAYS_OF_WEEK = [
   { id: 1, label: 'Pzt', fullLabel: 'Pazartesi' },
@@ -55,6 +57,11 @@ export const EmployeesView = ({ onNotify }) => {
   const [editingEmployee, setEditingEmployee] = useState(null); // null = add, object = edit
   const [fullName, setFullName] = useState('');
   const [title, setTitle] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
   const [workStartTime, setWorkStartTime] = useState('09:00');
   const [workEndTime, setWorkEndTime] = useState('19:00');
@@ -104,6 +111,11 @@ export const EmployeesView = ({ onNotify }) => {
     setEditingEmployee(null);
     setFullName('');
     setTitle('Kuaför & Stilist');
+    setEmail('');
+    setPhone('');
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
     setSelectedServiceIds([]);
     setWorkStartTime('09:00');
     setWorkEndTime('19:00');
@@ -118,6 +130,11 @@ export const EmployeesView = ({ onNotify }) => {
     setEditingEmployee(emp);
     setFullName(emp.fullName);
     setTitle(emp.title || '');
+    setEmail(emp.email || '');
+    setPhone(emp.phone || '');
+    setPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
     const assignedIds = emp.services ? emp.services.map(s => s.id) : [];
     setSelectedServiceIds(assignedIds);
     setWorkStartTime(emp.workStartTime ? emp.workStartTime.slice(0, 5) : '09:00');
@@ -171,6 +188,42 @@ export const EmployeesView = ({ onNotify }) => {
       return;
     }
 
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setFormError('Lütfen geçerli bir e-posta adresi giriniz.');
+        return;
+      }
+    }
+
+    // Yeni personel eklerken e-posta girilmişse şifre kontrolü
+    if (!editingEmployee && email.trim()) {
+      if (!password) {
+        setFormError('Giriş hesabı için bir şifre belirlemeniz gerekmektedir.');
+        return;
+      }
+      if (!isStrongPassword(password)) {
+        setFormError('Belirlenen şifre güvenlik kriterlerini tam karşılamıyor. Lütfen kuralları kontrol ediniz.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setFormError('Girilen şifreler birbiriyle eşleşmiyor.');
+        return;
+      }
+    }
+
+    // Personel güncellerken yeni şifre girilmişse kontrol et
+    if (editingEmployee && password) {
+      if (!isStrongPassword(password)) {
+        setFormError('Belirlenen yeni şifre güvenlik kriterlerini tam karşılamıyor. Lütfen kuralları kontrol ediniz.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setFormError('Girilen yeni şifreler birbiriyle eşleşmiyor.');
+        return;
+      }
+    }
+
     if (!workStartTime || !workEndTime) {
       setFormError('Lütfen mesai başlangıç ve bitiş saatlerini giriniz.');
       return;
@@ -196,6 +249,9 @@ export const EmployeesView = ({ onNotify }) => {
       const payload = {
         fullName: fullName.trim(),
         title: title.trim(),
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        password: password.trim() ? password.trim() : null,
         workStartTime: workStartTime.length === 5 ? workStartTime + ':00' : workStartTime,
         workEndTime: workEndTime.length === 5 ? workEndTime + ':00' : workEndTime,
         weeklyOffDay: computedWeeklyOffDay,
@@ -209,11 +265,11 @@ export const EmployeesView = ({ onNotify }) => {
           isActive
         });
 
-        if (onNotify) onNotify('Personel bilgileri, mesai saatleri ve çalışma günleri güncellendi.', 'success');
+        if (onNotify) onNotify('Personel bilgileri ve hesap ayarları güncellendi.', 'success');
       } else {
         await employeesApi.create(payload);
 
-        if (onNotify) onNotify('Yeni personel başarıyla eklendi.', 'success');
+        if (onNotify) onNotify('Yeni personel ve giriş hesabı başarıyla eklendi.', 'success');
       }
 
       setIsModalOpen(false);
@@ -227,7 +283,8 @@ export const EmployeesView = ({ onNotify }) => {
 
   const filteredEmployees = employees.filter(e =>
     e.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    (e.title && e.title.toLowerCase().includes(search.toLowerCase()))
+    (e.title && e.title.toLowerCase().includes(search.toLowerCase())) ||
+    (e.email && e.email.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -288,7 +345,7 @@ export const EmployeesView = ({ onNotify }) => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <tr style={{ background: 'var(--table-header-bg)', borderBottom: '1px solid var(--border-subtle)' }}>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unvan</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verdiği Hizmetler</th>
@@ -320,6 +377,10 @@ export const EmployeesView = ({ onNotify }) => {
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{emp.fullName}</div>
+                          <div style={{ fontSize: '0.75rem', color: emp.email ? 'var(--text-muted)' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.15rem' }}>
+                            <Mail size={12} />
+                            <span>{emp.email || 'Giriş hesabı yok'}</span>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -333,7 +394,7 @@ export const EmployeesView = ({ onNotify }) => {
                             <span key={s.id} style={{
                               padding: '0.2rem 0.5rem',
                               fontSize: '0.75rem',
-                              background: 'rgba(255, 255, 255, 0.05)',
+                              background: 'var(--card-nested-bg)',
                               border: '1px solid var(--border-subtle)',
                               borderRadius: 'var(--radius-sm)',
                               color: 'var(--text-secondary)'
@@ -446,6 +507,105 @@ export const EmployeesView = ({ onNotify }) => {
                   />
                 </div>
 
+                {/* Account & Login Info Section */}
+                <div style={{
+                  background: 'rgba(56, 189, 248, 0.04)',
+                  border: '1px solid rgba(56, 189, 248, 0.15)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  marginBottom: '1rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem', color: '#38bdf8', fontWeight: 600, fontSize: '0.9rem' }}>
+                    <Key size={16} />
+                    <span>Personel Giriş Hesabı & İletişim Bilgileri</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Mail size={13} color="var(--primary-400)" />
+                        <span>E-Posta {editingEmployee ? '' : '(Giriş İçin)'}</span>
+                      </label>
+                      <input
+                        type="email"
+                        className="form-input no-icon"
+                        placeholder="ahmet@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Phone size={13} color="var(--primary-400)" />
+                        <span>Telefon (Opsiyonel)</span>
+                      </label>
+                      <input
+                        type="tel"
+                        className="form-input no-icon"
+                        placeholder="0555 123 45 67"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Inputs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Lock size={13} color="var(--primary-400)" />
+                          <span>{editingEmployee ? 'Yeni Şifre' : 'Giriş Şifresi'}</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.75rem', padding: 0 }}
+                        >
+                          {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                          <span>{showPassword ? 'Gizle' : 'Göster'}</span>
+                        </button>
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-input no-icon"
+                        placeholder={editingEmployee ? 'Değiştirmek istemiyorsanız boş bırakın' : 'Güçlü bir şifre giriniz'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Lock size={13} color="var(--primary-400)" />
+                        <span>{editingEmployee ? 'Yeni Şifre Tekrar' : 'Şifre Tekrar'}</span>
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-input no-icon"
+                        placeholder={editingEmployee ? 'Şifre tekrarı' : 'Şifrenizi tekrar giriniz'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {(password || (!editingEmployee && email)) && (
+                    <PasswordStrengthIndicator
+                      password={password}
+                      confirmPassword={confirmPassword}
+                      showConfirmMatch={Boolean(password || confirmPassword)}
+                    />
+                  )}
+
+                  {editingEmployee && !password && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                      ℹ️ Personelin mevcut şifresini korumak için şifre alanlarını boş bırakabilirsiniz.
+                    </div>
+                  )}
+                </div>
+
                 {/* Working Hours Interval */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
@@ -500,9 +660,9 @@ export const EmployeesView = ({ onNotify }) => {
                           style={{
                             padding: '0.55rem 0.2rem',
                             borderRadius: 'var(--radius-sm)',
-                            border: isWorking ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
-                            background: isWorking ? 'rgba(56, 189, 248, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                            color: isWorking ? '#38bdf8' : 'var(--text-muted)',
+                            border: isWorking ? '1px solid var(--badge-service-border)' : '1px solid var(--border-subtle)',
+                            background: isWorking ? 'var(--badge-service-bg)' : 'var(--card-nested-bg)',
+                            color: isWorking ? 'var(--badge-service-text)' : 'var(--text-muted)',
                             cursor: 'pointer',
                             fontWeight: 600,
                             fontSize: '0.8rem',
@@ -548,8 +708,8 @@ export const EmployeesView = ({ onNotify }) => {
                             alignItems: 'center',
                             gap: '0.5rem',
                             padding: '0.5rem 0.75rem',
-                            background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                            border: isSelected ? '1px solid #38bdf8' : '1px solid var(--border-subtle)',
+                            background: isSelected ? 'var(--badge-service-bg)' : 'var(--card-nested-bg)',
+                            border: isSelected ? '1px solid var(--badge-service-border)' : '1px solid var(--border-subtle)',
                             borderRadius: 'var(--radius-sm)',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease'
@@ -560,11 +720,11 @@ export const EmployeesView = ({ onNotify }) => {
                             height: '16px',
                             borderRadius: '4px',
                             border: isSelected ? 'none' : '1px solid var(--border-medium)',
-                            background: isSelected ? '#38bdf8' : 'transparent',
+                            background: isSelected ? 'var(--badge-service-text)' : 'transparent',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#000'
+                            color: '#fff'
                           }}>
                             {isSelected && <Check size={12} strokeWidth={3} />}
                           </div>

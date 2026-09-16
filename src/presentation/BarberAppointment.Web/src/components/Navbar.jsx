@@ -202,7 +202,7 @@ export const Navbar = ({ currentTab, setCurrentTab, onNavigateHome }) => {
                   alignItems: 'center',
                   gap: '0.65rem',
                   padding: '0.35rem 0.75rem',
-                  background: 'rgba(255, 255, 255, 0.04)',
+                  background: 'var(--btn-secondary-bg)',
                   borderRadius: 'var(--radius-full)',
                   border: '1px solid var(--border-subtle)',
                   cursor: 'pointer',

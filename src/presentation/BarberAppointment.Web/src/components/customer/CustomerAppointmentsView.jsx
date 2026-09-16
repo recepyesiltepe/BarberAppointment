@@ -2,20 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Clock,
-  Scissors,
   User,
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Plus,
   RefreshCw,
   Trash2
 } from 'lucide-react';
 import { appointmentsApi } from '../../api/barberApi';
-import { useAuth } from '../../context/AuthContext';
 
 export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
-  const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState('upcoming'); // 'upcoming' | 'history' | 'all'
@@ -154,7 +150,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
       <div className="nav-tabs-wrapper" style={{
         display: 'flex',
         gap: '0.5rem',
-        background: 'rgba(255, 255, 255, 0.03)',
+        background: 'var(--tab-nav-bg)',
         padding: '0.35rem',
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border-subtle)',
@@ -240,7 +236,7 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fbbf24' }}>{a.price} ₺</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--price-text)' }}>{a.price} ₺</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{a.durationMinutes} dakika</div>
                   </div>
                 </div>
@@ -252,9 +248,9 @@ export const CustomerAppointmentsView = ({ onNavigateBooking, onNotify }) => {
                     alignItems: 'center',
                     gap: '0.4rem',
                     padding: '0.25rem 0.75rem',
-                    background: 'rgba(245, 158, 11, 0.12)',
+                    background: 'var(--tag-badge-bg)',
                     borderRadius: 'var(--radius-full)',
-                    color: '#fbbf24',
+                    color: 'var(--tag-badge-text)',
                     fontSize: '0.8rem',
                     fontWeight: 600,
                     marginBottom: '1rem'

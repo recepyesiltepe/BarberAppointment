@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Calendar, Clock, Plus, CheckCircle2, XCircle, AlertCircle, X,
-  User, Search, Check, Ban, Info, Coffee, CalendarOff, Filter
+  User, Search, Check, Ban, Info, Coffee, CalendarOff
 } from 'lucide-react';
 import { leaveApi, employeesApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,6 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 export const LeaveRequestsView = ({ onNotify }) => {
   const { user, roleName } = useAuth();
   const isAdmin = roleName === 'Admin' || user?.role === 2;
-  const isEmployee = roleName === 'Employee' || user?.role === 3;
 
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -608,7 +607,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <tr style={{ background: 'var(--table-header-bg)', borderBottom: '1px solid var(--border-subtle)' }}>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>İzin Tarihi & Aralığı</th>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Süre</th>
@@ -688,7 +687,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
                         <span style={{
                           display: 'inline-block',
                           padding: '0.25rem 0.65rem',
-                          background: 'rgba(255, 255, 255, 0.05)',
+                          background: 'var(--card-nested-bg)',
                           border: '1px solid var(--border-subtle)',
                           borderRadius: 'var(--radius-sm)',
                           fontSize: '0.85rem',
@@ -713,7 +712,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
                           <div style={{
                             marginTop: '0.4rem',
                             fontSize: '0.75rem',
-                            color: isApproved ? '#34d399' : '#f87171',
+                            color: isApproved ? '#10b981' : '#ef4444',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.3rem',
@@ -737,9 +736,9 @@ export const LeaveRequestsView = ({ onNotify }) => {
                             gap: '0.35rem',
                             padding: '0.3rem 0.75rem',
                             borderRadius: 'var(--radius-full)',
-                            background: 'rgba(245, 158, 11, 0.12)',
-                            color: '#fbbf24',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            background: 'var(--tag-badge-bg)',
+                            color: 'var(--tag-badge-text)',
+                            border: '1px solid var(--border-subtle)',
                             fontSize: '0.8rem',
                             fontWeight: 700
                           }}>
@@ -755,7 +754,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
                             padding: '0.3rem 0.75rem',
                             borderRadius: 'var(--radius-full)',
                             background: 'rgba(16, 185, 129, 0.12)',
-                            color: '#34d399',
+                            color: '#10b981',
                             border: '1px solid rgba(16, 185, 129, 0.3)',
                             fontSize: '0.8rem',
                             fontWeight: 700
@@ -772,7 +771,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
                             padding: '0.3rem 0.75rem',
                             borderRadius: 'var(--radius-full)',
                             background: 'rgba(239, 68, 68, 0.12)',
-                            color: '#f87171',
+                            color: '#ef4444',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
                             fontSize: '0.8rem',
                             fontWeight: 700
@@ -788,7 +787,7 @@ export const LeaveRequestsView = ({ onNotify }) => {
                             gap: '0.35rem',
                             padding: '0.3rem 0.75rem',
                             borderRadius: 'var(--radius-full)',
-                            background: 'rgba(255, 255, 255, 0.06)',
+                            background: 'var(--card-nested-bg)',
                             color: 'var(--text-muted)',
                             border: '1px solid var(--border-subtle)',
                             fontSize: '0.8rem',

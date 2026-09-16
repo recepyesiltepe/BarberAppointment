@@ -1,3 +1,4 @@
+using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using FluentValidation;
 
@@ -13,6 +14,24 @@ public class CreateEmployeeValidator : AbstractValidator<CreateEmployeeDto>
 
         RuleFor(x => x.Title)
             .MaximumLength(100).WithMessage("Ünvan en fazla 100 karakter olabilir.");
+
+        When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
+        {
+            RuleFor(x => x.Email!)
+                .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+
+            RuleFor(x => x.Password)
+                .NotEmpty().WithMessage("Personel için e-posta belirtildiğinde şifre girilmesi zorunludur.")
+                .Must(PasswordPolicyHelper.IsValid)
+                .WithMessage(PasswordPolicyHelper.ValidationMessage);
+        });
+
+        When(x => !string.IsNullOrWhiteSpace(x.Phone), () =>
+        {
+            RuleFor(x => x.Phone!)
+                .Must(TurkishPhoneNumberHelper.IsValid)
+                .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
+        });
 
         RuleFor(x => x.ServiceIds)
             .NotNull().WithMessage("Hizmet listesi boş olamaz.")
@@ -31,6 +50,26 @@ public class UpdateEmployeeValidator : AbstractValidator<UpdateEmployeeDto>
 
         RuleFor(x => x.Title)
             .MaximumLength(100).WithMessage("Ünvan en fazla 100 karakter olabilir.");
+
+        When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
+        {
+            RuleFor(x => x.Email!)
+                .EmailAddress().WithMessage("Geçerli bir e-posta adresi giriniz.");
+        });
+
+        When(x => !string.IsNullOrWhiteSpace(x.Password), () =>
+        {
+            RuleFor(x => x.Password!)
+                .Must(PasswordPolicyHelper.IsValid)
+                .WithMessage(PasswordPolicyHelper.ValidationMessage);
+        });
+
+        When(x => !string.IsNullOrWhiteSpace(x.Phone), () =>
+        {
+            RuleFor(x => x.Phone!)
+                .Must(TurkishPhoneNumberHelper.IsValid)
+                .WithMessage("Lütfen geçerli bir Türkiye cep telefonu numarası giriniz (Örn: 0555 123 45 67 veya 555 123 45 67).");
+        });
 
         When(x => x.ServiceIds != null, () =>
         {

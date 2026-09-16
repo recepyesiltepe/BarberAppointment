@@ -1,8 +1,11 @@
+using BarberAppointment.Core.Enums;
 using BarberAppointment.Core.Exceptions;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
+using BarberAppointment.Services.Common;
 using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
+using BarberAppointment.Services.Security;
 using EmployeeServiceEntity = BarberAppointment.Domain.Entities.EmployeeService;
 
 namespace BarberAppointment.Services.Implementations;
@@ -10,10 +13,12 @@ namespace BarberAppointment.Services.Implementations;
 public class EmployeeService : IEmployeeService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public EmployeeService(IUnitOfWork unitOfWork)
+    public EmployeeService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher)
     {
         _unitOfWork = unitOfWork;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(bool activeOnly = false, CancellationToken cancellationToken = default)
@@ -48,11 +53,49 @@ public class EmployeeService : IEmployeeService
         if (string.IsNullOrWhiteSpace(dto.FullName))
             throw new BusinessException("Personel adı boş olamaz.");
 
+        int? createdUserId = dto.UserId;
+
+        // E-posta adresi belirtilmişse yeni kullanıcı hesabı oluşturulur
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+
+            var existingUser = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+            if (existingUser != null)
+            {
+                throw new ConflictException($"'{dto.Email}' e-posta adresi ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Password))
+            {
+                throw new BusinessException("Personel hesabı için şifre girilmelidir.");
+            }
+
+            _passwordHasher.CreatePasswordHash(dto.Password, out var passwordHash, out var passwordSalt);
+
+            var newUser = new User
+            {
+                FullName = dto.FullName.Trim(),
+                Email = normalizedEmail,
+                Phone = !string.IsNullOrWhiteSpace(dto.Phone) ? TurkishPhoneNumberHelper.Normalize(dto.Phone) : null,
+                Role = UserRole.Employee,
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+                IsActive = true,
+                IsEmailVerified = true,
+                IsPhoneVerified = true
+            };
+
+            await _unitOfWork.Users.AddAsync(newUser, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            createdUserId = newUser.Id;
+        }
+
         var employee = new Employee
         {
             FullName = dto.FullName.Trim(),
             Title = dto.Title?.Trim(),
-            UserId = dto.UserId,
+            UserId = createdUserId,
             IsActive = true,
             WorkStartTime = dto.WorkStartTime != default ? dto.WorkStartTime : new TimeSpan(9, 0, 0),
             WorkEndTime = dto.WorkEndTime != default ? dto.WorkEndTime : new TimeSpan(19, 0, 0),
@@ -88,9 +131,82 @@ public class EmployeeService : IEmployeeService
         if (string.IsNullOrWhiteSpace(dto.FullName))
             throw new BusinessException("Personel adı boş olamaz.");
 
+        // Kullanıcı hesap yönetimi (E-posta ve şifre güncelleme veya yeni hesap bağlama)
+        if (employee.UserId.HasValue)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(employee.UserId.Value, cancellationToken);
+            if (user != null)
+            {
+                if (!string.IsNullOrWhiteSpace(dto.Email))
+                {
+                    var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+                    if (user.Email != normalizedEmail)
+                    {
+                        var emailCollision = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+                        if (emailCollision != null && emailCollision.Id != user.Id)
+                        {
+                            throw new ConflictException($"'{dto.Email}' e-posta adresi başka bir kullanıcı tarafından kullanılmaktadır.");
+                        }
+                        user.Email = normalizedEmail;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(dto.Phone))
+                {
+                    user.Phone = TurkishPhoneNumberHelper.Normalize(dto.Phone);
+                }
+
+                if (!string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    _passwordHasher.CreatePasswordHash(dto.Password, out var passwordHash, out var passwordSalt);
+                    user.PasswordHash = passwordHash;
+                    user.PasswordSalt = passwordSalt;
+                }
+
+                user.FullName = dto.FullName.Trim();
+                user.IsActive = dto.IsActive;
+                _unitOfWork.Users.Update(user);
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            // Önceden hesabı olmayan bir personele ilk kez hesap tanımlanması
+            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+            var existingUser = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail, cancellationToken);
+            if (existingUser != null)
+            {
+                throw new ConflictException($"'{dto.Email}' e-posta adresi ile zaten kayıtlı bir kullanıcı bulunmaktadır.");
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.Password))
+            {
+                throw new BusinessException("Yeni personel hesabı için şifre girilmelidir.");
+            }
+
+            _passwordHasher.CreatePasswordHash(dto.Password, out var passwordHash, out var passwordSalt);
+
+            var newUser = new User
+            {
+                FullName = dto.FullName.Trim(),
+                Email = normalizedEmail,
+                Phone = !string.IsNullOrWhiteSpace(dto.Phone) ? TurkishPhoneNumberHelper.Normalize(dto.Phone) : null,
+                Role = UserRole.Employee,
+                PasswordHash = passwordHash,
+                PasswordSalt = passwordSalt,
+                IsActive = dto.IsActive,
+                IsEmailVerified = true,
+                IsPhoneVerified = true
+            };
+
+            await _unitOfWork.Users.AddAsync(newUser, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            employee.UserId = newUser.Id;
+        }
+
         employee.FullName = dto.FullName.Trim();
         employee.Title = dto.Title?.Trim();
-        employee.UserId = dto.UserId;
+        if (employee.UserId == null && dto.UserId.HasValue)
+            employee.UserId = dto.UserId;
         employee.IsActive = dto.IsActive;
         if (dto.WorkStartTime != default)
             employee.WorkStartTime = dto.WorkStartTime;
@@ -127,6 +243,17 @@ public class EmployeeService : IEmployeeService
         // Soft delete (Randevu ve servis kayıt bütünlüğü için IsActive = false)
         employee.IsActive = false;
         _unitOfWork.Employees.Update(employee);
+
+        if (employee.UserId.HasValue)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(employee.UserId.Value, cancellationToken);
+            if (user != null)
+            {
+                user.IsActive = false;
+                _unitOfWork.Users.Update(user);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
@@ -150,6 +277,8 @@ public class EmployeeService : IEmployeeService
         Id = e.Id,
         UserId = e.UserId,
         FullName = e.FullName,
+        Email = e.User?.Email,
+        Phone = e.User?.Phone,
         Title = e.Title,
         IsActive = e.IsActive,
         WorkStartTime = e.WorkStartTime,

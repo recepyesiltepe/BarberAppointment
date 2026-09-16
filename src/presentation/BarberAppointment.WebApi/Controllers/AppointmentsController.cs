@@ -5,6 +5,7 @@ using BarberAppointment.Services.DTOs;
 using BarberAppointment.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BarberAppointment.Core.Time;
 
 namespace BarberAppointment.WebApi.Controllers;
 
@@ -169,7 +170,7 @@ public class AppointmentsController : ControllerBase
         [FromQuery] DateTime? date,
         CancellationToken cancellationToken)
     {
-        var targetDate = date ?? DateTime.UtcNow;
+        var targetDate = date ?? TurkeyTimeHelper.Today;
         var appointments = await _appointmentService.GetByEmployeeAsync(employeeId, targetDate, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<AppointmentDto>>.Ok(appointments, $"{targetDate:yyyy-MM-dd} için {appointments.Count} randevu."));
     }

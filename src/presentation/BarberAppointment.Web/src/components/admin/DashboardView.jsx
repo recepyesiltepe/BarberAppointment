@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, UserCheck, Scissors, TrendingUp, Clock, CheckCircle2, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { Calendar, UserCheck, Scissors, TrendingUp, Clock, CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 
@@ -92,8 +92,8 @@ export const DashboardView = ({ onNavigateTab, onNotify }) => {
               <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.35rem' }}>
                 {loading ? '...' : totalAppointments}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.35rem' }}>
-                <CheckCircle2 size={12} /> {activeAppointments} aktif bekliyor
+              <div style={{ fontSize: '0.8rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.35rem' }}>
+                <CheckCircle2 size={12} /> {activeAppointments} aktif bekliyor • {cancelledAppointments} iptal
               </div>
             </div>
             <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fbbf24' }}>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, Filter, User, Scissors, AlertCircle, X, ShieldCheck, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Calendar, Plus, CheckCircle2, XCircle, Clock, Search, AlertCircle, X, ShieldCheck, ArrowUp, ArrowDown } from 'lucide-react';
 import { appointmentsApi, servicesApi, employeesApi, usersApi } from '../../api/barberApi';
 import { useAuth } from '../../context/AuthContext';
 import { formatTurkishPhone } from '../../utils/phoneUtils';
@@ -169,50 +169,53 @@ export const AppointmentsView = ({ onNotify }) => {
     }
   };
 
-  const nowTime = Date.now();
-  const upcomingAppointmentsCount = appointments.filter(a => new Date(a.startAt).getTime() >= nowTime).length;
-  const pastAppointmentsCount = appointments.filter(a => new Date(a.startAt).getTime() < nowTime).length;
+  const { upcomingAppointmentsCount, pastAppointmentsCount, filteredAppointments } = useMemo(() => {
+    const now = Date.now();
+    const upcomingCount = appointments.filter(a => new Date(a.startAt).getTime() >= now).length;
+    const pastCount = appointments.filter(a => new Date(a.startAt).getTime() < now).length;
 
-  const filteredAppointments = appointments
-    .filter(a => {
-      const isPast = new Date(a.startAt).getTime() < nowTime;
-      if (timeTab === 'upcoming' && isPast) return false;
-      if (timeTab === 'history' && !isPast) return false;
-      if (filterEmployeeId && a.employeeId !== Number(filterEmployeeId)) return false;
-      if (filterStatus && a.status !== Number(filterStatus)) return false;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchCustomer = a.customerName && a.customerName.toLowerCase().includes(query);
-        const matchStaff = a.employeeName && a.employeeName.toLowerCase().includes(query);
-        const matchService = a.serviceName && a.serviceName.toLowerCase().includes(query);
-        if (!matchCustomer && !matchStaff && !matchService) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const timeA = new Date(a.startAt).getTime();
-      const timeB = new Date(b.startAt).getTime();
-      if (sortOrder === 'farthest') {
+    const filtered = appointments
+      .filter(a => {
+        const isPast = new Date(a.startAt).getTime() < now;
+        if (timeTab === 'upcoming' && isPast) return false;
+        if (timeTab === 'history' && !isPast) return false;
+        if (filterEmployeeId && a.employeeId !== Number(filterEmployeeId)) return false;
+        if (filterStatus && a.status !== Number(filterStatus)) return false;
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const matchCustomer = a.customerName && a.customerName.toLowerCase().includes(query);
+          const matchStaff = a.employeeName && a.employeeName.toLowerCase().includes(query);
+          const matchService = a.serviceName && a.serviceName.toLowerCase().includes(query);
+          if (!matchCustomer && !matchStaff && !matchService) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.startAt).getTime();
+        const timeB = new Date(b.startAt).getTime();
+        if (sortOrder === 'farthest') {
+          return timeB - timeA;
+        }
+        if (timeTab === 'all') {
+          const aIsFuture = timeA >= now;
+          const bIsFuture = timeB >= now;
+          if (aIsFuture && !bIsFuture) return -1;
+          if (!aIsFuture && bIsFuture) return 1;
+          if (aIsFuture && bIsFuture) return timeA - timeB;
+          return timeB - timeA;
+        }
+        if (timeTab === 'upcoming') {
+          return timeA - timeB;
+        }
         return timeB - timeA;
-      }
-      // 'nearest' (Varsayılan):
-      // Eğer 'all' sekmesindeyse: önce yaklaşanlar (artan sıra: tarihi ve saati en yakın olan başta),
-      // ardından geçmiş randevular (en son gerçekleşen geçmiş başta)
-      if (timeTab === 'all') {
-        const aIsFuture = timeA >= nowTime;
-        const bIsFuture = timeB >= nowTime;
-        if (aIsFuture && !bIsFuture) return -1;
-        if (!aIsFuture && bIsFuture) return 1;
-        if (aIsFuture && bIsFuture) return timeA - timeB;
-        return timeB - timeA;
-      }
-      // 'upcoming': en yakın randevu en başta (artan kronolojik sıra)
-      if (timeTab === 'upcoming') {
-        return timeA - timeB;
-      }
-      // 'history': en son geçmiş randevu en başta (azalan kronolojik sıra)
-      return timeB - timeA;
-    });
+      });
+
+    return {
+      upcomingAppointmentsCount: upcomingCount,
+      pastAppointmentsCount: pastCount,
+      filteredAppointments: filtered
+    };
+  }, [appointments, timeTab, filterEmployeeId, filterStatus, searchQuery, sortOrder]);
 
   return (
     <div>
@@ -272,8 +275,8 @@ export const AppointmentsView = ({ onNotify }) => {
             fontSize: '0.75rem',
             padding: '0.1rem 0.45rem',
             borderRadius: '10px',
-            background: timeTab === 'upcoming' ? '#fbbf24' : 'rgba(245, 158, 11, 0.15)',
-            color: timeTab === 'upcoming' ? '#000' : '#fbbf24',
+            background: timeTab === 'upcoming' ? 'rgba(0,0,0,0.2)' : 'var(--tag-badge-bg)',
+            color: timeTab === 'upcoming' ? '#000' : 'var(--tag-badge-text)',
             fontWeight: 700
           }}>
             {upcomingAppointmentsCount}
@@ -419,7 +422,7 @@ export const AppointmentsView = ({ onNotify }) => {
         ) : (
           <table>
             <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <tr style={{ background: 'var(--table-header-bg)', borderBottom: '1px solid var(--border-subtle)' }}>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Müşteri</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personel</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hizmet & Fiyat</th>
@@ -439,11 +442,11 @@ export const AppointmentsView = ({ onNotify }) => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                     <span>Randevu Zamanı</span>
                     {sortOrder === 'nearest' ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#fbbf24', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--price-text)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
                         <ArrowUp size={13} /> En Yakın
                       </span>
                     ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#38bdf8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--badge-service-text)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}>
                         <ArrowDown size={13} /> En İleri
                       </span>
                     )}
@@ -471,7 +474,7 @@ export const AppointmentsView = ({ onNotify }) => {
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{a.serviceName}</div>
-                      <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}>{a.price} ₺ ({a.durationMinutes} dk)</div>
+                      <div style={{ color: 'var(--price-text)', fontWeight: 700, fontSize: '0.85rem' }}>{a.price} ₺ ({a.durationMinutes} dk)</div>
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 500 }}>{dateStr}</div>
