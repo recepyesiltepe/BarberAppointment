@@ -277,7 +277,7 @@ public class AppointmentService : IAppointmentService
                 ChangedByUserId = requestingUserId ?? dto.UserId,
                 ChangedByRole = isAdmin ? "Admin" : "Customer",
                 ChangedByName = user.FullName,
-                ChangedDate = _dateTimeProvider.UtcNow,
+                ChangedDate = _dateTimeProvider.TurkeyNow,
                 Details = $"Randevu oluşturuldu: {dto.StartAt:yyyy-MM-dd HH:mm} (Hizmetler: {string.Join(", ", services.Select(s => s.Name))}, Toplam Süre: {totalDuration} dk, Personel: {employee.FullName})"
             };
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
@@ -410,7 +410,7 @@ public class AppointmentService : IAppointmentService
                 ChangedByUserId = requestingUserId,
                 ChangedByRole = isAdmin ? "Admin" : "Customer",
                 ChangedByName = (requestingUserId.HasValue && requestingUserId.Value == appointment.UserId) ? appointment.User?.FullName : (isAdmin ? "Admin" : "Personel"),
-                ChangedDate = _dateTimeProvider.UtcNow,
+                ChangedDate = _dateTimeProvider.TurkeyNow,
                 Details = $"Randevu yeniden zamanlandı. Eski saat: {oldStartAt:yyyy-MM-dd HH:mm}, Yeni saat: {dto.StartAt:yyyy-MM-dd HH:mm}"
             };
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
@@ -483,7 +483,7 @@ public class AppointmentService : IAppointmentService
                 ChangedByUserId = requestingUserId,
                 ChangedByRole = isAdmin ? "Admin" : "Customer",
                 ChangedByName = (requestingUserId.HasValue && requestingUserId.Value == appointment.UserId) ? appointment.User?.FullName : (isAdmin ? "Admin" : "Personel"),
-                ChangedDate = _dateTimeProvider.UtcNow,
+                ChangedDate = _dateTimeProvider.TurkeyNow,
                 Details = "Randevu iptal edildi."
             };
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);
@@ -540,7 +540,7 @@ public class AppointmentService : IAppointmentService
                 ChangedByUserId = requestingUserId,
                 ChangedByRole = isAdmin ? "Admin" : "Employee",
                 ChangedByName = isAdmin ? "Admin" : "Personel",
-                ChangedDate = _dateTimeProvider.UtcNow,
+                ChangedDate = _dateTimeProvider.TurkeyNow,
                 Details = "Randevu tamamlandı olarak işaretlendi."
             };
             await _unitOfWork.AuditLogs.AddAsync(auditLog, cancellationToken);

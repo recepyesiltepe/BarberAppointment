@@ -33,10 +33,32 @@ public static class DbInitializer
             catch (Exception ex)
             {
                 logger.LogWarning("Veritabanına bağlanılamadı veya migration uygulanamadı ({Attempt}/{MaxRetries}): {Message}", i, maxRetries, ex.Message);
+                if (ex.Message.Contains("specified more than once") || ex.Message.Contains("already exists"))
+                {
+                    // Şema çakışması ise bağlantı zaten açıktır, beklemeden şema doğrulamasına geç
+                    break;
+                }
+
                 if (i < maxRetries)
                 {
                     await Task.Delay(retryDelay);
                 }
+            }
+        }
+
+        if (!isReady)
+        {
+            try
+            {
+                if (await context.Database.CanConnectAsync())
+                {
+                    logger.LogInformation("Veritabanı bağlantısı mevcut, şema ve seed kontrolleri devam ediyor.");
+                    isReady = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("CanConnectAsync denemesi başarısız: {Message}", ex.Message);
             }
         }
 

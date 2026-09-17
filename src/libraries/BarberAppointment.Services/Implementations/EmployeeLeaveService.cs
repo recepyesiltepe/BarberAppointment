@@ -1,5 +1,6 @@
 using BarberAppointment.Core.Enums;
 using BarberAppointment.Core.Exceptions;
+using BarberAppointment.Core.Time;
 using BarberAppointment.Data.Repositories.Interfaces;
 using BarberAppointment.Domain.Entities;
 using BarberAppointment.Services.DTOs;
@@ -11,11 +12,16 @@ namespace BarberAppointment.Services.Implementations;
 public class EmployeeLeaveService : IEmployeeLeaveService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ILogger<EmployeeLeaveService> _logger;
 
-    public EmployeeLeaveService(IUnitOfWork _unitOfWork, ILogger<EmployeeLeaveService> logger)
+    public EmployeeLeaveService(
+        IUnitOfWork unitOfWork,
+        IDateTimeProvider dateTimeProvider,
+        ILogger<EmployeeLeaveService> logger)
     {
-        this._unitOfWork = _unitOfWork;
+        _unitOfWork = unitOfWork;
+        _dateTimeProvider = dateTimeProvider;
         _logger = logger;
     }
 
@@ -30,7 +36,7 @@ public class EmployeeLeaveService : IEmployeeLeaveService
             throw new BusinessException("İzin bitiş tarihi ve saati, başlangıç tarihinden sonra olmalıdır.");
         }
 
-        if (dto.EndDate <= DateTime.UtcNow.AddMinutes(-10))
+        if (dto.EndDate <= _dateTimeProvider.TurkeyNow.AddMinutes(-10))
         {
             throw new BusinessException("Geçmiş bir zaman aralığı için izin talebinde bulunulamaz.");
         }
@@ -80,7 +86,7 @@ public class EmployeeLeaveService : IEmployeeLeaveService
             Reason = dto.Reason?.Trim(),
             Status = isAdmin ? LeaveRequestStatus.Approved : LeaveRequestStatus.Pending,
             ReviewedByUserId = isAdmin ? requestingUserId : null,
-            ReviewedAt = isAdmin ? DateTime.UtcNow : null,
+            ReviewedAt = isAdmin ? _dateTimeProvider.TurkeyNow : null,
             AdminNote = isAdmin ? "Yönetici tarafından doğrudan oluşturuldu." : null
         };
 
@@ -147,7 +153,7 @@ public class EmployeeLeaveService : IEmployeeLeaveService
         request.Status = LeaveRequestStatus.Approved;
         request.AdminNote = adminNote?.Trim();
         request.ReviewedByUserId = adminUserId;
-        request.ReviewedAt = DateTime.UtcNow;
+        request.ReviewedAt = _dateTimeProvider.TurkeyNow;
 
         _unitOfWork.EmployeeLeaves.Update(request);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -173,7 +179,7 @@ public class EmployeeLeaveService : IEmployeeLeaveService
         request.Status = LeaveRequestStatus.Rejected;
         request.AdminNote = adminNote?.Trim();
         request.ReviewedByUserId = adminUserId;
-        request.ReviewedAt = DateTime.UtcNow;
+        request.ReviewedAt = _dateTimeProvider.TurkeyNow;
 
         _unitOfWork.EmployeeLeaves.Update(request);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -224,7 +230,7 @@ public class EmployeeLeaveService : IEmployeeLeaveService
                 ? $"İptal Nedeni: {cancelReason.Trim()}"
                 : $"{request.AdminNote} | İptal Nedeni: {cancelReason.Trim()}";
             request.ReviewedByUserId = requestingUserId;
-            request.ReviewedAt = DateTime.UtcNow;
+            request.ReviewedAt = _dateTimeProvider.TurkeyNow;
         }
 
         request.Status = LeaveRequestStatus.Cancelled;

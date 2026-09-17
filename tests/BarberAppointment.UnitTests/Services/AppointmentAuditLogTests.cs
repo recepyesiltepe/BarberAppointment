@@ -49,6 +49,7 @@ public class AppointmentAuditLogTests
         _unitOfWorkMock.Setup(u => u.AuditLogs).Returns(_auditLogRepoMock.Object);
 
         _dateTimeProviderMock.Setup(d => d.UtcNow).Returns(_baseNow);
+        _dateTimeProviderMock.Setup(d => d.TurkeyNow).Returns(_baseNow);
         _dateTimeProviderMock.Setup(d => d.Today).Returns(_baseNow.Date);
 
         _workHoursPolicy = new DefaultWorkHoursPolicy();

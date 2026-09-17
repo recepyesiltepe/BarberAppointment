@@ -62,7 +62,7 @@ public class AuditLogService : IAuditLogService
             ChangedByUserId = changedByUserId,
             ChangedByRole = changedByRole,
             ChangedByName = changedByName,
-            ChangedDate = _dateTimeProvider.UtcNow,
+            ChangedDate = _dateTimeProvider.TurkeyNow,
             Details = details
         };
 

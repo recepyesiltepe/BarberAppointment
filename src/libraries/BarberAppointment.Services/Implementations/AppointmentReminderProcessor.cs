@@ -32,7 +32,7 @@ public class AppointmentReminderProcessor : IAppointmentReminderProcessor
 
     public async Task<int> ProcessPendingRemindersAsync(CancellationToken cancellationToken = default)
     {
-        var now = _dateTimeProvider.UtcNow;
+        var now = _dateTimeProvider.TurkeyNow;
         var windowEnd = now.AddHours(24);
 
         _logger.LogInformation("[AppointmentReminder] Yaklaşan randevu kontrolü başlatıldı. Zaman aralığı: {Start:yyyy-MM-dd HH:mm} - {End:yyyy-MM-dd HH:mm}", now, windowEnd);
@@ -71,7 +71,7 @@ public class AppointmentReminderProcessor : IAppointmentReminderProcessor
 
                 // 3. Randevuyu tekrar gönderilmeyecek şekilde işaretle
                 appointment.IsReminderSent = true;
-                appointment.ReminderSentAt = _dateTimeProvider.UtcNow;
+                appointment.ReminderSentAt = _dateTimeProvider.TurkeyNow;
 
                 _unitOfWork.Appointments.Update(appointment);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
