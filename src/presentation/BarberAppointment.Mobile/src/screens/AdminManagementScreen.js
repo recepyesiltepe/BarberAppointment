@@ -18,13 +18,13 @@ import { servicesApi, employeesApi } from '../api/barberApi';
 import { LeaveRequestsScreen } from './LeaveRequestsScreen';
 
 const DAYS_OF_WEEK = [
-  { id: 1, label: 'Pzt', fullLabel: 'Pazartesi' },
-  { id: 2, label: 'Sal', fullLabel: 'Salı' },
-  { id: 3, label: 'Çar', fullLabel: 'Çarşamba' },
-  { id: 4, label: 'Per', fullLabel: 'Perşembe' },
-  { id: 5, label: 'Cum', fullLabel: 'Cuma' },
-  { id: 6, label: 'Cmt', fullLabel: 'Cumartesi' },
-  { id: 0, label: 'Paz', fullLabel: 'Pazar' }
+  { id: 1, key: 1, label: 'Pzt', fullLabel: 'Pazartesi' },
+  { id: 2, key: 2, label: 'Sal', fullLabel: 'Salı' },
+  { id: 3, key: 3, label: 'Çar', fullLabel: 'Çarşamba' },
+  { id: 4, key: 4, label: 'Per', fullLabel: 'Perşembe' },
+  { id: 5, key: 5, label: 'Cum', fullLabel: 'Cuma' },
+  { id: 6, key: 6, label: 'Cmt', fullLabel: 'Cumartesi' },
+  { id: 0, key: 0, label: 'Paz', fullLabel: 'Pazar' }
 ];
 
 const getOffDaysText = (workingDays) => {
@@ -507,8 +507,8 @@ export const AdminManagementScreen = () => {
                 <Text style={styles.emptyText}>Hizmet bulunamadı.</Text>
               </View>
             ) : (
-              filteredServices.map((srv) => (
-                <View key={srv.id} style={styles.itemCard}>
+              filteredServices.map((srv, idx) => (
+                <View key={`srv-${srv.id || idx}`} style={styles.itemCard}>
                   <View style={styles.itemCardHeader}>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -599,10 +599,10 @@ export const AdminManagementScreen = () => {
                 <Text style={styles.emptyText}>Personel bulunamadı.</Text>
               </View>
             ) : (
-              filteredEmployees.map((emp) => {
+              filteredEmployees.map((emp, idx) => {
                 const assignedServices = emp.services || [];
                 return (
-                  <View key={emp.id} style={styles.itemCard}>
+                  <View key={`emp-${emp.id || idx}`} style={styles.itemCard}>
                     <View style={styles.itemCardHeader}>
                       <View style={styles.empAvatar}>
                         <Text style={styles.empAvatarText}>{emp.fullName?.charAt(0)}</Text>
@@ -649,8 +649,8 @@ export const AdminManagementScreen = () => {
                             Henüz atanmış özel hizmet yok (Tüm hizmetleri verebilir)
                           </Text>
                         ) : (
-                          assignedServices.map((s) => (
-                            <View key={s.id} style={styles.serviceChip}>
+                          assignedServices.map((s, sIdx) => (
+                            <View key={`emp-${emp.id}-srv-${s.id || sIdx}`} style={styles.serviceChip}>
                               <Text style={styles.serviceChipText}>✂️ {s.name}</Text>
                             </View>
                           ))
@@ -755,11 +755,11 @@ export const AdminManagementScreen = () => {
                     Dahil Edilecek Alt Hizmetler (En az 2)
                   </Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {services.filter(s => !s.isComposite && (editingService ? s.id !== editingService.id : true)).map(sub => {
+                    {services.filter(s => !s.isComposite && (editingService ? s.id !== editingService.id : true)).map((sub, idx) => {
                       const isSel = srvSubServiceIds.includes(sub.id);
                       return (
                         <TouchableOpacity
-                          key={sub.id}
+                          key={`sub-${sub.id || idx}`}
                           style={{
                             paddingHorizontal: 10,
                             paddingVertical: 6,
@@ -938,15 +938,15 @@ export const AdminManagementScreen = () => {
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   {DAYS_OF_WEEK.map((d) => {
-                    const isWorking = empWorkingDays.includes(d.key);
+                    const isWorking = empWorkingDays.includes(d.id);
                     return (
                       <TouchableOpacity
-                        key={d.key}
+                        key={`workday-${d.id}`}
                         style={[
                           styles.dayChip,
                           isWorking && styles.dayChipActive
                         ]}
-                        onPress={() => handleToggleWorkingDay(d.key)}
+                        onPress={() => handleToggleWorkingDay(d.id)}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.dayChipText, isWorking && styles.dayChipTextActive]}>
@@ -966,11 +966,11 @@ export const AdminManagementScreen = () => {
                 </Text>
 
                 <View style={{ gap: 8 }}>
-                  {services.map((srv) => {
+                  {services.map((srv, idx) => {
                     const isSelected = empSelectedServiceIds.includes(srv.id);
                     return (
                       <TouchableOpacity
-                        key={srv.id}
+                        key={`emp-assign-srv-${srv.id || idx}`}
                         style={[
                           styles.serviceSelectOption,
                           isSelected && styles.serviceSelectOptionActive

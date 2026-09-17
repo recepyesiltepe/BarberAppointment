@@ -325,8 +325,8 @@ export const HomeScreen = ({ onNavigateBooking, onNavigateAdmin }) => {
                     Bu personel salonun tüm standart hizmetlerini verebilmektedir.
                   </Text>
                 ) : (
-                  selectedBarberModal.services.map((srv) => (
-                    <View key={srv.id} style={styles.barberServiceItem}>
+                  selectedBarberModal.services.map((srv, idx) => (
+                    <View key={`modal-srv-${srv.id || idx}`} style={styles.barberServiceItem}>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>

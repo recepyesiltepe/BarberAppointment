@@ -443,13 +443,13 @@ export const LeaveRequestsScreen = () => {
           </Text>
         </View>
       ) : (
-        filteredLeaves.map((item) => {
+        filteredLeaves.map((item, idx) => {
           const badge = getStatusBadge(item.status);
           const isPending = item.status === 0;
           const isApproved = item.status === 1;
 
           return (
-            <View key={item.id} style={styles.leaveCard}>
+            <View key={`leave-${item.id || idx}`} style={styles.leaveCard}>
               <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                   {isAdmin && (
@@ -571,9 +571,9 @@ export const LeaveRequestsScreen = () => {
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>Personel *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', gap: 6, marginVertical: 6 }}>
-                    {employees.map(emp => (
+                    {employees.map((emp, idx) => (
                       <TouchableOpacity
-                        key={emp.id}
+                        key={`leave-emp-${emp.id || idx}`}
                         style={[
                           styles.empChip,
                           selectedEmployeeId === emp.id.toString() && styles.empChipActive
