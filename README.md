@@ -69,12 +69,12 @@ Sistem; mikroservis hazırlığında tasarlanmış N-Tier / Clean Architecture b
 
 ```mermaid
 graph TD
-    subgraph İstemciler (Clients)
+    subgraph Clients ["İstemciler (Clients)"]
         WEB["React 19 + Vite Web Client<br/>(Admin & Müşteri)"]
         MOB["React Native + Expo Mobile App<br/>(iOS & Android)"]
     end
 
-    subgraph API Ağ Geçidi & Servisler
+    subgraph Backend_Services ["API Ağ Geçidi ve Servisler"]
         API["ASP.NET Core 10 Web API<br/>(JWT, Swagger, Global Exception)"]
         SVC["BarberAppointment.Services<br/>(İş Mantığı, Validasyonlar, DTO'lar)"]
         DATA["BarberAppointment.Data<br/>(EF Core 10, Repositories, Unit of Work)"]
@@ -82,7 +82,7 @@ graph TD
         CORE["BarberAppointment.Core<br/>(Ortak Tipler, Yardımcılar)"]
     end
 
-    subgraph Veri Depolama & Altyapı
+    subgraph Infrastructure ["Veri Depolama ve Altyapı"]
         DB[("Microsoft SQL Server 2022")]
         BG["Appointment Reminder Background Service"]
     end
