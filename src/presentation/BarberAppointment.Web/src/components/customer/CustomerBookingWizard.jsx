@@ -42,7 +42,7 @@ export const CustomerBookingWizard = ({
   const [serviceSearch, setServiceSearch] = useState('');
 
   // Booking Selections (Multi-service support)
-  const [selectedServices, setSelectedServices] = useState([]);
+  const [selectedServices, setSelectedServices] = useState(initialService ? [initialService] : []);
   const selectedService = selectedServices[0] || null;
   const totalPrice = selectedServices.reduce((acc, s) => acc + s.price, 0);
   const totalDuration = selectedServices.reduce((acc, s) => acc + s.durationMinutes, 0);

@@ -280,7 +280,12 @@ export const DashboardScreen = ({ activeTab: propActiveTab, setActiveTab: propSe
                           {srv.price} ₺
                         </div>
                         <button
-                          onClick={() => setActiveTab('book')}
+                          type="button"
+                          onClick={() => {
+                            setPreselectedService(srv);
+                            setPreselectedEmployee(null);
+                            setActiveTab('book');
+                          }}
                           className="btn btn-primary btn-sm"
                           style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
                         >
