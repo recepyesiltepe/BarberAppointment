@@ -12,6 +12,10 @@ Thumbs.db
 $RECYCLE.BIN/
 Library/
 .local/
+database/
+docs/
+postman/
+samples/
 
 # ==============================================================================
 # IDEs, Code Editors & Tooling
