@@ -1,357 +1,317 @@
-# BarberAppointment
+# BarberAppointment ✂️💈
 
-ASP.NET Core REST API tabanlı kuaför randevu sistemi. Web ve mobil istemciler aynı API’yi kullanır.
+> **Modern, Kurumsal ve Çok Platformlu Kuaför & Berber Randevu Yönetim Sistemi**  
+> ASP.NET Core 10 REST API, React 19 Web Yönetim & Müşteri Paneli ve React Native / Expo Mobil Uygulaması.
 
-## Gün 1 çıktısı
+---
 
-- [Gereksinim dokümanı](docs/Gun1-Gereksinim-Dokumani.md)
-- [Temel use-case’ler](docs/Use-Cases.md)
+## 📋 İçindekiler
 
-## Gün 2 çıktısı
+- [Genel Bakış](#-genel-bakış)
+- [Öne Çıkan Özellikler](#-öne-çıkan-özellikler)
+- [Mimari ve Teknoloji Yığını](#-mimari-ve-teknoloji-yığını)
+- [Proje Dizin Yapısı](#-proje-dizin-yapısı)
+- [İş Kuralları ve Algoritmalar](#-iş-kuralları-ve-algoritmalar)
+- [Kurulum ve Çalıştırma](#-kurulum-ve-çalıştırma)
+  - [Ön Gereksinimler](#ön-gereksinimler)
+  - [1. Docker Compose ile Hızlı Başlatma (Önerilen)](#1-docker-compose-ile-hızlı-başlatma-önerilen)
+  - [2. Yerel Geliştirme Ortamı (Manuel Başlatma)](#2-yerel-geliştirme-ortamı-manuel-başlatma)
+- [Demo ve Test Kullanıcı Hesapları](#-demo-ve-test-kullanıcı-hesapları)
+- [Konfigürasyon ve Ortam Değişkenleri](#-konfigürasyon-ve-ortam-değişkenleri)
+- [API Dokümantasyonu ve Sağlık Kontrolleri](#-api-dokümantasyonu-ve-sağlık-kontrolleri)
+- [Testler ve Kalite Güvencesi](#-testler-ve-kalite-güvencesi)
+- [Dokümantasyon Arşivi](#-dokümantasyon-arşivi)
 
-- [OOP ve SOLID araştırma notu](docs/Gun2-OOP-ve-SOLID.md)
-- Örnek kod: `samples/BarberAppointment.SolidExamples`
+---
 
-```bash
-dotnet run --project samples/BarberAppointment.SolidExamples
+## 🌟 Genel Bakış
+
+**BarberAppointment**, berber ve kuaför salonlarının operasyonel iş yükünü hafifletmek, müşterilere modern ve akıcı bir randevu deneyimi sunmak, işletme sahiplerine ise gerçek zamanlı yönetim ve ciro takibi olanağı sağlamak amacıyla geliştirilmiş uçtan uca randevu yönetim sistemidir.
+
+Sistem; mikroservis hazırlığında tasarlanmış N-Tier / Clean Architecture backend mimarisi, React 19 tabanlı modern web arayüzü ve React Native / Expo tabanlı çapraz platform (iOS & Android) mobil uygulamadan oluşur.
+
+---
+
+## ✨ Öne Çıkan Özellikler
+
+### 👤 Müşteri Deneyimi (Web & Mobil)
+- **Adım Adım Randevu Sihirbazı (Wizard Flow):**
+  - Hizmet seçimi, kuaför seçimi, dinamik tarih/saat slotu seçimi ve onay özeti.
+- **Çoklu Hizmet ve Kompozit Paket Desteği:**
+  - Tek randevuda birden fazla hizmet (örn. Saç Kesimi + Sakal Tıraşı + Cilt Bakımı) veya indirimli kompozit paket seçimi.
+  - Kompozit paketler ile alt hizmetler arasında karşılıklı dışlama (mutual exclusion) denetimi.
+- **Uzman Berber Kadrosu İnceleme:**
+  - Personellerin unvanları, mesai saatleri, izin günleri ve verdikleri hizmetleri detaylı modal/kart görünümünde inceleme; doğrudan berber üzerinden randevu başlatma.
+- **SMS & E-Posta Bildirimleri:**
+  - SMS OTP doğrulama kodu entegrasyonu, randevu onay ve iptal bildirimleri, şifre sıfırlama e-postaları.
+- **Randevu Takibi & Canlı Durum:**
+  - Yaklaşan ve geçmiş randevuları listeleme, randevu vaktine kalan süreyi dinamik hesaplama (`⏳ 2 saat sonra`) ve güvenli iptal seçeneği.
+- **Modern Tema & Erişilebilirlik:**
+  - Altın/Amber vurgulu lüks koyu tema ve aydınlık/karanlık mod geçişi.
+
+### 👑 Yönetici & Personel Paneli (Admin & Employee)
+- **Yönetim Paneli & KPI Metrikleri:**
+  - Toplam randevu adedi, ciro analizi, aktif personel ve aktif hizmet metrik kartları.
+- **Gelişmiş Randevu Yönetimi:**
+  - Randevuları tarihe, personele ve duruma göre çok kriterli filtreleme.
+  - Randevuları varsayılan olarak en yakın tarihten itibaren kronolojik sıralama, onaylama, tamamlama ve iptal etme.
+- **Personel & İzin Yönetimi:**
+  - Kuaför ekleme/düzenleme, uzmanlık ve hizmet yetkisi (`Checklist`) atama.
+  - Haftalık çalışma günleri, mesai saatleri ve personel izin (Leave Request) taleplerinin onayı/reddi.
+- **Hizmet Kataloğu Yönetimi:**
+  - Standart ve kompozit paket CRUD işlemleri, süre (dakika) ve fiyat (₺) optimizasyonu.
+- **Denetim Günlüğü (Audit Log):**
+  - Randevu durum değişiklikleri, tarih/saat güncellemeleri ve işlem geçmişinin Türkiye saatiyle kayıt altına alınması.
+
+---
+
+## 🏗 Mimari ve Teknoloji Yığını
+
+```mermaid
+graph TD
+    subgraph İstemciler (Clients)
+        WEB["React 19 + Vite Web Client<br/>(Admin & Müşteri)"]
+        MOB["React Native + Expo Mobile App<br/>(iOS & Android)"]
+    end
+
+    subgraph API Ağ Geçidi & Servisler
+        API["ASP.NET Core 10 Web API<br/>(JWT, Swagger, Global Exception)"]
+        SVC["BarberAppointment.Services<br/>(İş Mantığı, Validasyonlar, DTO'lar)"]
+        DATA["BarberAppointment.Data<br/>(EF Core 10, Repositories, Unit of Work)"]
+        DOM["BarberAppointment.Domain<br/>(Entities, Value Objects)"]
+        CORE["BarberAppointment.Core<br/>(Ortak Tipler, Yardımcılar)"]
+    end
+
+    subgraph Veri Depolama & Altyapı
+        DB[("Microsoft SQL Server 2022")]
+        BG["Appointment Reminder Background Service"]
+    end
+
+    WEB -->|REST / HTTPS| API
+    MOB -->|REST / HTTPS| API
+    API --> SVC
+    SVC --> DATA
+    DATA --> DOM
+    DATA --> CORE
+    DATA --> DB
+    BG --> SVC
 ```
 
-## Gün 3 çıktısı
+### Backend
+- **Framework:** .NET 10 / C# 13, ASP.NET Core Web API
+- **ORM & Veritabanı:** Entity Framework Core 10, Microsoft SQL Server 2022
+- **Mimari:** N-Tier / Clean Architecture, Generic Repository & Unit of Work Pattern, Inversion of Control (IoC)
+- **Doğrulama & Hata Yönetimi:** FluentValidation, Global Exception Handling Middleware, Standart `ApiResponse<T>`
+- **Kimlik Doğrulama:** Stateless JWT (JSON Web Token), HMAC-SHA512 Password Hashing, Rol Tabanlı Yetkilendirme (RBAC)
+- **Arka Plan Görevleri:** `BackgroundService` ile zamanlanmış randevu hatırlatıcıları (Notification Processor)
+- **Dokümantasyon & İzleme:** Swagger / OpenAPI, Health Checks (`/health`, `/health/live`, `/health/ready`)
 
-- [Veritabanı tasarımı ve ER](docs/Gun3-Veritabani-Tasarimi.md)
-- ER kaynak: [docs/er-diagram.mmd](docs/er-diagram.mmd)
-- MSSQL: `database/mssql/` (`01_create_database.sql`, `02_schema.sql`, `03_seed.sql`, `04_sample_joins.sql`)
-- Mac’te çalıştırma: [docs/Gun3-MSSQL-Yerel-Kurulum.md](docs/Gun3-MSSQL-Yerel-Kurulum.md) — `./database/mssql/up.sh`
+### Frontend (Web)
+- **Kütüphane & Araçlar:** React 19, Vite, React Router
+- **İstemci:** Axios (Özelleştirilmiş Interceptors, Token Enjeksiyonu, 401 Yönetimi)
+- **İkon Seti & Tasarım:** Lucide React, Glassmorphism temalı responsive CSS
 
-## Gün 4 çıktısı
+### Mobil Uygulama (Mobile)
+- **Çatı:** React Native, Expo SDK
+- **Navigasyon & Durum:** React Context API, Platform duyarlı dinamik API URL konfigürasyonu
+- **Platformlar:** iOS Simulator, Android Emulator, Expo Go ile fiziksel cihazlar
 
-- [Katmanlı mimari ve .NET solution dokümanı](docs/Gun4-Dotnet-Solution-ve-Katmanli-Mimari.md)
-- Solution: `BarberAppointment.sln`
-- Projeler ve katmanlar:
-  - `src/libraries/BarberAppointment.Core` (Classlib)
-  - `src/libraries/BarberAppointment.Domain` (Classlib)
-  - `src/libraries/BarberAppointment.Data` (Classlib)
-  - `src/libraries/BarberAppointment.Services` (Classlib)
-  - `src/presentation/BarberAppointment.WebApi` (Web API)
+---
 
-Derleme:
+## 📁 Proje Dizin Yapısı
 
-```bash
-dotnet build
-```
-
-API'yi çalıştırma:
-
-```bash
-dotnet run --project src/presentation/BarberAppointment.WebApi
-```
-
-## Gün 5 çıktısı
-
-- [Entity Framework Core araştırma ve mimari dokümanı](docs/Gun5-Entity-Framework-Core.md)
-- `AppDbContext` ve Fluent API Konfigürasyonları: `src/libraries/BarberAppointment.Data`
-- Migration: `20260825063034_InitialCreate`
-- EF Core ile MSSQL veritabanı şeması ve canlı API testleri (LINQ & async/await)
-
-Migration komutları:
-
-```bash
-# Yeni migration ekleme
-dotnet ef migrations add <MigrationAdi> --project src/libraries/BarberAppointment.Data --startup-project src/presentation/BarberAppointment.WebApi
-
-# Veritabanını güncelleme
-dotnet ef database update --project src/libraries/BarberAppointment.Data --startup-project src/presentation/BarberAppointment.WebApi
-```
-
-## Gün 6 çıktısı
-
-- [Repository Pattern, DI ve DIP araştırma dokümanı](docs/Gun6-Repository-Pattern.md)
-- Generic ve Varlığa Özel Repository'ler:
-  - `IRepository<T>` & `Repository<T>`
-  - `IAppointmentRepository` & `AppointmentRepository` (Çakışma kontrolü `HasConflictAsync` & detaylı randevu sorguları)
-  - `IEmployeeRepository` & `EmployeeRepository` (Uzmanlık/hizmetleriyle personel sorguları)
-  - `IServiceRepository` & `ServiceRepository` (Aktif hizmetler)
-  - `IUserRepository` & `UserRepository`
-  - `IUnitOfWork` & `UnitOfWork` (Transaction & koordineli SaveChanges)
-- `AddDataServices` ile Scoped DI servis kayıtları
-- Controller katmanının `IUnitOfWork` arayüzü üzerinden DIP ve çakışma kuralı testleri
-
-## Gün 7 çıktısı
-
-- [Service ve Business Katmanı araştırma dokümanı](docs/Gun7-Service-ve-Business-Katmani.md)
-- `Controller -> Service -> Repository -> Database` uçtan uca mimari akışı
-- DTO'lar ve Entity/DTO izolasyonu (`AppointmentDto`, `EmployeeDto`, `ServiceDto`, `UserDto`)
-- İş Kuralları Servisleri:
-  - `IAppointmentService` & `AppointmentService` (Geçmiş tarih, aktiflik, uzmanlık yetkinliği, çakışma kontrolü, durum geçişleri)
-  - `IEmployeeService` & `EmployeeService` (Personel CRUD & Hizmet atamaları)
-  - `IServiceManagementService` & `ServiceManagementService` (Hizmet yönetimi)
-  - `IUserService` & `UserService` (Tekil e-posta & müşteri yönetimi)
-- `AddBusinessServices` ile Scoped DI kayıtları
-- REST Controller'ları (`AppointmentsController`, `EmployeesController`, `ServicesController`, `UsersController`)
-
-## Gün 8 çıktısı
-
-- [CRUD API Endpointleri dokümanı](docs/Gun8-CRUD-API-Endpointleri.md)
-- **Swagger UI:** `http://localhost:5184/swagger` (geliştirme ortamında)
-- Services için tam CRUD: `GET /api/services`, `POST`, `PUT /{id}`, `DELETE /{id}`
-- Employees için tam CRUD: `GET /api/employees`, `POST`, `PUT /{id}`, `DELETE /{id}`, `POST /{id}/services`
-- Toplam **22 endpoint** Swagger üzerinden belgelendi ve test edildi
-- XML dokümantasyon (`/// <summary>`) → Swagger UI'da açıklama olarak görünür
-
-## Gün 9 çıktısı
-
-- [Randevu Modülü & Business Rules Tasarımı dokümanı](docs/Gun9-Randevu-Modulu-Business-Rules.md)
-- Randevu oluşturma, çok kriterli filtreleme, yeniden zamanlama (Reschedule) ve iptal/tamamlama döngüsü
-- **İş Kuralları (Business Rules) Tam Uygulaması:**
-  - Geçmiş tarih kontrolü (`BR-01`)
-  - Çalışma saatleri sınırları (09:00–20:00) (`BR-02`)
-  - Pasif personel / pasif hizmet / pasif müşteri engeli (`BR-03`, `BR-04`, `BR-05`)
-  - Personel-hizmet yetkinlik doğrulaması (`BR-06`)
-  - Bitiş saati otomatik hesaplama (`BR-07`)
-  - Personel-saat çakışma formülü ve engelleme (`BR-08`, `409 Conflict`)
-  - İptal edilen slotun serbest kalması (`BR-09`)
-  - Durum geçiş sınırları (tamamlanmış/iptal edilmişin yeniden iptal edilememesi) (`BR-10`)
-  - Boş slot hesaplama algoritması (`/api/appointments/available-slots`)
-- Tüm senaryolar otomatik entegrasyon testleriyle doğrulandı
-
-## Gün 10 çıktısı
-
-- [Validation ve Global Exception Handling dokümanı](docs/Gun10-Validation-ve-Exception-Handling.md)
-- **FluentValidation:** Tüm DTO'lar için bağımsız validator sınıfları (`CreateAppointmentValidator`, `CreateEmployeeValidator`, `CreateServiceValidator`, `CreateUserValidator` vb.)
-- **Global Exception Middleware:** `GlobalExceptionMiddleware` ile tüm 400, 401, 404, 409 ve 500 hataları merkezi yakalanır
-- **Standart Response Modeli:** `ApiResponse<T>` (success, statusCode, message, data, errors, timestamp)
-- **Model Validation Entegrasyonu:** `ApiValidationResultFactory` ile geçersiz istekler doğrudan standart `ApiResponse` şemasında döner
-- **Lean Controllers:** Controller'lardan `try-catch` blokları temizlendi, DRY sağlandı
-
-## Gün 11 çıktısı
-
-- [Authentication ve JWT dokümanı](docs/Gun11-Authentication-ve-JWT.md)
-- **Güvenlik Mimarisi:**
-  - `PasswordHasher` ile HMAC-SHA512 şifre tuzlama (salt) ve özetleme (hash)
-  - `JwtTokenService` ile Stateless JWT Access Token üretimi ve Claims yönetimi
-- **Rol Tabanlı Yetkilendirme (RBAC):** `Admin`, `Customer`, `Employee` rolleri
-- **Auth Endpointleri:** `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `PUT /api/auth/change-password`
-- **Rol Yetki Koruması:** `[Authorize(Roles = ...)]` ile endpointler rol matrisine göre korundu (401 Unauthorized & 403 Forbidden kontrolleri)
-- **Swagger UI JWT Desteği:** Swagger UI üzerinden "Authorize" butonu ile token testi aktif edildi
-
-## Gün 12 çıktısı
-
-- [SOLID Code Review ve Refactoring dokümanı](docs/Gun12-SOLID-Code-Review-ve-Refactoring.md)
-- **SOLID Mimarisi İyileştirmeleri:**
-  - **S (SRP):** Controller'lar yalnızca HTTP/routing sorumluluğuna indirgendi; hata yönetimi middleware'e, validasyon validator sınıflarına, güvenlik `PasswordHasher`/`JwtTokenService`'e devredildi
-  - **O (OCP):** `IWorkHoursPolicy` ve `DefaultWorkHoursPolicy` ile çalışma saatleri politikası değiştirilmeye gerek kalmadan genişletilebilir hale getirildi
-  - **L (LSP):** Repository'ler ve `BaseEntity` kalıtımı Liskov ikame kuralına tam uyumlu kılındı
-  - **I (ISP):** Monolitik servis yerine `IAppointmentService`, `IEmployeeService`, `IServiceManagementService`, `IUserService`, `IAuthService`, `IDateTimeProvider` gibi dar kapsamlı arayüzler oluşturuldu
-  - **D (DIP):** DbContext ve zaman bağımlılıkları (`IDateTimeProvider`, `IUnitOfWork`, `IRepository`) soyutlamalar arkasına alındı, IoC Container üzerinden yönetildi
-- **SOLID Örnek Projesi:** `samples/BarberAppointment.SolidExamples` (5 prensibin canlı konsol gösterimi)
-
-## Gün 13 çıktısı
-
-- [Backend Test ve Tamamlama dokümanı](docs/Gun13-Backend-Test-ve-Tamamlama.md)
-- **Web ve Mobile İçin Hazır Backend:**
-  - CORS politikası (`AllowAll`) eklendi
-  - Standart `ApiResponse<T>` şeması tüm istemciler için tutarlı hale getirildi
-- **Postman Collection & Environment:**
-  - [`postman/BarberAppointment.postman_collection.json`](postman/BarberAppointment.postman_collection.json) (Tüm endpointler + Test scriptleri)
-  - [`postman/BarberAppointment.postman_environment.json`](postman/BarberAppointment.postman_environment.json) (Local Dev ortamı)
-- **Otomatik Test Paketi:**
-  - [`tests/test_all_scenarios.sh`](tests/test_all_scenarios.sh) ile 22 uçtan uca senaryo (Auth, CRUD, İş kuralları, 401, 403, 400, 404, 409) test edildi (%100 Başarı)
-
-## Gün 14 çıktısı
-
-- [React Web Başlangıç dokümanı](docs/Gun14-React-Web-Baslangic.md)
-- **React 19 & Vite Web Uygulaması:**
-  - Modern Altın/Amber Dark Theme Tasarım Sistemi (`index.css`)
-  - `Axios` Interceptors ile otomatik `Bearer <token>` yönetimi ve 401 oturum yönetimi
-  - `AuthProvider` & `useAuth` hook'u ile global auth state yönetimi
-  - `LoginScreen`: Giriş ve Kayıt sekmeleri, Hızlı Test Giriş Butonları (👑 Admin, ✂️ Personel, 👤 Müşteri)
-  - `DashboardScreen`: Kullanıcı karşılama, JWT Token & Claims İnceleme paneli, Canlı Hizmetler ve Personel kataloğu
-  - `Navbar`: Marka logosu, Canlı API durumu, Rol rozeti (`Yönetici`, `Personel`, `Müşteri`), Çıkış butonu
-
-## Gün 15 çıktısı
-
-- [Web Yönetim Paneli dokümanı](docs/Gun15-Web-Yonetim-Paneli.md)
-- **Web Yönetim Paneli (Admin & Staff Panel):**
-  - **Dashboard:** KPI metrik kartları (Toplam Randevu, Ciro Analizi, Aktif Personel, Aktif Hizmetler) ve Son Randevular akışı
-  - **Hizmetler (Services CRUD):** Hizmet listeleme, canlı arama, Ekleme/Düzenleme/Silme modalları ve süre/fiyat validasyonu
-  - **Personeller (Employees CRUD):** Personel kadrosu yönetimi, Ekleme/Düzenleme ve Hizmet Yetkisi Atama (`Checklist`)
-  - **Randevular (Appointments):** Çok kriterli filtreleme (Personele, Duruma göre), Tamamlama (`Complete`), İptal Etme (`Cancel`) ve Yeni Randevu Oluşturma modalı
-
-## Gün 16 çıktısı
-
-- [React Native / Expo Başlangıç dokümanı](docs/Gun16-React-Native-Expo-Baslangic.md)
-- **React Native & Expo Mobil Uygulama:**
-  - Modern Altın/Amber Dark Mobil Tasarım Sistemi (`colors.js`)
-  - Platform duyarlı Axios istemcisi (iOS Simulator, Android Emülatör `10.0.2.2`, Fiziksel Cihaz LAN IP)
-  - `AuthProvider` ile mobil oturum yönetimi ve `setClientToken` interceptor entegrasyonu
-  - `LoginScreen`: Giriş ve Kayıt formları, 1-Tap Hızlı Test Girişleri (👑 Admin, ✂️ Personel, 👤 Müşteri), Dinamik Sunucu URL Yapılandırması
-  - `HomeScreen`: Kullanıcı karşılama, Rol rozeti (`👑 Yönetici`, `✂️ Personel`, `👤 Müşteri`), Canlı API Durumu (🟢 Çevrimiçi), JWT Token & Claims İnceleme kartı, Çekerek Yenileme (`Pull-to-Refresh`), Canlı Hizmetler ve Personel listesi
-
-## Gün 17 çıktısı
-
-- [Mobil Randevu Akışı dokümanı](docs/Gun17-Mobil-Randevu-Akisi.md)
-- **Mobil Randevu Sihirbazı (4-Step Wizard Flow):**
-  - **1. Adım:** Hizmet Seçimi (Fiyat ve süre kartları)
-  - **2. Adım:** Personel Seçimi (Hizmeti verebilen kuaförler)
-  - **3. Adım:** 7 Günlük Tarih Seçici ve Backend Boş Slot Hesaplama Motoru (`/api/appointments/available-slots`)
-  - **4. Adım:** Randevu Özeti, Özel Notlar ve Onay
-  - **5. Adım (Başarı):** Bilet/Fiş görünümü ve Randevularım'a yönlendirme
-- **Randevularım Ekranı (`MyAppointmentsScreen`):**
-  - Geçmiş/aktif randevu listesi
-  - Canlı Durum Rozetleri (`Onaylandı`, `Bekliyor`, `Tamamlandı`, `İptal Edildi`)
-  - Çekerek Yenileme (`Pull-to-Refresh`) ve Randevu İptali (`cancelAppointment`)
-- **Alt Navigasyon Menüsü (`BottomNav`):** Keşfet, Randevu Al, Randevularım
-
-## Gün 18 çıktısı
-
-- [Mobil Randevularım ve Profil Yönetimi dokümanı](docs/Gun18-Mobil-Randevularim.md)
-- **Gelişmiş Mobil Randevu & Profil Yönetimi:**
-  - **Segmented Filtreleme:** `Yaklaşan Randevular`, `Geçmiş Randevular` ve `Tümü` sekmeleri
-  - **Loading, Error & Empty States:** Yüklenme animasyonu, `Yeniden Dene` hata aksiyonu ve `+ Randevu Al` boş durum kartı
-  - **Kalan Süre Sayacı (`getRelativeTime`):** Randevu zamanına kalan süre dinamik hesaplanır (`⏳ 1 gün sonra`, `⏳ 3 saat sonra`)
-  - **Güvenli İptal Eylemi:** Yalnızca aktif randevularda onay uyarısıyla `PUT /api/appointments/{id}/cancel` çağrısı
-  - **Profil ve Ayarlar Ekranı (`ProfileScreen`):** Hesap detayları, JWT token inceleme, dinamik API sunucu IP değiştirici ve güvenli çıkış
-  - **4 Sekmeli Alt Navigasyon Barı:** 🏠 Keşfet, ✂️ Randevu Al, 📅 Randevularım, 👤 Profilim
-
-## Gün 19 çıktısı
-
-- [Genel Test, Bug Fix, Git & Dokümantasyon](docs/Gun19-Genel-Test-BugFix-Git-README.md)
-- [Proje Sunum Rehberi (Executive Presentation Guide)](docs/PROJE-SUNUM-REHBERI.md)
-- **Sunuma Hazır Tam Yığın Doğrulama:**
-  - **API E2E Testleri:** 22/22 uçtan uca senaryo başarıyla geçti (`tests/test_all_scenarios.sh`)
-  - **SOLID Mimarisi:** 5 temel prensibin konsol uygulamasıyla doğrulanması (`samples/BarberAppointment.SolidExamples`)
-  - **Web Yönetim Paneli:** React 19 + Vite 0 Hata ile derlendi (`dist/`)
-  - **Mobil Uygulama:** React Native & Expo iOS ve Android paketleri 0 Hata ile dışa aktarıldı
-  - **Git & Temizlik:** `.gitignore` yapılandırması ve temiz kod tabanı
-
-## Gün 20 çıktısı
-
-- [Proje Sunumu ve Kapsamlı Teknik Değerlendirme](docs/Gun20-Proje-Sunumu-ve-Teknik-Degerlendirme.md)
-- [Proje Sunum Rehberi (Executive Presentation Guide)](docs/PROJE-SUNUM-REHBERI.md)
-- **Final Demo & Teknik Savunma:**
-  - **Katmanlı Mimari (N-Tier):** Bağımlılık yönü, SoC prensipleri ve değiştirilebilirlik analizi
-  - **SOLID İlkeleri:** Somut kod örnekleri ve soyutlamalar (`IWorkHoursPolicy`, `IDateTimeProvider`, `PasswordHasher`)
-  - **Dependency Injection & IoC:** Scoped vs Singleton servis yaşam döngüleri ve gevşek bağlılık
-  - **Generic Repository & Unit of Work:** ORM soyutlaması ve atomik transaction garantisi
-  - **DTO & Model Güvenliği:** Over-posting ve döngüsel JSON referanslarının önlenmesi
-  - **JWT & HMAC-SHA512 Kimlik Doğrulama:** 128-byte salt şifreleme, RBAC ve Axios Bearer interceptor
-  - **İş Kuralları & Çakışma Önleme:** $S_1 < E_2 \land E_1 > S_2$ algoritması ve mesai/tatil kuralları
-  - **Global Exception Middleware & FluentValidation:** Standart `ApiResponse<T>` merkezi hata yönetimi
-
-Uygulamaları Başlatmak İçin:
-
-```bash
-# 1. Backend API (Terminal 1)
-dotnet run --project src/presentation/BarberAppointment.WebApi --launch-profile http
-# http://localhost:5184/swagger
-
-# 2. React Web Frontend (Terminal 2)
-cd src/presentation/BarberAppointment.Web
-npm run dev -- --port 3000
-# http://localhost:3000
-
-# 3. React Native / Expo Mobile App (Terminal 3)
-cd src/presentation/BarberAppointment.Mobile
-npm start
-# iOS: 'i', Android: 'a', Web: 'w'
-```
-
-## Katmanlı Mimari Yapısı
-
-```
+```text
 BarberAppointment/
-├── BarberAppointment.sln
+├── BarberAppointment.sln                  # Ana .NET Solution dosyası
+├── docker-compose.yml                     # MSSQL + Web API tek komutla container orkestrasyonu
+├── Dockerfile                             # Web API üretim Docker imajı
 ├── src/
 │   ├── libraries/
-│   │   ├── BarberAppointment.Core/       (Cross-cutting / Shared)
-│   │   ├── BarberAppointment.Domain/     (Entities & Domain Models)
-│   │   ├── BarberAppointment.Data/       (Data Access, EF Core & Repositories)
-│   │   └── BarberAppointment.Services/   (Business Logic, Services & DTOs)
+│   │   ├── BarberAppointment.Core/        # Ortak modeller, enumlar ve yardımcılar
+│   │   ├── BarberAppointment.Domain/      # Veritabanı varlıkları (Entity) modelleri
+│   │   ├── BarberAppointment.Data/        # EF Core DbContext, Fluent API, Repository'ler
+│   │   └── BarberAppointment.Services/    # İş kuralları, DTO'lar, FluentValidation, Servisler
 │   └── presentation/
-│       ├── BarberAppointment.WebApi/     (REST API & Swagger UI)
-│       ├── BarberAppointment.Web/        (React 19 & Vite Web Frontend)
-│       └── BarberAppointment.Mobile/     (React Native & Expo Mobil Uygulama)
-├── samples/
-│   └── BarberAppointment.SolidExamples/ (OOP & SOLID Örnekleri)
-├── postman/                              (Postman Collection & Environment)
-└── tests/                                (Uçtan Uca Otomatik Test Paketi)
+│       ├── BarberAppointment.WebApi/      # REST API Controller'ları, Middleware, Swagger
+│       ├── BarberAppointment.Web/         # React 19 + Vite Web uygulaması
+│       └── BarberAppointment.Mobile/      # React Native & Expo mobil uygulaması
+├── database/
+│   └── mssql/                             # SQL şema, seed verileri ve yerel scriptler
+├── tests/
+│   ├── BarberAppointment.UnitTests/       # xUnit, Moq, FluentAssertions test projesi
+│   └── test_all_scenarios.sh              # 22+ senaryoyu doğrulayan uçtan uca API test scripti
+├── postman/                               # Postman Collection ve Dev Environment dosyaları
+└── docs/                                  # Ayrıntılı teknik mimari ve gereksinim belgeleri
 ```
 
-## Docker ile Çalıştırma
+---
 
-BarberAppointment Web API ve MSSQL veritabanı, Docker container ortamında tamamen izole ve ortamdan bağımsız olarak çalıştırılabilir.
+## ⚙️ İş Kuralları ve Algoritmalar
 
-### 1. Docker Compose ile Tek Komutla Çalıştırma (Önerilen)
+Sistem genelinde uygulanan kritik iş kuralları (Business Rules):
 
-Tüm sistemi (MSSQL Server 2022 + BarberAppointment Web API) tek komutla derleyip ayağa kaldırmak için:
+1. **Çakışma Önleme Algoritması ($[S_1, E_1) \cap [S_2, E_2) \neq \emptyset$):**
+   Bir personelin mevcut randevusu $[S_1, E_1)$ ile yeni talep edilen randevu $[S_2, E_2)$ zaman aralığı karşılaştırılır. Çakışma durumunda HTTP `409 Conflict` fırlatılarak randevu engellenir.
+2. **Boş Slot Hesaplama Motoru (`/api/appointments/available-slots`):**
+   Personelin mesai saatleri (örn. 09:00 - 19:00), haftalık izin günleri, onaylanmış mazeret izinleri ve mevcut randevuları taranarak seçilen hizmetlerin toplam süresine uygun boş saat aralıkları anlık üretilir.
+3. **Kompozit Paket ve Alt Hizmet Karşılıklı Dışlaması:**
+   Kompozit paket seçildiğinde paketin alt hizmetleri, alt hizmetlerden biri seçildiğinde ise bu alt hizmeti içeren kompozit paketler seçime kapatılır.
+4. **Zaman Dilimi Standartlaşması (Turkey Time / UTC+3):**
+   Tüm izin tarihleri, denetim logları ve randevu zamanları `IDateTimeProvider` üzerinden Türkiye saati standardında işlenir.
+
+---
+
+## 🚀 Kurulum ve Çalıştırma
+
+### Ön Gereksinimler
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js](https://nodejs.org/) (v18 veya üzeri) & npm
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) *(Docker ile çalıştırma tercih edilirse)*
+- [SQL Server 2022](https://www.microsoft.com/sql-server) *(Yerel kurulum tercih edilirse)*
+
+---
+
+### 1. Docker Compose ile Hızlı Başlatma (Önerilen)
+
+Tüm sistemi (MSSQL Server 2022 + Web API) tek bir komutla ayağa kaldırabilirsiniz:
 
 ```bash
+# Proje kök dizininde:
 docker compose up --build -d
 ```
 
-Konteyner durumunu kontrol etmek için:
-
-```bash
-docker compose ps
-```
-
-Logları canlı izlemek için:
-
-```bash
-docker compose logs -f webapi
-```
+- **Swagger UI:** `http://localhost:5184/swagger`
+- **Health Check:** `http://localhost:5184/health`
 
 Konteynerleri durdurmak için:
-
 ```bash
 docker compose down
 ```
 
-### 2. Tekil Dockerfile ile Derleme ve Çalıştırma
+---
 
-Yalnızca Web API container imajını oluşturmak ve çalıştırmak için:
+### 2. Yerel Geliştirme Ortamı (Manuel Başlatma)
+
+#### A) Veritabanı ve Migration
+`appsettings.json` dosyasındaki bağlantı dizesini (`DefaultConnection`) MSSQL sunucunuza göre düzenleyin ve migration'ları uygulayın:
 
 ```bash
-# İmajı oluşturma
-docker build -t barberappointment-api:latest .
-
-# Container'ı çalıştırma
-docker run -d \
-  -p 5184:8080 \
-  --name barberappointment-api \
-  -e ConnectionStrings__DefaultConnection="Server=host.docker.internal,1433;Database=BarberAppointment;User Id=sa;Password=BarberApp_Dev1!;TrustServerCertificate=True;MultipleActiveResultSets=true" \
-  -e ASPNETCORE_ENVIRONMENT=Development \
-  barberappointment-api:latest
+dotnet ef database update --project src/libraries/BarberAppointment.Data --startup-project src/presentation/BarberAppointment.WebApi
 ```
 
-### 3. Ortam Değişkenleri (Environment Variables) Yapılandırması
-
-Uygulama ayarları ASP.NET Core hiyerarşik ortam değişkenleri formatında (`__` ayracıyla) container dışından esnek biçimde ezilebilir:
-
-| Değişken | Açıklama | Örnek Değer |
-|---|---|---|
-| `ConnectionStrings__DefaultConnection` | MSSQL bağlantı dizesi | `Server=mssql,1433;Database=BarberAppointment;User Id=sa;Password=...` |
-| `ASPNETCORE_ENVIRONMENT` | Çalışma ortamı | `Development` veya `Production` |
-| `ASPNETCORE_URLS` | Kestrel dinleme adresi | `http://+:8080` |
-| `Jwt__Key` | JWT gizli anahtarı | `Super_Secret_Key_For_JWT_Authentication_2026...` |
-| `Jwt__Issuer` | JWT yayıncısı | `BarberAppointment` |
-| `EmailSettings__Host` | SMTP sunucu adresi | `sandbox.smtp.mailtrap.io` |
-
-Örnek `.env` şablonu için `.env.example` dosyasını kopyalayabilirsiniz:
+#### B) Web API'yi Başlatma (Terminal 1)
 ```bash
-cp .env.example .env
+dotnet run --project src/presentation/BarberAppointment.WebApi --launch-profile http
+# API http://localhost:5184 adresinde dinlemeye başlar.
 ```
 
-### 4. Erişim Adresleri
+#### C) React Web Uygulamasını Başlatma (Terminal 2)
+```bash
+cd src/presentation/BarberAppointment.Web
+npm install
+npm run dev -- --port 3000
+# Web arayüzüne http://localhost:3000 adresinden erişebilirsiniz.
+```
 
-Container'lar ayağa kalktıktan sonra:
+#### D) React Native Mobil Uygulamasını Başlatma (Terminal 3)
+```bash
+cd src/presentation/BarberAppointment.Mobile
+npm install
+npm start
+```
+- Android Emulator için klavyeden `a` tuşuna basın.
+- iOS Simulator için klavyeden `i` tuşuna basın.
+- Web önizlemesi için `w` tuşuna basın.
+- Gerçek cihazınızda test etmek için **Expo Go** uygulaması ile terminaldeki QR kodu okutun.
+
+---
+
+## 🔑 Demo ve Test Kullanıcı Hesapları
+
+Geliştirme ortamında testleri kolaylaştırmak için otomatik oluşturulan hazır hesaplar:
+
+| Rol | E-Posta | Şifre | Açıklama |
+|---|---|---|---|
+| 👑 **Yönetici (Admin)** | `superadmin@example.com` | `AdminPassword123!` | Tam yetkili sistem yöneticisi |
+| ✂️ **Personel (Employee)** | `ali@example.com` | `Password123!` | Kuaför / Usta paneli erişimi |
+| 👤 **Müşteri (Customer)** | `burak@example.com` | `Password123!` | Randevu alma ve profil paneli |
+
+> **İpucu:** Web ve mobil giriş ekranlarında bulunan "1-Tap Hızlı Giriş" butonlarına basarak şifre yazmadan anında giriş yapabilirsiniz.
+
+---
+
+## ⚙️ Konfigürasyon ve Ortam Değişkenleri
+
+Uygulama ayarları `src/presentation/BarberAppointment.WebApi/appsettings.json` veya ortam değişkenleri (`.env`) üzerinden yapılandırılabilir:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost,1433;Database=BarberAppointment;User Id=sa;Password=Your_Password;TrustServerCertificate=True"
+  },
+  "Jwt": {
+    "Key": "Super_Secret_Key_For_JWT_Authentication_2026_Minimum_32_Chars!",
+    "Issuer": "BarberAppointment",
+    "Audience": "BarberAppointmentClient",
+    "ExpireMinutes": 1440
+  },
+  "EmailSettings": {
+    "Host": "sandbox.smtp.mailtrap.io",
+    "Port": 2525,
+    "SenderEmail": "noreply@barberappointment.com",
+    "SenderName": "BarberAppointment"
+  }
+}
+```
+
+---
+
+## 📖 API Dokümantasyonu ve Sağlık Kontrolleri
+
+Web API ayağa kalktığında aşağıdaki uç noktalar aktif olur:
+
 - **Swagger UI:** `http://localhost:5184/swagger`
-- **Genel Health Check:** `http://localhost:5184/health`
-- **Liveness Probe:** `http://localhost:5184/health/live`
-- **Readiness Probe:** `http://localhost:5184/health/ready`
+- **Genel Sağlık Kontrolü:** `http://localhost:5184/health`
+- **Liveness Probe (Canlılık):** `http://localhost:5184/health/live`
+- **Readiness Probe (Veritabanı Hazırlığı):** `http://localhost:5184/health/ready`
 
+### Başlıca API Modülleri:
+- `/api/auth`: Kayıt olma, giriş yapma, profil sorgulama, şifre değiştirme.
+- `/api/appointments`: Randevu oluşturma, filtreleme, yeniden zamanlama, tamamlama, iptal ve boş slot hesaplama.
+- `/api/services`: Standart ve kompozit hizmetlerin yönetimi.
+- `/api/employees`: Personel bilgileri, hizmet yetkilendirmesi, çalışma günleri ve saatleri.
+- `/api/employee-leaves`: Personel izin talepleri ve yönetici onay mekanizması.
+- `/api/sms`: Telefon doğrulama kodu gönderimi ve OTP doğrulama.
 
+---
 
+## 🧪 Testler ve Kalite Güvencesi
 
+Proje; iş kurallarını, çakışma algoritmalarını ve yetkilendirmeleri güvence altına alan kapsamlı test paketlerine sahiptir:
 
+```bash
+# Birim testleri çalıştırma (82+ Test)
+dotnet test
 
+# Uçtan uca senaryo test scriptini çalıştırma
+bash tests/test_all_scenarios.sh
+```
+
+---
+
+## 📚 Dokümantasyon Arşivi
+
+Projenin tasarım, veritabanı ve araştırma süreçlerine dair detaylı belgeler `docs/` dizininde yer almaktadır:
+
+- [Veritabanı Tasarımı ve ER Diyagramı](docs/Gun3-Veritabani-Tasarimi.md) | [ER Diyagramı Kaynağı (Mermaid)](docs/er-diagram.mmd)
+- [Gereksinimler ve Use-Case Analizleri](docs/Use-Cases.md)
+- [Katmanlı Mimari ve Çözüm Yapısı](docs/Gun4-Dotnet-Solution-ve-Katmanli-Mimari.md)
+- [Randevu İş Kuralları ve Çakışma Yönetimi](docs/Gun9-Randevu-Modulu-Business-Rules.md)
+- [Proje Sunum Rehberi](docs/PROJE-SUNUM-REHBERI.md)
+- [E-Posta ve SMS Doğrulama Altyapısı](docs/Ek-Gelistirme-3-SMS-Dogrulama-Altyapisi.md)
+
+---
+
+## 📄 Lisans
+
+Bu proje eğitim ve geliştirme amaçlı hazırlanmıştır. Tüm hakları saklıdır.
